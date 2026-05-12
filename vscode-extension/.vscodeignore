@@ -1,0 +1,5 @@
+**/*.ts
+**/tsconfig.json
+*.png
+*.vsix
+.DS_Store

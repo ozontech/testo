@@ -1,0 +1,27 @@
+=== RUN   Test
+=== RUN   Test/Suite
+    main_test.go:15: testo: collected 0 plugins: 
+=== RUN   Test/Suite/testo!
+=== RUN   Test/Suite/testo!/TestCompile
+    main_test.go:39: building for linux/amd64
+=== RUN   Test/Suite/testo!/TestCompile#01
+    main_test.go:39: building for windows/amd64
+=== RUN   Test/Suite/testo!/TestCompile#02
+    main_test.go:39: building for darwin/amd64
+=== RUN   Test/Suite/testo!/TestCompile#03
+    main_test.go:39: building for linux/arm64
+=== RUN   Test/Suite/testo!/TestCompile#04
+    main_test.go:39: building for windows/arm64
+=== RUN   Test/Suite/testo!/TestCompile#05
+    main_test.go:39: building for darwin/arm64
+--- PASS: Test (0.38s)
+    --- PASS: Test/Suite (0.38s)
+        --- PASS: Test/Suite/testo! (0.38s)
+            --- PASS: Test/Suite/testo!/TestCompile (0.08s)
+            --- PASS: Test/Suite/testo!/TestCompile#01 (0.06s)
+            --- PASS: Test/Suite/testo!/TestCompile#02 (0.06s)
+            --- PASS: Test/Suite/testo!/TestCompile#03 (0.06s)
+            --- PASS: Test/Suite/testo!/TestCompile#04 (0.06s)
+            --- PASS: Test/Suite/testo!/TestCompile#05 (0.06s)
+PASS
+ok  	github.com/ozontech/testo/examples/03_parametrized	0.555s

@@ -1,0 +1,305 @@
+package testo
+
+import (
+	"fmt"
+	"reflect"
+	"runtime/debug"
+	"testing"
+
+	"github.com/ozontech/testo/internal/reflectutil"
+	"github.com/ozontech/testo/internal/testnamer"
+	"github.com/ozontech/testo/testoplugin"
+	"github.com/ozontech/testo/testoreflect"
+)
+
+// parallelWrapperTest is the name of tests which
+// wrap multiple (possibly parallel) tests to ensure
+// hooks are executed properly.
+//
+// It should contain some special symbol which identifiers in Go
+// cannot include (like exclamation mark), so that it won't collide with suite type name.
+const parallelWrapperTest = "testo!"
+
+// RunSuite will run the tests under the given suite.
+//
+// Test is defined as a suite method in the form of "TestXXX" or "Test"
+// which accepts a single parameter of the same type as T passed to this function.
+//
+// It also accepts options for the plugins which can be used to configure those plugins.
+// See [testoplugin.Option].
+//
+// RunSuite reports whether all suite tests succeeded.
+func RunSuite[Suite suite[T], T CommonT](
+	testingT TestingT,
+	suite Suite,
+	options ...testoplugin.Option,
+) bool {
+	testingT.Helper()
+
+	r := newRunner[Suite]()
+
+	return r.runSuite(testingT, suite, options...)
+}
+
+// Run runs f as a subtest of t called name. It runs f in a separate goroutine
+// and blocks until f returns or calls t.Parallel to become a parallel test.
+// Run reports whether f succeeded (or at least did not fail before calling t.Parallel).
+//
+// Run may be called simultaneously from multiple goroutines, but all such calls
+// must return before the outer test function for t returns.
+//
+// WARN: Running this function during t.Cleanup panics.
+func Run[T CommonT](
+	t T,
+	name string,
+	f func(t T),
+	options ...testoplugin.Option,
+) bool {
+	t.Helper()
+
+	if f == nil {
+		f = func(T) {}
+	}
+
+	parentT := t
+
+	return parentT.unwrap().testingT.Run(name, func(testingT *testing.T) {
+		testingT.Helper()
+
+		t := construct(
+			testingT,
+			&parentT,
+			func(t *testoT) {
+				t.testNamer = parentT.unwrap().testNamer
+				t.reflection.Suite = parentT.unwrap().reflection.Suite
+				t.reflection.Test = testoreflect.RegularTestInfo{
+					Name:        parentT.unwrap().testNamer.Name(parentT.unwrap().Name(), name),
+					RawBaseName: name,
+					Level:       t.level(),
+					IsSubtest:   true,
+				}
+			},
+			options...,
+		)
+
+		defer func() {
+			if r := recover(); r != nil {
+				trace := string(debug.Stack())
+
+				t.unwrap().reflection.Panic = &testoreflect.PanicInfo{
+					Value: r,
+					Trace: trace,
+				}
+
+				t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), r, trace)
+			}
+		}()
+
+		defer runHook(t, t.unwrap().spec.Hooks.AfterEachSub)
+
+		runHook(t, t.unwrap().spec.Hooks.BeforeEachSub)
+
+		f(t)
+	})
+}
+
+type runner[Suite suite[T], T CommonT] struct {
+	suiteName string
+	testNamer *testnamer.Namer
+}
+
+func newRunner[Suite suite[T], T CommonT]() runner[Suite, T] {
+	return runner[Suite, T]{
+		suiteName: reflectutil.NameOf[Suite](),
+		testNamer: testnamer.New(),
+	}
+}
+
+func (r *runner[Suite, T]) collectTests(t TestingT, caller string) suiteTests[Suite, T] {
+	t.Helper()
+
+	collector := testsCollector[Suite, T]{
+		CallerName: caller,
+		TestNamer:  r.testNamer,
+	}
+
+	return collector.Collect(t)
+}
+
+func (r *runner[Suite, T]) runSuite(
+	testingT TestingT,
+	suite Suite,
+	options ...testoplugin.Option,
+) bool {
+	testingT.Helper()
+
+	options = append(getOptions(), options...)
+
+	caller := r.testNamer.Name(testingT.Name(), r.suiteName)
+
+	tests := r.collectTests(testingT, caller)
+
+	suiteInfo := testoreflect.SuiteInfo{
+		Name:   r.suiteName,
+		Caller: testingT.Name(),
+		Value:  suite,
+	}
+
+	return testingT.Run(r.suiteName, func(testingT *testing.T) {
+		testingT.Helper()
+
+		t := construct[T](
+			testingT,
+			nil,
+			func(t *testoT) {
+				t.testNamer = r.testNamer
+				t.reflection.Suite = suiteInfo
+				t.reflection.Test = testoreflect.RegularTestInfo{
+					Name:        caller,
+					RawBaseName: r.suiteName,
+				}
+			},
+			options...,
+		)
+
+		t.unwrap().logPlugins()
+
+		r.runSuiteTests(t, suite, tests)
+	})
+}
+
+func runHook(t testing.TB, h testoplugin.Hook) {
+	t.Helper()
+
+	if h.Func != nil {
+		h.Func()
+	}
+}
+
+func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T]) {
+	t.Helper()
+
+	defer func() {
+		if !t.Skipped() {
+			runHook(t, t.unwrap().spec.Hooks.AfterAll)
+		}
+	}()
+
+	runHook(t, t.unwrap().spec.Hooks.BeforeAll)
+
+	defer func() {
+		if !t.Skipped() {
+			s.AfterAll(t)
+		}
+	}()
+
+	s.BeforeAll(t)
+
+	suiteInfo := testoreflect.SuiteInfo{
+		Name:   t.unwrap().reflection.Suite.Name,
+		Caller: t.unwrap().reflection.Suite.Caller,
+		Value:  s,
+		Hooks:  t.unwrap().reflection.Suite.Hooks,
+	}
+
+	allTests := r.applyPlan(
+		t,
+		suiteInfo,
+		tests.Collect(s),
+	)
+
+	t.unwrap().testingT.Run(parallelWrapperTest, func(testingT *testing.T) {
+		testingT.Helper()
+
+		for _, test := range allTests {
+			testingT.Run(test.Name, func(testingT *testing.T) {
+				innerT := construct(
+					testingT,
+					&t,
+					func(t *testoT) {
+						t.testNamer = r.testNamer
+						t.reflection.Suite = suiteInfo
+						t.reflection.Test = test.Info
+					},
+					test.Options...,
+				)
+
+				r.runSuiteTest(
+					innerT,
+					s,
+					test.suiteTest,
+				)
+			})
+		}
+	})
+}
+
+func (r *runner[Suite, T]) runSuiteTest(
+	t T,
+	s Suite,
+	test suiteTest[Suite, T],
+) {
+	t.Helper()
+
+	defer func() {
+		if r := recover(); r != nil {
+			trace := string(debug.Stack())
+
+			t.unwrap().reflection.Panic = &testoreflect.PanicInfo{
+				Value: r,
+				Trace: trace,
+			}
+
+			t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), r, trace)
+		}
+	}()
+
+	defer runHook(t, t.unwrap().spec.Hooks.AfterEach)
+
+	runHook(t, t.unwrap().spec.Hooks.BeforeEach)
+
+	defer s.AfterEach(t)
+
+	s.BeforeEach(t)
+
+	test.Run(s, t)
+}
+
+func (r *runner[Suite, T]) applyPlan(
+	t T,
+	suiteInfo testoreflect.SuiteInfo,
+	tests []annotatedSuiteTest[Suite, T],
+) []annotatedSuiteTest[Suite, T] {
+	t.Helper()
+
+	plannedTests := make([]testoplugin.PlannedTest, 0, len(tests))
+
+	for _, t := range tests {
+		plannedTests = append(plannedTests, plannedSuiteTest[Suite, T]{t})
+	}
+
+	if prepare := t.unwrap().spec.Plan.Prepare; prepare != nil {
+		prepare(suiteInfo, &plannedTests)
+	}
+
+	testsToReturn := make([]annotatedSuiteTest[Suite, T], 0, len(plannedTests))
+
+	for _, t := range plannedTests {
+		if t == nil {
+			continue
+		}
+
+		planned, ok := t.(plannedSuiteTest[Suite, T])
+		if !ok {
+			// must be unreachable because of "DoNotImplement" directive.
+			panic(fmt.Sprintf(
+				"testo: planned test is not of type %q",
+				reflect.TypeFor[plannedSuiteTest[Suite, T]](),
+			))
+		}
+
+		testsToReturn = append(testsToReturn, planned.inner)
+	}
+
+	return testsToReturn
+}

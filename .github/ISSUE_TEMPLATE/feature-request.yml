@@ -1,0 +1,21 @@
+---
+name: Feature Request
+description: File a feature request.
+labels: ["enhancement"]
+type: feature
+assignees:
+  - metafates
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this feature request!
+
+  - type: textarea
+    id: request
+    attributes:
+      label: Feature
+      description: Also tell us, what problem it would solve?
+      placeholder: Tell us what you have on your mind!
+    validations:
+      required: true

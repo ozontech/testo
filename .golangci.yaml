@@ -1,0 +1,87 @@
+---
+version: "2"
+formatters:
+  enable:
+    - gci
+    - gofumpt
+    - goimports
+    - golines
+    - swaggo
+  exclusions:
+    generated: strict
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"
+    gofumpt:
+      extra-rules: true
+
+linters:
+  default: all
+  disable:
+    - forcetypeassert
+    - ireturn
+    - depguard
+    - exhaustive
+    - exhaustruct
+    - wrapcheck
+    - varnamelen
+    - mnd
+    - godox
+    - interfacebloat
+    - wsl
+    - nonamedreturns
+    - noinlineerr
+    - gochecknoglobals
+    - err113
+    - gochecknoinits
+  exclusions:
+    rules:
+      - linters:
+          - lll
+        source: "\\s*// "
+      - path: examples/
+        linters:
+          - forbidigo
+          - wsl
+          - revive
+          - godot
+          - funlen
+          - gosec
+      - path: internal/
+        linters:
+          - revive
+      - text: "should have name t"
+        linters:
+          - thelper
+
+  settings:
+    gosec:
+      excludes:
+        - G304
+        - G703
+        - G404
+    dupword:
+      keywords:
+        - "the"
+        - "and"
+        - "a"
+    errcheck:
+      exclude-functions:
+        - "(*os.File).Close"
+    gocritic:
+      enable-all: true
+      disabled-checks:
+        - rangeValCopy
+        - hugeParam
+    iface:
+      enable:
+        - identical
+        - unused
+        - opaque
+        - unexported
+    testifylint:
+      enable-all: true
+    wsl_v5:
+      default: all

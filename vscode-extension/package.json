@@ -1,0 +1,69 @@
+{
+    "name": "testo",
+    "displayName": "Testo Framework Helper",
+    "description": "Helper extension for the Go Testo Framework.",
+    "version": "1.0.0",
+    "publisher": "example",
+    "private": true,
+    "preview": true,
+    "license": "Apache-2.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ozontech/testo"
+    },
+    "engines": {
+        "vscode": "^1.100.0",
+        "node": ">=16.14.2"
+    },
+    "categories": [
+        "Testing"
+    ],
+    "tags": [
+        "golang"
+    ],
+    "activationEvents": [
+        "onLanguage:go"
+    ],
+    "main": "./out/extension",
+    "contributes": {
+        "languages": [
+            {
+                "id": "go",
+                "extensions": [
+                    ".go"
+                ],
+                "aliases": [
+                    "Go"
+                ]
+            }
+        ],
+        "commands": [],
+        "configuration": {
+            "properties": {
+                "testo.verboseOutput": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run tests in verbose mode by adding -v flag to the go test command"
+                }
+            }
+        }
+    },
+    "extensionDependencies": [
+        "golang.go"
+    ],
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "lint": "eslint",
+        "watch": "tsc -watch -p ./"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.13.0",
+        "@stylistic/eslint-plugin": "^2.9.0",
+        "@types/node": "^22",
+        "@types/vscode": "^1.100.0",
+        "eslint": "^9.13.0",
+        "typescript": "^5.9.2",
+        "typescript-eslint": "^8.39.0"
+    }
+}

@@ -1,0 +1,19 @@
+=== RUN   Test
+=== RUN   Test/Suite
+    main_test.go:32: testo: collected 1 plugin: main.PluginUtils
+=== RUN   Test/Suite/testo!
+=== RUN   Test/Suite/testo!/TestFizz
+=== RUN   Test/Suite/testo!/TestBar
+=== RUN   Test/Suite/testo!/TestFoo
+=== RUN   Test/Suite/testo!/TestFoo#01
+=== RUN   Test/Suite/testo!/TestFoo#02
+--- PASS: Test (0.00s)
+    --- PASS: Test/Suite (0.00s)
+        --- PASS: Test/Suite/testo! (0.00s)
+            --- PASS: Test/Suite/testo!/TestFizz (0.00s)
+            --- PASS: Test/Suite/testo!/TestBar (0.00s)
+            --- PASS: Test/Suite/testo!/TestFoo (0.00s)
+            --- PASS: Test/Suite/testo!/TestFoo#01 (0.00s)
+            --- PASS: Test/Suite/testo!/TestFoo#02 (0.00s)
+PASS
+ok  	github.com/ozontech/testo/examples/07_annotations	0.179s

@@ -1,0 +1,60 @@
+---
+name: Quality Assurance
+
+"on":
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+# Cancel prior runs on the same branch when a new one starts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Run unit tests with race detector
+        if: runner.os != 'Windows'
+        run: go test -race -v ./...
+
+      - name: Run unit tests without race detector
+        if: runner.os == 'Windows'
+        run: go test -v ./...
+
+      - name: Test examples output
+        run: go test -v -tags e2e -count=1 ./examples_test.go
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Run linters
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11.4
+          args: --tests=false --timeout=5m
