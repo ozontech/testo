@@ -359,18 +359,33 @@ func (t *T) markFailure(kind testoreflect.TestFailureKind) {
 }
 
 func (t *T) options() []testoplugin.Option {
-	options := t.levelOptions
+	size := len(t.levelOptions)
+	byLevel := [][]testoplugin.Option{t.levelOptions}
 
 	parent := t.parent
 
 	for parent != nil {
+		level := make([]testoplugin.Option, 0, len(parent.levelOptions))
+
 		for _, o := range parent.levelOptions {
 			if o.Propagate {
-				options = append(options, o)
+				level = append(level, o)
 			}
 		}
 
+		byLevel = append(byLevel, level)
+
+		size += len(level)
+
 		parent = parent.parent
+	}
+
+	options := make([]testoplugin.Option, 0, size)
+
+	// so that child options come after parent options
+
+	for _, level := range slices.Backward(byLevel) {
+		options = append(options, level...)
 	}
 
 	return options

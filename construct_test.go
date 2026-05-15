@@ -131,8 +131,8 @@ func TestConstruct(t *testing.T) {
 		}
 
 		if !slices.Equal([]testoplugin.Option{
-			{Value: "fizz"},
 			{Value: "foo", Propagate: true},
+			{Value: "fizz"},
 		}, child.MockPluginWithoutT.options) {
 			t.Error("child.MockPluginWithoutT.options not equal to expected")
 		}
