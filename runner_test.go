@@ -19,6 +19,18 @@ type TestSuite struct {
 	beforeAllTriggered bool
 }
 
+func (s *TestSuite) TestRegular(*TestT) {}
+
+func (s *TestSuite) TestParametrized(*TestT, struct{ A, B int }) {}
+
+func (*TestSuite) CasesA() []int {
+	return []int{1, 2, 3}
+}
+
+func (*TestSuite) CasesB() []int {
+	return []int{11, 99}
+}
+
 type TestPlugin struct{ *T }
 
 func (t *TestPlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
@@ -87,7 +99,9 @@ func TestRunSuite(t *testing.T) {
 	pluginAfterEach = nil
 	pluginAfterAll = nil
 
-	RunSuite(t, new(TestSuite))
+	testSuite := new(TestSuite)
+
+	RunSuite(t, testSuite)
 
 	equal := func(want, got []string) {
 		t.Helper()
@@ -103,10 +117,24 @@ func TestRunSuite(t *testing.T) {
 	equal([]string{
 		"TestRunSuite/TestSuite/TestBar",
 		"TestRunSuite/TestSuite/TestFoo",
+		"TestRunSuite/TestSuite/TestRegular",
+		"TestRunSuite/TestSuite/TestParametrized",
+		"TestRunSuite/TestSuite/TestParametrized#01",
+		"TestRunSuite/TestSuite/TestParametrized#02",
+		"TestRunSuite/TestSuite/TestParametrized#03",
+		"TestRunSuite/TestSuite/TestParametrized#04",
+		"TestRunSuite/TestSuite/TestParametrized#05",
 	}, beforeEach)
 	equal([]string{
 		"TestRunSuite/TestSuite/TestBar",
 		"TestRunSuite/TestSuite/TestFoo",
+		"TestRunSuite/TestSuite/TestRegular",
+		"TestRunSuite/TestSuite/TestParametrized",
+		"TestRunSuite/TestSuite/TestParametrized#01",
+		"TestRunSuite/TestSuite/TestParametrized#02",
+		"TestRunSuite/TestSuite/TestParametrized#03",
+		"TestRunSuite/TestSuite/TestParametrized#04",
+		"TestRunSuite/TestSuite/TestParametrized#05",
 	}, pluginBeforeEach)
 
 	equal([]string{"TestRunSuite/TestSuite/TestFoo/subtest"}, pluginBeforeEachSub)
@@ -115,10 +143,24 @@ func TestRunSuite(t *testing.T) {
 	equal([]string{
 		"TestRunSuite/TestSuite/TestBar",
 		"TestRunSuite/TestSuite/TestFoo",
+		"TestRunSuite/TestSuite/TestRegular",
+		"TestRunSuite/TestSuite/TestParametrized",
+		"TestRunSuite/TestSuite/TestParametrized#01",
+		"TestRunSuite/TestSuite/TestParametrized#02",
+		"TestRunSuite/TestSuite/TestParametrized#03",
+		"TestRunSuite/TestSuite/TestParametrized#04",
+		"TestRunSuite/TestSuite/TestParametrized#05",
 	}, afterEach)
 	equal([]string{
 		"TestRunSuite/TestSuite/TestBar",
 		"TestRunSuite/TestSuite/TestFoo",
+		"TestRunSuite/TestSuite/TestRegular",
+		"TestRunSuite/TestSuite/TestParametrized",
+		"TestRunSuite/TestSuite/TestParametrized#01",
+		"TestRunSuite/TestSuite/TestParametrized#02",
+		"TestRunSuite/TestSuite/TestParametrized#03",
+		"TestRunSuite/TestSuite/TestParametrized#04",
+		"TestRunSuite/TestSuite/TestParametrized#05",
 	}, pluginAfterEach)
 
 	equal([]string{"TestRunSuite/TestSuite"}, afterAll)

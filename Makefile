@@ -31,12 +31,12 @@ doc:
 
 # get test coverage
 coverage:
-	go test -coverprofile=profile.cov ./...
-	go tool cover -func profile.cov
+	go test -coverprofile=coverage.out -coverpkg=./... ./...
+	go tool cover -func coverage.out
 
 # visualize test coverage
 coverage-html: coverage
-	go tool cover -html profile.cov
+	go tool cover -html coverage.out
 
 install:
 	go install ./cmd/testo

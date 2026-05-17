@@ -5,6 +5,82 @@ import (
 	"testing"
 )
 
+func TestFindRecursiveType(t *testing.T) {
+	t.Parallel()
+
+	t.Run("without recursive", func(t *testing.T) {
+		t.Parallel()
+
+		type Bar struct {
+			Field string
+
+			private int
+		}
+
+		type Foo struct {
+			Field string
+
+			Bar
+		}
+
+		got := FindRecursiveType(reflect.TypeFor[Foo]())
+
+		if got != nil {
+			t.Fatalf("want nil, got %v", got)
+		}
+	})
+
+	t.Run("with recursive", func(t *testing.T) {
+		t.Parallel()
+
+		type Bar struct {
+			Field string
+
+			*Bar
+		}
+
+		type Foo struct {
+			private int
+
+			Bar
+
+			Field string
+		}
+
+		found := FindRecursiveType(reflect.TypeFor[Foo]())
+
+		if found != reflect.TypeFor[Bar]() {
+			t.Fatalf("want Bar, got %s", found)
+		}
+	})
+}
+
+func TestName(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		Want string
+		Got  string
+	}{
+		{
+			Want: "T",
+			Got:  NameOf[******testing.T](),
+		},
+		{
+			Want: "T",
+			Got:  NameOf[testing.T](),
+		},
+		{
+			Want: "string",
+			Got:  NameOf[string](),
+		},
+	} {
+		if tt.Want != tt.Got {
+			t.Errorf("want %q, got %q", tt.Want, tt.Got)
+		}
+	}
+}
+
 func TestNew(t *testing.T) {
 	t.Parallel()
 

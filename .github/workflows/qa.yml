@@ -5,7 +5,6 @@ name: Quality Assurance
   push:
     branches:
       - main
-      - master
   pull_request:
 
 # Cancel prior runs on the same branch when a new one starts
@@ -33,18 +32,33 @@ jobs:
 
       - name: Run unit tests with race detector
         if: runner.os != 'Windows'
-        run: go test -race -v ./...
+        run: |
+          go test -race -v -coverprofile=coverage.out -coverpkg=./... ./...
+
+          mkdir coverage
+
+          go tool cover -func coverage.out -o coverage/coverage.out
+          go tool cover -html coverage.out -o coverage/coverage.html
 
       - name: Run unit tests without race detector
         if: runner.os == 'Windows'
-        run: go test -v ./...
+        run: |
+          go test -v -cover -coverpkg=./... ./...
 
       - name: Test examples output
         run: go test -v -tags e2e -count=1 ./examples_test.go
 
+      - uses: actions/upload-artifact@v7
+        if: ${{ runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        with:
+          name: coverage
+          path: coverage
+          overwrite: true
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -58,3 +72,32 @@ jobs:
         with:
           version: v2.11.4
           args: --tests=false --timeout=5m
+
+  update-coverage:
+    name: Update coverage report
+    needs: test
+    if: ${{ !cancelled() && needs.test.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage
+          path: coverage
+
+      - name: Generate badge and report
+        run: |
+          COVERAGE="$(grep total coverage/coverage.out | awk '{print $3}')"
+
+          rm coverage/coverage.out
+
+          curl -o coverage/coverage.svg "https://img.shields.io/badge/coverage-${COVERAGE}25-green"
+
+      - name: Upload
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: coverage
