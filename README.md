@@ -5,6 +5,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/ozontech/testo.svg)](https://pkg.go.dev/github.com/ozontech/testo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ozontech/testo)](https://goreportcard.com/report/github.com/ozontech/testo)
 [![Code Coverage](https://github.com/ozontech/testo/raw/gh-pages/coverage.svg?raw=true)](https://ozontech.github.io/testo/coverage.html)
+[![Quality Assurance](https://github.com/ozontech/testo/actions/workflows/qa.yml/badge.svg)](https://github.com/ozontech/testo/actions/workflows/qa.yml)
 
 Testo is a modular testing framework for Go built on top of `testing.T`.
 It is focused on suite-based tests and has an extensive plugin system.
@@ -119,6 +120,10 @@ Makes it easier to run and debug individual suite tests.
 Testo guarantees to support at least **3 latest major** [Go releases](https://go.dev/doc/devel/release).
 
 Currently, minimum supported Go version is **1.24**
+
+## Contributing
+
+See [contributing guidelines](./CONTRIBUTING.md).
 
 ## License
 
