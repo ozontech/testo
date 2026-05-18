@@ -77,7 +77,7 @@
 				
 				<option value="file10">github.com/ozontech/testo/suite.go (100.0%)</option>
 				
-				<option value="file11">github.com/ozontech/testo/t.go (74.8%)</option>
+				<option value="file11">github.com/ozontech/testo/t.go (74.5%)</option>
 				
 				<option value="file12">github.com/ozontech/testo/testocache/cache.go (84.8%)</option>
 				
@@ -2308,16 +2308,13 @@ func (t *T) logPlugins() <span class="cov3" title="3">{
         t.Helper()
 
         names := t.unwrap().pluginNames()
-
-        noun := "plugins"
-        if len(names) == 1 </span><span class="cov2" title="2">{
-                noun = "plugin"
+        if len(names) == 0 </span><span class="cov1" title="1">{
+                return
         }</span>
 
-        <span class="cov3" title="3">t.testingT.Logf(
-                "testo: collected %d %s: %s\n",
+        <span class="cov2" title="2">t.testingT.Logf(
+                "testo: plugins collected: %d: %s\n",
                 len(names),
-                noun,
                 strings.Join(names, ", "),
         )</span>
 }
