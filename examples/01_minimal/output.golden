@@ -1,6 +1,5 @@
 === RUN   Test
 === RUN   Test/Suite
-    main_test.go:15: testo: collected 0 plugins: 
 === RUN   Test/Suite/testo!
 === RUN   Test/Suite/testo!/TestMath
 --- PASS: Test (0.00s)
@@ -8,4 +7,4 @@
         --- PASS: Test/Suite/testo! (0.00s)
             --- PASS: Test/Suite/testo!/TestMath (0.00s)
 PASS
-ok  	github.com/ozontech/testo/examples/01_minimal	0.280s
+ok  	github.com/ozontech/testo/examples/01_minimal	0.212s

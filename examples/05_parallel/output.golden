@@ -1,6 +1,5 @@
 === RUN   Test
 === RUN   Test/Suite
-    main_test.go:17: testo: collected 0 plugins: 
     main_test.go:21: starting suite
 === RUN   Test/Suite/testo!
 === RUN   Test/Suite/testo!/TestBar
@@ -81,4 +80,4 @@
                     --- PASS: Test/Suite/testo!/TestFoo/sub-test/inner_2 (0.00s)
                     --- PASS: Test/Suite/testo!/TestFoo/sub-test/inner_1 (0.00s)
 PASS
-ok  	github.com/ozontech/testo/examples/05_parallel	0.176s
+ok  	github.com/ozontech/testo/examples/05_parallel	0.314s

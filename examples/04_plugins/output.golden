@@ -1,6 +1,6 @@
 === RUN   Test
 === RUN   Test/Suite
-    main_test.go:12: testo: collected 5 plugins: main.AddNewMethods, main.OverrideLog, main.ReverseTestsOrder, main.RunsInnerSubtest, main.Timer
+    main_test.go:12: testo: plugins collected: 5: main.AddNewMethods, main.OverrideLog, main.ReverseTestsOrder, main.RunsInnerSubtest, main.Timer
 === RUN   Test/Suite/testo!
 === RUN   Test/Suite/testo!/TestBar
 Inside log override
@@ -8,30 +8,30 @@ Inside log override
 === RUN   Test/Suite/testo!/TestBar/inner_subtest_which_will_trigger_hooks
 Inside log override
     plugins.go:100: Hi from inner subtest
-Test "Test/Suite/TestBar#02/inner_subtest_which_will_trigger_hooks" took 24.791µs
-Test "Test/Suite/TestBar#02" took 208.5µs
+Test "Test/Suite/TestBar#02/inner_subtest_which_will_trigger_hooks" took 24.25µs
+Test "Test/Suite/TestBar#02" took 156.625µs
 === RUN   Test/Suite/testo!/TestBar#01
 Inside log override
     main_test.go:40: params: {2}
 === RUN   Test/Suite/testo!/TestBar#01/inner_subtest_which_will_trigger_hooks
 Inside log override
     plugins.go:100: Hi from inner subtest
-Test "Test/Suite/TestBar#01/inner_subtest_which_will_trigger_hooks" took 18µs
-Test "Test/Suite/TestBar#01" took 93.958µs
+Test "Test/Suite/TestBar#01/inner_subtest_which_will_trigger_hooks" took 46.875µs
+Test "Test/Suite/TestBar#01" took 190.875µs
 === RUN   Test/Suite/testo!/TestBar#02
 Inside log override
     main_test.go:40: params: {1}
 === RUN   Test/Suite/testo!/TestBar#02/inner_subtest_which_will_trigger_hooks
 Inside log override
     plugins.go:100: Hi from inner subtest
-Test "Test/Suite/TestBar/inner_subtest_which_will_trigger_hooks" took 23.042µs
-Test "Test/Suite/TestBar" took 105.166µs
+Test "Test/Suite/TestBar/inner_subtest_which_will_trigger_hooks" took 19.417µs
+Test "Test/Suite/TestBar" took 121.375µs
 === RUN   Test/Suite/testo!/TestFoo
 === RUN   Test/Suite/testo!/TestFoo/subtest
 Inside log override
     main_test.go:31: Hello!
-Test "Test/Suite/TestFoo/subtest" took 18.666µs
-Test "Test/Suite/TestFoo" took 68.042µs
+Test "Test/Suite/TestFoo/subtest" took 22.5µs
+Test "Test/Suite/TestFoo" took 77.334µs
 --- PASS: Test (0.00s)
     --- PASS: Test/Suite (0.00s)
         --- PASS: Test/Suite/testo! (0.00s)
@@ -44,4 +44,4 @@ Test "Test/Suite/TestFoo" took 68.042µs
             --- PASS: Test/Suite/testo!/TestFoo (0.00s)
                 --- PASS: Test/Suite/testo!/TestFoo/subtest (0.00s)
 PASS
-ok  	github.com/ozontech/testo/examples/04_plugins	0.272s
+ok  	github.com/ozontech/testo/examples/04_plugins	0.218s

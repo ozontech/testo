@@ -5,7 +5,6 @@
     main_test.go:39: testo: wrong param signature for (*main.InvalidCases).Test: (*main.InvalidCases).CasesFoo provides string values, not assignable to param "Foo" of type int
 === RUN   Test/empty_cases
 === RUN   Test/empty_cases/EmptyCases
-    main_test.go:40: testo: collected 0 plugins: 
 testo: warning: (*main.EmptyCases).CasesFoo provides zero values, (*main.EmptyCases).Test will not run
 === RUN   Test/empty_cases/EmptyCases/testo!
 === RUN   Test/wrong_t
@@ -18,5 +17,5 @@ testo: warning: (*main.EmptyCases).CasesFoo provides zero values, (*main.EmptyCa
             --- PASS: Test/empty_cases/EmptyCases/testo! (0.00s)
     --- FAIL: Test/wrong_t (0.00s)
 FAIL
-FAIL	github.com/ozontech/testo/examples/06_errors	0.179s
+FAIL	github.com/ozontech/testo/examples/06_errors	0.316s
 FAIL
