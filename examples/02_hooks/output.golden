@@ -1,6 +1,5 @@
 === RUN   Test
 === RUN   Test/Suite
-    main_test.go:14: testo: collected 0 plugins: 
 === RUN   Test/Suite/testo!
 === RUN   Test/Suite/testo!/TestBar
     main_test.go:32: Marking test "Test/Suite/TestBar" as parallel
@@ -11,10 +10,10 @@
 === CONT  Test/Suite/testo!/TestBar
     main_test.go:61: Hello!
 === CONT  Test/Suite/testo!/TestFoo
---- PASS: Test (0.21s)
-    --- PASS: Test/Suite (0.21s)
+--- PASS: Test (0.27s)
+    --- PASS: Test/Suite (0.27s)
         --- PASS: Test/Suite/testo! (0.00s)
             --- PASS: Test/Suite/testo!/TestBar (0.00s)
-            --- PASS: Test/Suite/testo!/TestFoo (0.20s)
+            --- PASS: Test/Suite/testo!/TestFoo (0.27s)
 PASS
-ok  	github.com/ozontech/testo/examples/02_hooks	0.428s
+ok  	github.com/ozontech/testo/examples/02_hooks	0.616s

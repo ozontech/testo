@@ -1,6 +1,5 @@
 === RUN   Test
 === RUN   Test/Suite
-    main_test.go:15: testo: collected 0 plugins: 
 === RUN   Test/Suite/testo!
 === RUN   Test/Suite/testo!/TestCompile
     main_test.go:39: building for linux/amd64
@@ -14,14 +13,14 @@
     main_test.go:39: building for windows/arm64
 === RUN   Test/Suite/testo!/TestCompile#05
     main_test.go:39: building for darwin/arm64
---- PASS: Test (0.38s)
-    --- PASS: Test/Suite (0.38s)
-        --- PASS: Test/Suite/testo! (0.38s)
-            --- PASS: Test/Suite/testo!/TestCompile (0.08s)
-            --- PASS: Test/Suite/testo!/TestCompile#01 (0.06s)
-            --- PASS: Test/Suite/testo!/TestCompile#02 (0.06s)
-            --- PASS: Test/Suite/testo!/TestCompile#03 (0.06s)
-            --- PASS: Test/Suite/testo!/TestCompile#04 (0.06s)
-            --- PASS: Test/Suite/testo!/TestCompile#05 (0.06s)
+--- PASS: Test (0.77s)
+    --- PASS: Test/Suite (0.77s)
+        --- PASS: Test/Suite/testo! (0.77s)
+            --- PASS: Test/Suite/testo!/TestCompile (0.16s)
+            --- PASS: Test/Suite/testo!/TestCompile#01 (0.13s)
+            --- PASS: Test/Suite/testo!/TestCompile#02 (0.13s)
+            --- PASS: Test/Suite/testo!/TestCompile#03 (0.15s)
+            --- PASS: Test/Suite/testo!/TestCompile#04 (0.12s)
+            --- PASS: Test/Suite/testo!/TestCompile#05 (0.07s)
 PASS
-ok  	github.com/ozontech/testo/examples/03_parametrized	0.555s
+ok  	github.com/ozontech/testo/examples/03_parametrized	1.088s
