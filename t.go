@@ -411,16 +411,13 @@ func (t *T) logPlugins() {
 	t.Helper()
 
 	names := t.unwrap().pluginNames()
-
-	noun := "plugins"
-	if len(names) == 1 {
-		noun = "plugin"
+	if len(names) == 0 {
+		return
 	}
 
 	t.testingT.Logf(
-		"testo: collected %d %s: %s\n",
+		"testo: plugins collected: %d: %s\n",
 		len(names),
-		noun,
 		strings.Join(names, ", "),
 	)
 }
