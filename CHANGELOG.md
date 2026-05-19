@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Improve log format about collected plugins. Do not show it if zero plugins are collected.
+- `t.Setenv` now uses defined overrides for cleanup and failures.
 
 ## [1.0.1] - 2026-05-15
 
