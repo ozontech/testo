@@ -291,6 +291,27 @@ func (t *T) Fatalf(format string, args ...any) {
 	t.Fatal(fmt.Sprintf(format, args...))
 }
 
+// Chdir calls [os.Chdir] and uses Cleanup to restore the current
+// working directory to its original value after the test. On Unix, it
+// also sets PWD environment variable for the duration of the test.
+//
+// Because Chdir affects the whole process, it cannot be used
+// in parallel tests or tests with parallel ancestors.
+func (t *T) Chdir(dir string) {
+	t.Helper()
+
+	t.spec.Overrides.Chdir.Call(t.common.Chdir)(dir)
+}
+
+// Cleanup registers a function to be called when the test (or subtest) and all its
+// subtests complete. Cleanup functions will be called in last added,
+// first called order.
+func (t *T) Cleanup(f func()) {
+	t.Helper()
+
+	t.spec.Overrides.Cleanup.Call(t.common.Cleanup)(f)
+}
+
 // Name returns the name of the running (sub-) test or benchmark.
 //
 // The name will include the name of the test along with the names of

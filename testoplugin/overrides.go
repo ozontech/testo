@@ -19,6 +19,8 @@ type Overrides struct {
 	TempDir  Override[FuncTempDir]
 	Deadline Override[FuncDeadline]
 	Context  Override[FuncContext]
+	Chdir    Override[FuncChdir]
+	Cleanup  Override[FuncCleanup]
 
 	// Error calls Log followed by Fail.
 	Error Override[FuncError]
@@ -54,6 +56,9 @@ type (
 	// FuncContext describes [testing.T.Context] method.
 	FuncContext func() context.Context
 
+	// FuncChdir describes [testing.T.Chdir] method.
+	FuncChdir func(dir string)
+
 	// FuncError describes [testing.T.Error] method.
 	FuncError func(args ...any)
 
@@ -77,6 +82,9 @@ type (
 
 	// FuncFatal describes [testing.T.Fatal] method.
 	FuncFatal func(args ...any)
+
+	// FuncCleanup describes [testing.T.Cleanup] method.
+	FuncCleanup func(f func())
 )
 
 // Override for the function.
