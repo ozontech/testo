@@ -738,7 +738,7 @@ func construct[T CommonT](
 
         <span class="cov6" title="17">specsStack := stack.New[typedPlugin]()
 
-        for pluginType, pluginValue := range seed.plugins </span><span class="cov7" title="34">{
+        for pluginType, pluginValue := range seed.plugins </span><span class="cov7" title="35">{
                 specsStack.Push(typedPlugin{
                         Plugin: pluginValue,
                         Type:   pluginType,
@@ -787,7 +787,7 @@ func setPlugins(
         v reflect.Value,
         plugins map[reflect.Type]testoplugin.Plugin,
         specs *stack.Stack[typedPlugin],
-) <span class="cov9" title="113">{
+) <span class="cov9" title="114">{
         if plugin, ok := plugins[v.Type().Elem()]; ok </span><span class="cov8" title="63">{
                 elem := v.Elem()
 
@@ -808,14 +808,14 @@ func setPlugins(
                 })</span>
         }
 
-        <span class="cov9" title="113">v = reflectutil.Elem(v)
+        <span class="cov9" title="114">v = reflectutil.Elem(v)
 
         if v.Kind() != reflect.Struct </span><span class="cov0" title="0">{
                 return
         }</span>
 
         // special case - we do not go deeper than that.
-        <span class="cov9" title="113">if v.Type() == reflect.TypeFor[T]() </span><span class="cov8" title="60">{
+        <span class="cov9" title="114">if v.Type() == reflect.TypeFor[T]() </span><span class="cov8" title="61">{
                 return
         }</span>
 
@@ -928,12 +928,12 @@ type canElem[Self any] interface {
 // Nested pointers are also supported - e.g. given "****value" it will return "value".
 //
 // Non-pointer values will be returned as is.
-func Elem[T canElem[T]](v T) T <span class="cov8" title="162">{
-        for v.Kind() == reflect.Pointer </span><span class="cov8" title="226">{
+func Elem[T canElem[T]](v T) T <span class="cov8" title="163">{
+        for v.Kind() == reflect.Pointer </span><span class="cov8" title="227">{
                 v = v.Elem()
         }</span>
 
-        <span class="cov8" title="162">return v</span>
+        <span class="cov8" title="163">return v</span>
 }
 
 // NameOf returns name of the underlying type T.
@@ -1077,7 +1077,7 @@ func (s *Stack[T]) Len() int <span class="cov0" title="0">{
         return len(s.values)
 }</span>
 
-func (s *Stack[T]) Push(v T) <span class="cov9" title="103">{
+func (s *Stack[T]) Push(v T) <span class="cov9" title="104">{
         s.values = append(s.values, v)
 }</span>
 
@@ -1662,9 +1662,10 @@ func (r *runner[Suite, T]) runSuite(
         tests := r.collectTests(testingT, caller)
 
         suiteInfo := testoreflect.SuiteInfo{
-                Name:   r.suiteName,
-                Caller: testingT.Name(),
-                Value:  suite,
+                Name:     r.suiteName,
+                Caller:   testingT.Name(),
+                TestingT: testingT,
+                Value:    suite,
         }
 
         return testingT.Run(r.suiteName, func(testingT *testing.T) </span><span class="cov3" title="3">{
@@ -1718,10 +1719,11 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
         <span class="cov3" title="3">s.BeforeAll(t)
 
         suiteInfo := testoreflect.SuiteInfo{
-                Name:   t.unwrap().reflection.Suite.Name,
-                Caller: t.unwrap().reflection.Suite.Caller,
-                Value:  s,
-                Hooks:  t.unwrap().reflection.Suite.Hooks,
+                Name:     t.unwrap().reflection.Suite.Name,
+                Caller:   t.unwrap().reflection.Suite.Caller,
+                TestingT: t.unwrap().reflection.Suite.TestingT,
+                Value:    s,
+                Hooks:    t.unwrap().reflection.Suite.Hooks,
         }
 
         allTests := r.applyPlan(
@@ -2306,7 +2308,7 @@ func (t *T) Name() string <span class="cov8" title="43">{
 // unwrap the underlying T.
 //
 // It works since T's are embedded in user-defined structs.
-func (t *T) unwrap() *T <span class="cov10" title="121">{
+func (t *T) unwrap() *T <span class="cov10" title="124">{
         return t
 }</span>
 
@@ -3039,6 +3041,14 @@ type SuiteInfo struct {
         // Caller is the full test name from
         // which this suite was run.
         Caller string
+
+        // TestingT is the [testing.T] of the caller.
+        //
+        //         func TestFoo(t *testing.T) {
+        //                testo.RunSuite(t, new(Suite))
+        //                 //             ^ that t
+        //         }
+        TestingT TestingT
 
         // Value holds suite value.
         Value any
