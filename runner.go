@@ -140,9 +140,10 @@ func (r *runner[Suite, T]) runSuite(
 	tests := r.collectTests(testingT, caller)
 
 	suiteInfo := testoreflect.SuiteInfo{
-		Name:   r.suiteName,
-		Caller: testingT.Name(),
-		Value:  suite,
+		Name:     r.suiteName,
+		Caller:   testingT.Name(),
+		TestingT: testingT,
+		Value:    suite,
 	}
 
 	return testingT.Run(r.suiteName, func(testingT *testing.T) {
@@ -196,10 +197,11 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 	s.BeforeAll(t)
 
 	suiteInfo := testoreflect.SuiteInfo{
-		Name:   t.unwrap().reflection.Suite.Name,
-		Caller: t.unwrap().reflection.Suite.Caller,
-		Value:  s,
-		Hooks:  t.unwrap().reflection.Suite.Hooks,
+		Name:     t.unwrap().reflection.Suite.Name,
+		Caller:   t.unwrap().reflection.Suite.Caller,
+		TestingT: t.unwrap().reflection.Suite.TestingT,
+		Value:    s,
+		Hooks:    t.unwrap().reflection.Suite.Hooks,
 	}
 
 	allTests := r.applyPlan(
