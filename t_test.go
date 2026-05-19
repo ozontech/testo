@@ -105,6 +105,8 @@ var tSuiteOverridesCalls struct {
 	failNow,
 	failed,
 	fatal int
+	chdir   int
+	cleanup int
 }
 
 func (p *TSuitePlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
@@ -190,6 +192,16 @@ func (p *TSuitePlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testopl
 					tSuiteOverridesCalls.fatal++
 				}
 			},
+			Chdir: func(f testoplugin.FuncChdir) testoplugin.FuncChdir {
+				return func(dir string) {
+					tSuiteOverridesCalls.chdir++
+				}
+			},
+			Cleanup: func(f testoplugin.FuncCleanup) testoplugin.FuncCleanup {
+				return func(f func()) {
+					tSuiteOverridesCalls.cleanup++
+				}
+			},
 		},
 	}
 }
@@ -217,6 +229,8 @@ func (TSuite) Test(t TSuiteT) {
 	t.Failed()
 	t.Fatal()
 	t.Fatalf("")
+	t.Cleanup(nil)
+	t.Chdir("")
 }
 
 func TestSuiteT(t *testing.T) {
@@ -245,6 +259,8 @@ func TestSuiteT(t *testing.T) {
 		"FailNow":  {1, tSuiteOverridesCalls.failNow},
 		"Failed":   {1, tSuiteOverridesCalls.failed},
 		"Fatal":    {2, tSuiteOverridesCalls.fatal},
+		"Chdir":    {1, tSuiteOverridesCalls.chdir},
+		"Cleanup":  {1, tSuiteOverridesCalls.cleanup},
 	} {
 		if c.Got != c.Want {
 			t.Errorf("%s: want calls(-s): %d, got %d", name, c.Want, c.Got)
