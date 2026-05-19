@@ -207,6 +207,14 @@ type SuiteInfo struct {
 	// which this suite was run.
 	Caller string
 
+	// TestingT is the [testing.T] of the caller.
+	//
+	// 	func TestFoo(t *testing.T) {
+	//		testo.RunSuite(t, new(Suite))
+	// 		//             ^ that t
+	// 	}
+	TestingT TestingT
+
 	// Value holds suite value.
 	Value any
 

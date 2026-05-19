@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Support for overriding `t.Chdir` and `t.Cleanup`.
+- Access to `testing.T` which invoked a suite through reflection.
 
 ### Changed
 
