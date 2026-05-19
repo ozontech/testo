@@ -17,8 +17,9 @@ To submit a pull request follow these steps:
 2. Clone forked repository;
 3. Create a new branch and give it a descriptive name, e.g. "add-awesome-feature";
 4. Make changes. Ensure tests and linter are passing by running `make` from a project root;
-5. Commit your changes and push to this branch;
-6. Submit a pull request from "you/testo/your-branch" to "ozontech/testo/main".
+5. [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): describe changes made in [CHANGELOG.md](./CHANGELOG.md) under "Unreleased" section.
+6. Commit your changes and push to this branch;
+7. Submit a pull request from "you/testo/your-branch" to "ozontech/testo/main".
 
 Please be aware that the maintainers may ask for changes.
 This isn't a commentary on the quality of your idea or your code.

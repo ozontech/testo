@@ -1,4 +1,4 @@
-![Banner](./banner.svg)
+![Testo banner showing its chef gopher macost](./banner.svg)
 
 # Testo
 
@@ -113,7 +113,7 @@ Testo has its own [VS Code extension](./vscode-extension).
 
 Makes it easier to run and debug individual suite tests.
 
-![VSCode extension functionality screenshot](./vscode-extension/example.png)
+![VSCode extension screenshot showing codelens buttons for running and debugging a test](./vscode-extension/example.png)
 
 ## Minimum supported Go version
 
@@ -123,8 +123,16 @@ Currently, minimum supported Go version is **1.24**
 
 ## Contributing
 
+Contributions are welcome!
+
 See [contributing guidelines](./CONTRIBUTING.md).
 
 ## License
 
 This project is released under the [Apache-2.0 license](./LICENSE).
+
+---
+
+> [!TIP]
+> If you find Testo useful, [consider giving this repository a star](https://github.com/ozontech/testo) to help it reach more people.
+> Thank you!
