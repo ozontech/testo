@@ -15,10 +15,18 @@ import (
 type Overrides struct {
 	Log      Override[FuncLog]
 	Parallel Override[FuncParallel]
-	Setenv   Override[FuncSetenv]
 	TempDir  Override[FuncTempDir]
 	Deadline Override[FuncDeadline]
 	Context  Override[FuncContext]
+	Cleanup  Override[FuncCleanup]
+
+	// Setenv calls Cleanup to restore an environment variable.
+	// On error, it calls Fatal.
+	Setenv Override[FuncSetenv]
+
+	// Chdir calls Cleanup to restore a current directory.
+	// On error, it calls Fatal.
+	Chdir Override[FuncChdir]
 
 	// Error calls Log followed by Fail.
 	Error Override[FuncError]
@@ -54,6 +62,9 @@ type (
 	// FuncContext describes [testing.T.Context] method.
 	FuncContext func() context.Context
 
+	// FuncChdir describes [testing.T.Chdir] method.
+	FuncChdir func(dir string)
+
 	// FuncError describes [testing.T.Error] method.
 	FuncError func(args ...any)
 
@@ -77,6 +88,9 @@ type (
 
 	// FuncFatal describes [testing.T.Fatal] method.
 	FuncFatal func(args ...any)
+
+	// FuncCleanup describes [testing.T.Cleanup] method.
+	FuncCleanup func(f func())
 )
 
 // Override for the function.

@@ -150,6 +150,18 @@ func mergeOverrides(overrides ...testoplugin.Overrides) testoplugin.Overrides {
 				return o.Context
 			},
 		),
+		Chdir: mergeOverride(
+			overrides,
+			func(o testoplugin.Overrides) testoplugin.Override[testoplugin.FuncChdir] {
+				return o.Chdir
+			},
+		),
+		Cleanup: mergeOverride(
+			overrides,
+			func(o testoplugin.Overrides) testoplugin.Override[testoplugin.FuncCleanup] {
+				return o.Cleanup
+			},
+		),
 		Error: mergeOverride(
 			overrides,
 			func(o testoplugin.Overrides) testoplugin.Override[testoplugin.FuncError] {
