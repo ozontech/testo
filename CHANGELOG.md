@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Support for overriding `t.Chdir` and `t.Cleanup`.
+
 ### Changed
 
 - Improve log format about collected plugins. Do not show it if zero plugins are collected.
