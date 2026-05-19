@@ -4,7 +4,10 @@ package testo
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -120,7 +123,28 @@ func (t *T) Parallel() {
 func (t *T) Setenv(key, value string) {
 	t.Helper()
 
-	t.spec.Overrides.Setenv.Call(t.common.Setenv)(key, value)
+	t.spec.Overrides.Setenv.Call(t.setenv)(key, value)
+}
+
+// setenv is 1:1 copy from testing.common.Setenv.
+// we don't use native setenv because that way we won't use
+// overrides for methods such as fatal or cleanup.
+func (t *T) setenv(key, value string) {
+	t.Helper()
+
+	prevValue, ok := os.LookupEnv(key)
+
+	if err := os.Setenv(key, value); err != nil {
+		t.Fatalf("cannot set environment variable: %v", err)
+	}
+
+	if ok {
+		t.Cleanup(func() { _ = os.Setenv(key, prevValue) })
+
+		return
+	}
+
+	t.Cleanup(func() { _ = os.Unsetenv(key) })
 }
 
 // TempDir returns a temporary directory for the test to use.
@@ -300,7 +324,54 @@ func (t *T) Fatalf(format string, args ...any) {
 func (t *T) Chdir(dir string) {
 	t.Helper()
 
-	t.spec.Overrides.Chdir.Call(t.common.Chdir)(dir)
+	t.spec.Overrides.Chdir.Call(t.chdir)(dir)
+}
+
+// chdir is 1:1 copy from testing.common.Chdir.
+// we don't use native chdir because that way we won't use
+// overrides for methods such as fatal or cleanup.
+func (t *T) chdir(dir string) {
+	t.Helper()
+
+	oldwd, err := os.Open(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// On POSIX platforms, PWD represents "an absolute pathname of the
+	// current working directory." Since we are changing the working
+	// directory, we should also set or update PWD to reflect that.
+	switch runtime.GOOS {
+	case "windows", "plan9":
+		// Windows and Plan 9 do not use the PWD variable.
+
+	default:
+		if !filepath.IsAbs(dir) {
+			dir, err = os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		t.Setenv("PWD", dir)
+	}
+
+	t.Cleanup(func() {
+		err := oldwd.Chdir()
+
+		_ = oldwd.Close()
+
+		if err != nil {
+			// It's not safe to continue with tests if we can't
+			// get back to the original working directory. Since
+			// we are holding a dirfd, this is highly unlikely.
+			panic("testo.Chdir: " + err.Error())
+		}
+	})
 }
 
 // Cleanup registers a function to be called when the test (or subtest) and all its

@@ -15,12 +15,18 @@ import (
 type Overrides struct {
 	Log      Override[FuncLog]
 	Parallel Override[FuncParallel]
-	Setenv   Override[FuncSetenv]
 	TempDir  Override[FuncTempDir]
 	Deadline Override[FuncDeadline]
 	Context  Override[FuncContext]
-	Chdir    Override[FuncChdir]
 	Cleanup  Override[FuncCleanup]
+
+	// Setenv calls Cleanup to restore an environment variable.
+	// On error, it calls Fatal.
+	Setenv Override[FuncSetenv]
+
+	// Chdir calls Cleanup to restore a current directory.
+	// On error, it calls Fatal.
+	Chdir Override[FuncChdir]
 
 	// Error calls Log followed by Fail.
 	Error Override[FuncError]
