@@ -7,8 +7,8 @@
 [![Code Coverage](https://github.com/ozontech/testo/raw/gh-pages/coverage.svg?raw=true)](https://ozontech.github.io/testo/coverage.html)
 [![Quality Assurance](https://github.com/ozontech/testo/actions/workflows/qa.yml/badge.svg)](https://github.com/ozontech/testo/actions/workflows/qa.yml)
 
-Testo is a modular testing framework for Go built on top of `testing.T`.
-It is focused on suite-based tests and has an extensive plugin system.
+Testo is a modular testing framework for Go built on top of `testing.T`
+with an extensive plugin system.
 
 > Testo (/tɛstɒ/) is a play on words "test" and "тесто", meaning "dough".
 > Just like you can cook anything from dough, you can test anything with Testo!
@@ -46,7 +46,6 @@ go get github.com/ozontech/testo
 Your first test with Testo:
 
 ```go
-// file: main_test.go
 package main
 
 import (
@@ -59,14 +58,10 @@ import (
 // Here we use the base T without plugins.
 type T struct { *testo.T }
 
-type Suite struct{ testo.Suite[T] }
-
-func (Suite) TestHelloWorld(t T) {
-    t.Log("hello from testo!")
-}
-
 func Test(t *testing.T) {
-    testo.RunSuite(t, new(Suite))
+    testo.RunTest(t, func(t T) {
+        t.Log("Hello Testo!")
+    })
 }
 ```
 
@@ -74,6 +69,22 @@ And run it with `go test` as usual:
 
 ```bash
 go test .
+```
+
+Testo also supports suites:
+
+```go
+type T struct { *testo.T }
+
+type MySuite struct { testo.Suite[T] }
+
+func (MySuite) TestHello(t T) {
+    t.Log("Hello from Testo Suite!")
+}
+
+func Test(t *testing.T) {
+    testo.RunSuite(t, new(MySuite))
+}
 ```
 
 See also [VS Code extension for Testo](#vs-code-extension).
