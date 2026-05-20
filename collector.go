@@ -191,17 +191,36 @@ func (tc *testsCollector[Suite, T]) testName(base string) string {
 //nolint:cyclop,funlen,gocognit // splitting it would make it even more complex
 func (tc *testsCollector[Suite, T]) Collect(
 	tb testing.TB,
+	suite Suite,
 ) suiteTests[Suite, T] {
 	tb.Helper()
 
+	// special case for [Test] and [RunTest].
+	if s, ok := any(suite).(singleton[T]); ok {
+		return suiteTests[Suite, T]{
+			Regular: []suiteTest[Suite, T]{
+				{
+					Name: s.name,
+					Info: testoreflect.RegularTestInfo{
+						Name:        tc.testName(s.name),
+						RawBaseName: s.name,
+						Level:       1,
+						FuncPC:      reflect.ValueOf(s.test).Pointer(),
+					},
+					Run: func(_ Suite, t T) { s.test(t) },
+				},
+			},
+		}
+	}
+
 	cases := suiteCasesOf[Suite](tb)
 
-	suite := reflect.TypeFor[Suite]()
+	suiteTyp := reflect.TypeFor[Suite]()
 
 	var tests suiteTests[Suite, T]
 
-	for i := range suite.NumMethod() {
-		method := suite.Method(i)
+	for i := range suiteTyp.NumMethod() {
+		method := suiteTyp.Method(i)
 
 		if !isTest(method.Name, "Test") {
 			continue
@@ -213,7 +232,7 @@ func (tc *testsCollector[Suite, T]) Collect(
 			//nolint:lll // it's a long message
 			tb.Fatalf(
 				"testo: wrong signature for (%[1]s).%[2]s, must be: func (%[1]s).%[2]s(%[3]s) or func (%[1]s).%[2]s(%[3]s, struct{...})",
-				suite,
+				suiteTyp,
 				method.Name,
 				reflect.TypeFor[T](),
 			)

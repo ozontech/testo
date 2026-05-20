@@ -1,0 +1,31 @@
+=== RUN   TestSimple
+=== RUN   TestSimple/#00
+=== RUN   TestSimple/#00/testo!
+=== RUN   TestSimple/#00/testo!/TestSimple
+    main_test.go:15: Hello from testo!
+--- PASS: TestSimple (0.00s)
+    --- PASS: TestSimple/#00 (0.00s)
+        --- PASS: TestSimple/#00/testo! (0.00s)
+            --- PASS: TestSimple/#00/testo!/TestSimple (0.00s)
+=== RUN   TestMultiple
+=== RUN   TestMultiple/First_test
+=== RUN   TestMultiple/First_test/#00
+=== RUN   TestMultiple/First_test/#00/testo!
+=== RUN   TestMultiple/First_test/#00/testo!/First_test
+    main_test.go:21: Hello from the first test!
+=== RUN   TestMultiple/Second_test
+=== RUN   TestMultiple/Second_test/#00
+=== RUN   TestMultiple/Second_test/#00/testo!
+=== RUN   TestMultiple/Second_test/#00/testo!/Second_test
+    main_test.go:25: Hello from the second test!
+--- PASS: TestMultiple (0.00s)
+    --- PASS: TestMultiple/First_test (0.00s)
+        --- PASS: TestMultiple/First_test/#00 (0.00s)
+            --- PASS: TestMultiple/First_test/#00/testo! (0.00s)
+                --- PASS: TestMultiple/First_test/#00/testo!/First_test (0.00s)
+    --- PASS: TestMultiple/Second_test (0.00s)
+        --- PASS: TestMultiple/Second_test/#00 (0.00s)
+            --- PASS: TestMultiple/Second_test/#00/testo! (0.00s)
+                --- PASS: TestMultiple/Second_test/#00/testo!/Second_test (0.00s)
+PASS
+ok  	github.com/ozontech/testo/examples/08_suiteless	0.384s

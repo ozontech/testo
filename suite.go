@@ -1,5 +1,12 @@
 package testo
 
+type singleton[T CommonT] struct {
+	Suite[T]
+
+	name string
+	test func(t T)
+}
+
 type suite[T CommonT] interface {
 	// BeforeAll is called before all suite tests once.
 	// T is shared with a top-level suite test.
@@ -74,5 +81,4 @@ func (Suite[T]) AfterAll(t T) {
 	t.unwrap().reflection.Suite.Hooks.MissedAfterAll = true
 }
 
-//nolint:unused // sealed interface
 func (Suite[T]) private() {}

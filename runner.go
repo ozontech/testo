@@ -2,6 +2,7 @@ package testo
 
 import (
 	"fmt"
+	"path"
 	"reflect"
 	"runtime/debug"
 	"testing"
@@ -20,7 +21,55 @@ import (
 // cannot include (like exclamation mark), so that it won't collide with suite type name.
 const parallelWrapperTest = "testo!"
 
-// RunSuite will run the tests under the given suite.
+// Test constructs a new "test" ready to run as a native [testing] test.
+//
+//	func Test(t *testing.T) {
+//		t.Run("My awesome test", testo.Test(func(t T) {
+//			// your test goes here
+//		}))
+//	}
+//
+// This is syntax-sugar for a more verbose [RunTest] API:
+//
+//	func Test(t *testing.T) {
+//		t.Run("My awesome test", func(t *testing.T) {
+//			testo.RunTest(t, func(t T) {
+//				// your test goes here
+//			})
+//		})
+//	}
+func Test[T CommonT](f func(t T), options ...testoplugin.Option) func(t *testing.T) {
+	return func(t *testing.T) {
+		t.Helper()
+
+		RunTest(t, f, options...)
+	}
+}
+
+// RunTest runs a single test without a suite.
+//
+// Under the hood it constructs a special singleton suite with one test and calls [RunSuite].
+//
+// It also accepts options for the plugins which can be used to configure those plugins.
+// See [testoplugin.Option].
+//
+// RunTest reports whether f succeeded.
+func RunTest[T CommonT](
+	testingT TestingT,
+	f func(t T),
+	options ...testoplugin.Option,
+) bool {
+	testingT.Helper()
+
+	s := singleton[T]{
+		test: f,
+		name: path.Base(testingT.Name()),
+	}
+
+	return RunSuite(testingT, s, options...)
+}
+
+// RunSuite runs tests under a suite.
 //
 // Test is defined as a suite method in the form of "TestXXX" or "Test"
 // which accepts a single parameter of the same type as T passed to this function.
@@ -28,7 +77,7 @@ const parallelWrapperTest = "testo!"
 // It also accepts options for the plugins which can be used to configure those plugins.
 // See [testoplugin.Option].
 //
-// RunSuite reports whether all suite tests succeeded.
+// RunTest reports whether suite succeeded.
 func RunSuite[Suite suite[T], T CommonT](
 	testingT TestingT,
 	suite Suite,
@@ -109,13 +158,22 @@ type runner[Suite suite[T], T CommonT] struct {
 }
 
 func newRunner[Suite suite[T], T CommonT]() runner[Suite, T] {
+	name := reflectutil.NameOf[Suite]()
+	if name == reflectutil.NameOf[singleton[T]]() {
+		name = ""
+	}
+
 	return runner[Suite, T]{
-		suiteName: reflectutil.NameOf[Suite](),
+		suiteName: name,
 		testNamer: testnamer.New(),
 	}
 }
 
-func (r *runner[Suite, T]) collectTests(t TestingT, caller string) suiteTests[Suite, T] {
+func (r *runner[Suite, T]) collectTests(
+	t TestingT,
+	caller string,
+	suite Suite,
+) suiteTests[Suite, T] {
 	t.Helper()
 
 	collector := testsCollector[Suite, T]{
@@ -123,7 +181,7 @@ func (r *runner[Suite, T]) collectTests(t TestingT, caller string) suiteTests[Su
 		TestNamer:  r.testNamer,
 	}
 
-	return collector.Collect(t)
+	return collector.Collect(t, suite)
 }
 
 func (r *runner[Suite, T]) runSuite(
@@ -137,7 +195,7 @@ func (r *runner[Suite, T]) runSuite(
 
 	caller := r.testNamer.Name(testingT.Name(), r.suiteName)
 
-	tests := r.collectTests(testingT, caller)
+	tests := r.collectTests(testingT, caller, suite)
 
 	suiteInfo := testoreflect.SuiteInfo{
 		Name:     r.suiteName,
