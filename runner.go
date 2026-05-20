@@ -21,7 +21,7 @@ import (
 // cannot include (like exclamation mark), so that it won't collide with suite type name.
 const parallelWrapperTest = "testo!"
 
-// Test constructs a new "test" ready to run as a native [testing] test.
+// Test constructs a new test ready to run as a native [testing] test.
 //
 //	func Test(t *testing.T) {
 //		t.Run("My awesome test", testo.Test(func(t T) {
@@ -29,7 +29,7 @@ const parallelWrapperTest = "testo!"
 //		}))
 //	}
 //
-// This is syntax-sugar for a more verbose [RunTest] API:
+// This is a syntax sugar for a more verbose [RunTest] API:
 //
 //	func Test(t *testing.T) {
 //		t.Run("My awesome test", func(t *testing.T) {
@@ -48,10 +48,33 @@ func Test[T CommonT](f func(t T), options ...testoplugin.Option) func(t *testing
 
 // RunTest runs a single test without a suite.
 //
-// Under the hood it constructs a special singleton suite with one test and calls [RunSuite].
+// Under the hood it constructs a special singleton suite with one test, named
+// as the parent test, and calls [RunSuite].
 //
 // It also accepts options for the plugins which can be used to configure those plugins.
 // See [testoplugin.Option].
+//
+// For example:
+//
+//	func TestFoo(t *testing.T) {
+//		testo.RunTest(t, func(t T) {
+//			t.Log("Hi")
+//		})
+//	}
+//
+// In the example above plugins would see this test as a suite with a single TestFoo method.
+//
+// See also [Test] as a syntax sugar to run a named test:
+//
+//	func TestFoo(t *testing.T) {
+//		t.Run("named-test", testo.Test(func(t T) {
+//			t.Log("Hi")
+//		}))
+//	}
+//
+// NOTE: running this function more than once inside the same test
+// means rerunning the same test, not running several different tests.
+// If you want to run several suiteless tests from a single test, use [Test].
 //
 // RunTest reports whether f succeeded.
 func RunTest[T CommonT](
