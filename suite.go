@@ -1,5 +1,8 @@
 package testo
 
+// singleton is a special (virtual) suite with a single test.
+//
+// Used by [RunTest] & [Test] functions to invoke a single suiteless test.
 type singleton[T CommonT] struct {
 	Suite[T]
 

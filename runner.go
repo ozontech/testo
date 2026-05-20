@@ -77,7 +77,7 @@ func RunTest[T CommonT](
 // It also accepts options for the plugins which can be used to configure those plugins.
 // See [testoplugin.Option].
 //
-// RunTest reports whether suite succeeded.
+// RunSuite reports whether suite succeeded.
 func RunSuite[Suite suite[T], T CommonT](
 	testingT TestingT,
 	suite Suite,
