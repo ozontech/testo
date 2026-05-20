@@ -46,6 +46,8 @@ func RunSuite[Suite suite[T], T CommonT](
 // This is similar to [RunSuite] but designed to be called from Testo tests (suites & standalone tests).
 //
 // RunSubSuite reports whether all sub-suite tests succeeded.
+//
+// NOTE: this function may cause infinite loop if called within the same suite as passed to it.
 func RunSubSuite[Suite suite[Sub], Parent, Sub CommonT](
 	t Parent,
 	suite Suite,
