@@ -200,6 +200,10 @@ func (ParametrizedTestInfo) isTestInfo() {}
 
 // SuiteInfo is the information about suite.
 type SuiteInfo struct {
+	// Parent refers to the parent suite info.
+	// Non-nil value means that current suite is sub-suite.
+	Parent *SuiteInfo
+
 	// Name of this suite.
 	Name string
 
