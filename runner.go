@@ -29,7 +29,7 @@ const parallelWrapperTest = "testo!"
 //		}))
 //	}
 //
-// This is a syntax sugar for a more verbose [RunTest] API:
+// This is syntactic sugar for a more verbose [RunTest] API:
 //
 //	func Test(t *testing.T) {
 //		t.Run("My awesome test", func(t *testing.T) {
@@ -74,7 +74,7 @@ func Test[T CommonT](f func(t T), options ...testoplugin.Option) func(t *testing
 //
 // NOTE: running this function more than once inside the same test
 // means rerunning the same test, not running several different tests.
-// If you want to run several suiteless tests from a single test, use [Test].
+// If you want to run several suite-less tests from a single test, use [Test].
 //
 // RunTest reports whether f succeeded.
 func RunTest[T CommonT](

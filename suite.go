@@ -2,7 +2,7 @@ package testo
 
 // singleton is a special (virtual) suite with a single test.
 //
-// Used by [RunTest] & [Test] functions to invoke a single suiteless test.
+// Used by [RunTest] & [Test] functions to invoke a single suite-less test.
 type singleton[T CommonT] struct {
 	Suite[T]
 
@@ -23,7 +23,7 @@ type suite[T CommonT] interface {
 	// AfterEach is called after each suite test.
 	// T is shared with an actual test.
 	//
-	// WARN: this hook is defered to run at the end of the test.
+	// WARN: this hook is deferred to run at the end of the test.
 	// If that test has sub-tests marked as parallel,
 	// this hook will run BEFORE those sub-tests are finished.
 	//
