@@ -28,4 +28,4 @@
             --- PASS: TestMultiple/Second_test/#00/testo! (0.00s)
                 --- PASS: TestMultiple/Second_test/#00/testo!/Second_test (0.00s)
 PASS
-ok  	github.com/ozontech/testo/examples/08_suiteless	0.384s
+ok  	github.com/ozontech/testo/examples/09_suiteless	0.384s
