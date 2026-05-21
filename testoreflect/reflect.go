@@ -280,7 +280,7 @@ type RegularTestInfo struct {
 
 	// FuncPC is the program counter (PC) of this test function.
 	//
-	// NOTE: it may be empty (zero) in some cases, e.g. hooks and sub-tests.
+	// NOTE: it may be empty (zero) in some cases, e.g. hooks.
 	// Use with caution.
 	FuncPC uintptr
 }

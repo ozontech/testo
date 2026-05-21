@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Ability to run test sub-suites.
+- Provide FuncPC for sub-tests.
 
 ## [1.1.0] - 2026-05-20
 

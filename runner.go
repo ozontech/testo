@@ -96,6 +96,7 @@ func Run[T CommonT](
 					RawBaseName: name,
 					Level:       t.level(),
 					IsSubtest:   true,
+					FuncPC:      reflect.ValueOf(f).Pointer(),
 				}
 			},
 			options...,
