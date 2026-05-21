@@ -24,7 +24,7 @@ Add some flavor to your tests with
 - [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test.
 - [Test annotations](./examples/07_annotations/main_test.go) - attach static options to any test.
 - [Informative errors and traces](./examples/06_errors/main_test.go) - no need to guess what went wrong.
-- Sub-tests - support for nested tests.
+- Sub-tests & sub-suites - support for nested tests and nested suites.
 - Test reflection - deeply inspect test's meta-information.
 - Caching - key-value storage persistent between test runs.
 

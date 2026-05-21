@@ -43,7 +43,7 @@ func RunSuite[Suite suite[T], T CommonT](
 
 // RunSubSuite runs a sub-suite.
 //
-// This is similar to [RunSuite] but designed to be called from Testo tests (suites & standalone tests).
+// This is similar to [RunSuite] but designed to be called from other suites.
 //
 // RunSubSuite reports whether all sub-suite tests succeeded.
 //
