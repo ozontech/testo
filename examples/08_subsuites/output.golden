@@ -1,0 +1,17 @@
+=== RUN   Test
+=== RUN   Test/OuterSuite
+=== RUN   Test/OuterSuite/testo!
+=== RUN   Test/OuterSuite/testo!/Test
+=== RUN   Test/OuterSuite/testo!/Test/InnerSuite
+=== RUN   Test/OuterSuite/testo!/Test/InnerSuite/testo!
+=== RUN   Test/OuterSuite/testo!/Test/InnerSuite/testo!/Test
+    main_test.go:22: Hello from sub-suite!
+--- PASS: Test (0.00s)
+    --- PASS: Test/OuterSuite (0.00s)
+        --- PASS: Test/OuterSuite/testo! (0.00s)
+            --- PASS: Test/OuterSuite/testo!/Test (0.00s)
+                --- PASS: Test/OuterSuite/testo!/Test/InnerSuite (0.00s)
+                    --- PASS: Test/OuterSuite/testo!/Test/InnerSuite/testo! (0.00s)
+                        --- PASS: Test/OuterSuite/testo!/Test/InnerSuite/testo!/Test (0.00s)
+PASS
+ok  	github.com/ozontech/testo/examples/08_subsuites	0.666s

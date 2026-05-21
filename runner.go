@@ -38,7 +38,26 @@ func RunSuite[Suite suite[T], T CommonT](
 
 	r := newRunner[Suite]()
 
-	return r.runSuite(testingT, suite, options...)
+	return r.runSuite(testingT, suite, nil, options...)
+}
+
+// RunSubSuite runs a sub-suite.
+//
+// This is similar to [RunSuite] but designed to be called from other suites.
+//
+// RunSubSuite reports whether all sub-suite tests succeeded.
+//
+// NOTE: this function may cause infinite loop if called within the same suite as passed to it.
+func RunSubSuite[Suite suite[Sub], Parent, Sub CommonT](
+	t Parent,
+	suite Suite,
+	options ...testoplugin.Option,
+) bool {
+	t.Helper()
+
+	r := newRunner[Suite]()
+
+	return r.runSuite(t.unwrap().testingT, suite, &t.unwrap().reflection.Suite, options...)
 }
 
 // Run runs f as a subtest of t called name. It runs f in a separate goroutine
@@ -130,6 +149,7 @@ func (r *runner[Suite, T]) collectTests(t TestingT, caller string) suiteTests[Su
 func (r *runner[Suite, T]) runSuite(
 	testingT TestingT,
 	suite Suite,
+	parentSuite *testoreflect.SuiteInfo,
 	options ...testoplugin.Option,
 ) bool {
 	testingT.Helper()
@@ -141,6 +161,7 @@ func (r *runner[Suite, T]) runSuite(
 	tests := r.collectTests(testingT, caller)
 
 	suiteInfo := testoreflect.SuiteInfo{
+		Parent:   parentSuite,
 		Name:     r.suiteName,
 		Caller:   testingT.Name(),
 		TestingT: testingT,
@@ -198,6 +219,7 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 	s.BeforeAll(t)
 
 	suiteInfo := testoreflect.SuiteInfo{
+		Parent:   t.unwrap().reflection.Suite.Parent,
 		Name:     t.unwrap().reflection.Suite.Name,
 		Caller:   t.unwrap().reflection.Suite.Caller,
 		TestingT: t.unwrap().reflection.Suite.TestingT,
