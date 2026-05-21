@@ -38,11 +38,23 @@ const parallelWrapperTest = "testo!"
 //			})
 //		})
 //	}
-func Test[T CommonT](f func(t T), options ...testoplugin.Option) func(t *testing.T) {
+func Test[T CommonT](f func(t T), options ...testoplugin.Option) TestFunc {
 	return func(t *testing.T) {
 		t.Helper()
 
 		RunTest(t, f, options...)
+	}
+}
+
+type TestFunc func(t *testing.T)
+
+func (f TestFunc) Parallel() TestFunc {
+	return func(t *testing.T) {
+		t.Helper()
+
+		t.Parallel()
+
+		f(t)
 	}
 }
 
