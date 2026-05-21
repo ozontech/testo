@@ -6,6 +6,11 @@ name: Quality Assurance
     branches:
       - main
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
 
 # Cancel prior runs on the same branch when a new one starts
 concurrency:
