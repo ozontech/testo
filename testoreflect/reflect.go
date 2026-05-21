@@ -205,6 +205,7 @@ type SuiteInfo struct {
 	Parent *SuiteInfo
 
 	// Name of this suite.
+	// For suite-less tests this field is an empty string.
 	Name string
 
 	// Caller is the full test name from

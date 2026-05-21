@@ -108,6 +108,16 @@ func (t *T) Context() context.Context {
 // other parallel tests. When a test is run multiple times due to use of
 // -test.count or -test.cpu, multiple instances of a single test never run in
 // parallel with each other.
+//
+// NOTE: top-level calls to this function in [Test] or [RunTest] are effectively no-op.
+//
+//	func Test(t *testing.T) {
+//		t.Parallel() // call parallel there instead
+//
+//		testo.RunTest(t, func(t T) {
+//			t.Parallel() // no-op
+//		})
+//	}
 func (t *T) Parallel() {
 	t.Helper()
 
