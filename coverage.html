@@ -69,7 +69,7 @@
 				
 				<option value="file6">github.com/ozontech/testo/internal/testnamer/testnamer.go (94.1%)</option>
 				
-				<option value="file7">github.com/ozontech/testo/options.go (50.0%)</option>
+				<option value="file7">github.com/ozontech/testo/options.go (42.9%)</option>
 				
 				<option value="file8">github.com/ozontech/testo/plugin.go (97.0%)</option>
 				
@@ -1274,11 +1274,19 @@ var (
 //        func init() {
 //            testo.Options(myplugin.OutputDir("..."))
 //        }
-func Options(options ...testoplugin.Option) <span class="cov0" title="0">{
+//
+// It returns an empty struct to enable the following usage:
+//
+//        var _ = testo.Options(...)
+//
+// This is similar to [For] and slightly more concise than using init.
+func Options(options ...testoplugin.Option) struct{} <span class="cov0" title="0">{
         globalOptionsMutex.Lock()
         defer globalOptionsMutex.Unlock()
 
         globalOptions = append(globalOptions, options...)
+
+        return struct{}{}
 }</span>
 
 func getOptions() []testoplugin.Option <span class="cov10" title="5">{
