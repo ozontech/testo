@@ -26,7 +26,7 @@ var (
 //
 //	var _ = testo.Options(...)
 //
-// This is similar to [For] and slighlty more concise than using init.
+// This is similar to [For] and slightly more concise than using init.
 func Options(options ...testoplugin.Option) struct{} {
 	globalOptionsMutex.Lock()
 	defer globalOptionsMutex.Unlock()
