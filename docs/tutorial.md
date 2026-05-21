@@ -41,7 +41,8 @@ import (
 type T = *testo.T
 ```
 
-Now we need a Suite. A Suite must "inherit" `testo.Suite[T]` by embedding it.
+Now we need a Suite. Note, that it's possible to run tests without suites, more on that later.
+A Suite must "inherit" `testo.Suite[T]` by embedding it.
 
 ```go
 type Suite struct{ testo.Suite[T] }
@@ -324,3 +325,37 @@ func (*Suite) TestBoom(t T) {
 >
 > Pointers allow plugins to share their state with other plugins,
 > by pointing to the same memory location through pointers.
+
+## Running tests without suites
+
+It's possible:
+
+```go
+type T struct{
+    *testo.T
+    *ReverseTestsOrder
+    *OverrideLog
+    *AddNewMethods
+    *Timer
+}
+
+func TestFoo(t *testing.T) {
+    testo.RunSuite(t, func(t T) {
+        t.Log("Hello from testo!")
+    })
+}
+```
+
+Or, if you need to run several tests from a single "real" test:
+
+```go
+func TestFoo(t *testing.T) {
+    t.Run("FirstTest", testo.Test(func(t T) {
+        t.Log("1!")
+    }))
+
+    t.Run("SecondTest", testo.Test(func(t T) {
+        t.Log("2!")
+    }))
+}
+```
