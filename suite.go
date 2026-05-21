@@ -42,6 +42,8 @@ type suite[T CommonT] interface {
 	private()
 }
 
+var _ suite[*T] = (*Suite[*T])(nil)
+
 // Suite is the base suite that all user-defined
 // suites must embed.
 //

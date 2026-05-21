@@ -104,3 +104,29 @@ func BenchmarkCasesPermutations(b *testing.B) {
 		}
 	})
 }
+
+type SubSuiteParent struct {
+	Suite[*T]
+}
+
+func (s SubSuiteParent) Test(t *T) {
+	if !RunSubSuite(t, new(SubSuiteChild)) {
+		t.Fatal("run sub suite failed")
+	}
+}
+
+type SubSuiteChild struct{ Suite[*T] }
+
+func (s SubSuiteChild) Test(t *T) {
+	if reflect.TypeOf(Reflect(t).Suite.Parent.Value) != reflect.TypeFor[*SubSuiteParent]() {
+		t.Fatal("unexpected parent suite type")
+	}
+}
+
+func TestSubSuite(t *testing.T) {
+	t.Parallel()
+
+	if !RunSuite(t, new(SubSuiteParent)) {
+		t.Fatal("run suite failed")
+	}
+}

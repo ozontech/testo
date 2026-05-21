@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Ability to run tests without suites.
+## [1.2.0] - 2026-05-21
+
+### Added
+
+- Ability to run test sub-suites.
+- Provide FuncPC for sub-tests.
 
 ## [1.1.0] - 2026-05-20
 
@@ -35,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial stable version.
 
+[1.2.0]: https://github.com/ozontech/testo/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ozontech/testo/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/ozontech/testo/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ozontech/testo/releases/tag/v1.0.0

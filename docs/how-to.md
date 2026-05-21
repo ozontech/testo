@@ -239,3 +239,24 @@ go test . -run ./MySuite -testo.m TestFoo
 
 > [!TIP]
 > See also [Visual Studio Code extension](../vscode-extension) which does just that for you.
+
+## How to run sub-suites
+
+There a `testo.RunSubSuite` function for that:
+
+```go
+type OuterSuite struct{ testo.Suite[T] }
+
+func (OuterSuite) Test(t T) {
+	testo.RunSubSuite(t, new(InnerSuite))
+}
+
+type InnerSuite struct{ testo.Suite[T] }
+
+func (InnerSuite) Test(t T) {
+	t.Log("Hello from sub-suite!")
+}
+```
+
+> [!WARNING]
+> Running the same suite as sub-suite may cause infinite loop.
