@@ -76,12 +76,10 @@ func Test(t *testing.T) {
 Using `testo.Options`:
 
 ```go
-func init() {
-    testo.Options(
-        myplugin.SomeOption(),
-        otherplugin.OtherOption(42),
-    )
-}
+var _ = testo.Options(
+    myplugin.SomeOption(),
+    otherplugin.OtherOption(42),
+)
 
 func Test(t *testing.T) {
     // options are automatically passed to these RunSuite calls.
