@@ -73,7 +73,7 @@
 				
 				<option value="file8">github.com/ozontech/testo/plugin.go (97.0%)</option>
 				
-				<option value="file9">github.com/ozontech/testo/runner.go (89.7%)</option>
+				<option value="file9">github.com/ozontech/testo/runner.go (90.0%)</option>
 				
 				<option value="file10">github.com/ozontech/testo/suite.go (100.0%)</option>
 				
@@ -182,14 +182,14 @@ func annotate(id testID, options ...testoplugin.Option) <span class="cov5" title
         globalAnnotations[id] = append(globalAnnotations[id], options...)
 }</span>
 
-func annotationsFor(id testID) []testoplugin.Option <span class="cov9" title="15">{
+func annotationsFor(id testID) []testoplugin.Option <span class="cov9" title="17">{
         globalAnnotationsMu.RLock()
         defer globalAnnotationsMu.RUnlock()
 
         return slices.Clone(globalAnnotations[id])
 }</span>
 
-func getID[Suite any](test reflect.Value) testID <span class="cov10" title="19">{
+func getID[Suite any](test reflect.Value) testID <span class="cov10" title="21">{
         suiteName := reflectutil.NameOf[Suite]()
 
         name := runtime.FuncForPC(test.Pointer()).Name()
@@ -255,13 +255,13 @@ func (t plannedSuiteTest[Suite, T]) Annotations() []testoplugin.Option <span cla
 //        TestFoo    =&gt; true
 //        Test       =&gt; true
 //        TestfooBar =&gt; false
-func isTest(name, prefix string) bool <span class="cov10" title="46">{
-        if !strings.HasPrefix(name, prefix) </span><span class="cov9" title="36">{
+func isTest(name, prefix string) bool <span class="cov10" title="66">{
+        if !strings.HasPrefix(name, prefix) </span><span class="cov9" title="54">{
                 return false
         }</span>
 
         // "Test" is ok
-        <span class="cov6" title="10">if len(name) == len(prefix) </span><span class="cov2" title="2">{
+        <span class="cov6" title="12">if len(name) == len(prefix) </span><span class="cov3" title="4">{
                 return true
         }</span>
 
@@ -270,29 +270,29 @@ func isTest(name, prefix string) bool <span class="cov10" title="46">{
         return !unicode.IsLower(r)</span>
 }
 
-func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase[Suite, T] <span class="cov4" title="4">{
+func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase[Suite, T] <span class="cov4" title="6">{
         tb.Helper()
 
         vt := reflect.TypeFor[Suite]()
 
         cases := make(map[string]suiteCase[Suite, T])
 
-        for i := range vt.NumMethod() </span><span class="cov8" title="26">{
+        for i := range vt.NumMethod() </span><span class="cov8" title="36">{
                 method := vt.Method(i)
 
                 const prefix = "Cases"
 
-                if !isTest(method.Name, prefix) </span><span class="cov8" title="22">{
+                if !isTest(method.Name, prefix) </span><span class="cov8" title="32">{
                         continue</span>
                 }
 
-                <span class="cov4" title="4">name := strings.TrimPrefix(method.Name, prefix)
+                <span class="cov3" title="4">name := strings.TrimPrefix(method.Name, prefix)
 
                 if name == "" </span><span class="cov0" title="0">{
                         continue</span>
                 }
 
-                <span class="cov4" title="4">isValidIn := method.Type.NumIn() == 1
+                <span class="cov3" title="4">isValidIn := method.Type.NumIn() == 1
                 isValidOut := method.Type.NumOut() == 1 &amp;&amp; method.Type.Out(0).Kind() == reflect.Slice
 
                 if !isValidIn || !isValidOut </span><span class="cov0" title="0">{
@@ -302,19 +302,19 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
                         )
                 }</span>
 
-                <span class="cov4" title="4">cases[name] = suiteCase[Suite, T]{
+                <span class="cov3" title="4">cases[name] = suiteCase[Suite, T]{
                         Provides: method.Type.Out(0).Elem(),
-                        Func: func(s Suite) []reflect.Value </span><span class="cov4" title="4">{
+                        Func: func(s Suite) []reflect.Value </span><span class="cov3" title="4">{
                                 var suite reflect.Value
 
                                 if method.Type.In(0).Kind() == reflect.Pointer &amp;&amp;
                                         reflect.TypeOf(s).Kind() != reflect.Pointer </span><span class="cov0" title="0">{
                                         suite = reflect.ValueOf(&amp;s)
-                                }</span> else<span class="cov4" title="4"> {
+                                }</span> else<span class="cov3" title="4"> {
                                         suite = reflect.ValueOf(s)
                                 }</span>
 
-                                <span class="cov4" title="4">slice := method.Func.Call([]reflect.Value{suite})[0]
+                                <span class="cov3" title="4">slice := method.Func.Call([]reflect.Value{suite})[0]
 
                                 values := make([]reflect.Value, 0, slice.Len())
 
@@ -324,12 +324,12 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
                                         values = append(values, v)
                                 }</span>
 
-                                <span class="cov4" title="4">return values</span>
+                                <span class="cov3" title="4">return values</span>
                         },
                 }
         }
 
-        <span class="cov4" title="4">return cases</span>
+        <span class="cov4" title="6">return cases</span>
 }
 
 // suiteTests contains all the suite tests.
@@ -362,23 +362,23 @@ type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 //
 // Suite instance is required here to get
 // parameter cases (CasesXXX funcs), not to invoke the actual tests.
-func (st suiteTests[Suite, T]) Collect(s Suite) []annotatedSuiteTest[Suite, T] <span class="cov3" title="3">{
+func (st suiteTests[Suite, T]) Collect(s Suite) []annotatedSuiteTest[Suite, T] <span class="cov4" title="5">{
         tests := make([]annotatedSuiteTest[Suite, T], 0, len(st.Regular))
 
-        for _, r := range st.Regular </span><span class="cov4" title="5">{
+        for _, r := range st.Regular </span><span class="cov5" title="7">{
                 tests = append(tests, annotatedSuiteTest[Suite, T]{
                         suiteTest: r,
                         Options:   annotationsFor(getID[Suite](reflect.ValueOf(r.Run))),
                 })
         }</span>
 
-        <span class="cov3" title="3">for _, p := range st.Parametrized </span><span class="cov1" title="1">{
+        <span class="cov4" title="5">for _, p := range st.Parametrized </span><span class="cov1" title="1">{
                 cases := p.Tests(s)
 
                 tests = append(tests, cases...)
         }</span>
 
-        <span class="cov3" title="3">return tests</span>
+        <span class="cov4" title="5">return tests</span>
 }
 
 type testsCollector[Suite suite[T], T CommonT] struct {
@@ -386,14 +386,14 @@ type testsCollector[Suite suite[T], T CommonT] struct {
         TestNamer  *testnamer.Namer
 }
 
-func (tc *testsCollector[Suite, T]) testName(base string) string <span class="cov6" title="11">{
+func (tc *testsCollector[Suite, T]) testName(base string) string <span class="cov6" title="13">{
         return tc.TestNamer.Name(tc.CallerName, base)
 }</span>
 
 //nolint:cyclop,funlen,gocognit // splitting it would make it even more complex
 func (tc *testsCollector[Suite, T]) Collect(
         tb testing.TB,
-) suiteTests[Suite, T] <span class="cov3" title="3">{
+) suiteTests[Suite, T] <span class="cov4" title="5">{
         tb.Helper()
 
         cases := suiteCasesOf[Suite](tb)
@@ -402,14 +402,14 @@ func (tc *testsCollector[Suite, T]) Collect(
 
         var tests suiteTests[Suite, T]
 
-        for i := range suite.NumMethod() </span><span class="cov8" title="20">{
+        for i := range suite.NumMethod() </span><span class="cov8" title="30">{
                 method := suite.Method(i)
 
-                if !isTest(method.Name, "Test") </span><span class="cov7" title="14">{
+                if !isTest(method.Name, "Test") </span><span class="cov7" title="22">{
                         continue</span>
                 }
 
-                <span class="cov5" title="6">raiseWrongSignatureError := func() </span><span class="cov0" title="0">{
+                <span class="cov5" title="8">raiseWrongSignatureError := func() </span><span class="cov0" title="0">{
                         tb.Helper()
 
                         //nolint:lll // it's a long message
@@ -421,28 +421,28 @@ func (tc *testsCollector[Suite, T]) Collect(
                         )
                 }</span>
 
-                <span class="cov5" title="6">if method.Type.NumOut() != 0 </span><span class="cov0" title="0">{
+                <span class="cov5" title="8">if method.Type.NumOut() != 0 </span><span class="cov0" title="0">{
                         raiseWrongSignatureError()
                 }</span>
 
-                <span class="cov5" title="6">if method.Type.NumIn() &lt; 2 </span><span class="cov0" title="0">{
+                <span class="cov5" title="8">if method.Type.NumIn() &lt; 2 </span><span class="cov0" title="0">{
                         raiseWrongSignatureError()
                 }</span>
 
-                <span class="cov5" title="6">if method.Type.In(1) != reflect.TypeFor[T]() </span><span class="cov0" title="0">{
+                <span class="cov5" title="8">if method.Type.In(1) != reflect.TypeFor[T]() </span><span class="cov0" title="0">{
                         raiseWrongSignatureError()
                 }</span>
 
-                <span class="cov5" title="6">switch method.Type.NumIn() </span>{
+                <span class="cov5" title="8">switch method.Type.NumIn() </span>{
                 default:<span class="cov0" title="0">
                         raiseWrongSignatureError()</span>
 
-                case 2:<span class="cov4" title="5"> // regular test - (Suite, T)
+                case 2:<span class="cov5" title="7"> // regular test - (Suite, T)
                         if !flagMethod.MatchString(method.Name) </span><span class="cov0" title="0">{
                                 continue</span>
                         }
 
-                        <span class="cov4" title="5">tests.Regular = append(tests.Regular, suiteTest[Suite, T]{
+                        <span class="cov5" title="7">tests.Regular = append(tests.Regular, suiteTest[Suite, T]{
                                 Name: method.Name,
                                 Info: testoreflect.RegularTestInfo{
                                         Name:        tc.testName(method.Name),
@@ -502,7 +502,7 @@ func (tc *testsCollector[Suite, T]) Collect(
                 }
         }
 
-        <span class="cov3" title="3">return tests</span>
+        <span class="cov4" title="5">return tests</span>
 }
 
 type suiteTestParametrized[Suite suite[T], T CommonT] struct {
@@ -542,7 +542,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 
                         tests := make([]annotatedSuiteTest[Suite, T], 0, len(permutations))
 
-                        for i, params := range permutations </span><span class="cov5" title="6">{
+                        for i, params := range permutations </span><span class="cov4" title="6">{
                                 paramValue := reflect.New(method.Type.In(2)).Elem()
 
                                 caseParams := make(map[string]any, len(params))
@@ -553,7 +553,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
                                         caseParams[paramName] = value.Interface()
                                 }</span>
 
-                                <span class="cov5" title="6">tests = append(tests, annotatedSuiteTest[Suite, T]{
+                                <span class="cov4" title="6">tests = append(tests, annotatedSuiteTest[Suite, T]{
                                         suiteTest: suiteTest[Suite, T]{
                                                 Name: method.Name,
                                                 Info: testoreflect.ParametrizedTestInfo{
@@ -564,7 +564,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
                                                         Params:     caseParams,
                                                         FuncPC:     method.Func.Pointer(),
                                                 },
-                                                Run: func(s Suite, t T) </span><span class="cov5" title="6">{
+                                                Run: func(s Suite, t T) </span><span class="cov4" title="6">{
                                                         method.Func.Call([]reflect.Value{
                                                                 reflect.ValueOf(s),
                                                                 reflect.ValueOf(t),
@@ -582,25 +582,25 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 }
 
 // casesPermutations returns a determenistic permutations of the given cases values for test.
-func casesPermutations[V any](v map[string][]V) []map[string]V <span class="cov4" title="4">{
+func casesPermutations[V any](v map[string][]V) []map[string]V <span class="cov3" title="4">{
         permutationsCount := 1
         keys := make([]string, 0, len(v))
 
-        for key, values := range v </span><span class="cov5" title="6">{
+        for key, values := range v </span><span class="cov4" title="6">{
                 keys = append(keys, key)
 
                 permutationsCount *= len(values)
         }</span>
 
         // Sort keys for determenistic output
-        <span class="cov4" title="4">slices.Sort(keys)
+        <span class="cov3" title="4">slices.Sort(keys)
 
         permutations := make([]map[string]V, 0, permutationsCount)
 
         var generatePermutations func(current map[string]V, index int)
 
-        generatePermutations = func(current map[string]V, index int) </span><span class="cov8" title="20">{
-                if index == len(keys) </span><span class="cov6" title="9">{
+        generatePermutations = func(current map[string]V, index int) </span><span class="cov7" title="20">{
+                if index == len(keys) </span><span class="cov5" title="9">{
                         permutations = append(permutations, maps.Clone(current))
 
                         return
@@ -608,13 +608,13 @@ func casesPermutations[V any](v map[string][]V) []map[string]V <span class="cov4
 
                 <span class="cov6" title="11">key := keys[index]
 
-                for _, val := range v[key] </span><span class="cov7" title="16">{
+                for _, val := range v[key] </span><span class="cov6" title="16">{
                         current[key] = val
                         generatePermutations(current, index+1)
                 }</span>
         }
 
-        <span class="cov4" title="4">current := make(map[string]V)
+        <span class="cov3" title="4">current := make(map[string]V)
 
         generatePermutations(current, 0)
 
@@ -639,7 +639,7 @@ func construct[T CommonT](
         parent *T,
         fill func(t *testoT),
         options ...testoplugin.Option,
-) T <span class="cov6" title="20">{
+) T <span class="cov6" title="24">{
         t.Helper()
 
         seed := testoT{
@@ -648,11 +648,11 @@ func construct[T CommonT](
                 levelOptions: options,
         }
 
-        if parent != nil </span><span class="cov5" title="13">{
+        if parent != nil </span><span class="cov5" title="15">{
                 seed.parent = (*parent).unwrap()
         }</span>
 
-        <span class="cov6" title="20">if fill != nil </span><span class="cov5" title="15">{
+        <span class="cov6" title="24">if fill != nil </span><span class="cov6" title="19">{
                 fill(&amp;seed)
         }</span>
 
@@ -662,16 +662,16 @@ func construct[T CommonT](
         //
         // However, parent is always a concrete value,
         // so, if present, we extract that type from it.
-        <span class="cov6" title="20">realType := reflect.TypeFor[T]()
+        <span class="cov6" title="24">realType := reflect.TypeFor[T]()
 
-        if parent != nil </span><span class="cov5" title="13">{
+        if parent != nil </span><span class="cov5" title="15">{
                 rv := reflect.ValueOf(*parent)
 
                 realType = rv.Type()
         }</span>
 
         // special case when T is *testo.T
-        <span class="cov6" title="20">if realType == reflect.TypeFor[*testoT]() </span><span class="cov2" title="2">{
+        <span class="cov6" title="24">if realType == reflect.TypeFor[*testoT]() </span><span class="cov4" title="6">{
                 return any(&amp;seed).(T)
         }</span>
 
@@ -738,7 +738,7 @@ func construct[T CommonT](
 
         <span class="cov6" title="17">specsStack := stack.New[typedPlugin]()
 
-        for pluginType, pluginValue := range seed.plugins </span><span class="cov7" title="34">{
+        for pluginType, pluginValue := range seed.plugins </span><span class="cov7" title="35">{
                 specsStack.Push(typedPlugin{
                         Plugin: pluginValue,
                         Type:   pluginType,
@@ -787,7 +787,7 @@ func setPlugins(
         v reflect.Value,
         plugins map[reflect.Type]testoplugin.Plugin,
         specs *stack.Stack[typedPlugin],
-) <span class="cov9" title="113">{
+) <span class="cov9" title="114">{
         if plugin, ok := plugins[v.Type().Elem()]; ok </span><span class="cov8" title="63">{
                 elem := v.Elem()
 
@@ -808,14 +808,14 @@ func setPlugins(
                 })</span>
         }
 
-        <span class="cov9" title="113">v = reflectutil.Elem(v)
+        <span class="cov9" title="114">v = reflectutil.Elem(v)
 
         if v.Kind() != reflect.Struct </span><span class="cov0" title="0">{
                 return
         }</span>
 
         // special case - we do not go deeper than that.
-        <span class="cov9" title="113">if v.Type() == reflect.TypeFor[T]() </span><span class="cov8" title="60">{
+        <span class="cov9" title="114">if v.Type() == reflect.TypeFor[T]() </span><span class="cov8" title="61">{
                 return
         }</span>
 
@@ -928,16 +928,16 @@ type canElem[Self any] interface {
 // Nested pointers are also supported - e.g. given "****value" it will return "value".
 //
 // Non-pointer values will be returned as is.
-func Elem[T canElem[T]](v T) T <span class="cov8" title="162">{
-        for v.Kind() == reflect.Pointer </span><span class="cov8" title="226">{
+func Elem[T canElem[T]](v T) T <span class="cov8" title="167">{
+        for v.Kind() == reflect.Pointer </span><span class="cov8" title="231">{
                 v = v.Elem()
         }</span>
 
-        <span class="cov8" title="162">return v</span>
+        <span class="cov8" title="167">return v</span>
 }
 
 // NameOf returns name of the underlying type T.
-func NameOf[T any]() string <span class="cov5" title="25">{
+func NameOf[T any]() string <span class="cov5" title="29">{
         t := reflect.TypeFor[T]()
 
         return Elem(t).Name()
@@ -1077,7 +1077,7 @@ func (s *Stack[T]) Len() int <span class="cov0" title="0">{
         return len(s.values)
 }</span>
 
-func (s *Stack[T]) Push(v T) <span class="cov9" title="103">{
+func (s *Stack[T]) Push(v T) <span class="cov9" title="104">{
         s.values = append(s.values, v)
 }</span>
 
@@ -1119,39 +1119,39 @@ type Namer struct {
         subNames map[string]int32
 }
 
-func New() *Namer <span class="cov3" title="5">{
+func New() *Namer <span class="cov4" title="7">{
         return &amp;Namer{
                 subNames: make(map[string]int32),
         }
 }</span>
 
-func (m *Namer) Name(parent, subname string) string <span class="cov7" title="40">{
+func (m *Namer) Name(parent, subname string) string <span class="cov7" title="44">{
         name := subname
 
         m.mu.Lock()
         defer m.mu.Unlock()
 
-        if parent != "" </span><span class="cov7" title="40">{
+        if parent != "" </span><span class="cov7" title="44">{
                 name = m.unique(parent, rewrite(subname))
         }</span>
 
-        <span class="cov7" title="40">return name</span>
+        <span class="cov7" title="44">return name</span>
 }
 
 // unique creates a unique name for the given parent and subname by affixing it
 // with one or more counts, if necessary.
-func (m *Namer) unique(parent, subname string) string <span class="cov7" title="64">{
+func (m *Namer) unique(parent, subname string) string <span class="cov7" title="68">{
         base := parent + "/" + subname
 
-        for </span><span class="cov8" title="70">{
+        for </span><span class="cov7" title="74">{
                 n := m.subNames[base]
                 if n &lt; 0 </span><span class="cov0" title="0">{
                         panic("subtest count overflow")</span>
                 }
 
-                <span class="cov8" title="70">m.subNames[base] = n + 1
+                <span class="cov7" title="74">m.subNames[base] = n + 1
 
-                if n == 0 &amp;&amp; subname != "" </span><span class="cov7" title="39">{
+                if n == 0 &amp;&amp; subname != "" </span><span class="cov7" title="43">{
                         prefix, nn := parseSubtestNumber(base)
                         if len(prefix) &lt; len(base) &amp;&amp; nn &lt; m.subNames[prefix] </span><span class="cov3" title="4">{
                                 // This test is explicitly named like "parent/subname#NN",
@@ -1160,7 +1160,7 @@ func (m *Namer) unique(parent, subname string) string <span class="cov7" title="
                                 continue</span>
                         }
 
-                        <span class="cov6" title="35">return base</span>
+                        <span class="cov6" title="39">return base</span>
                 }
 
                 <span class="cov6" title="31">name := fmt.Sprintf("%s#%02d", base, n)
@@ -1177,9 +1177,9 @@ func (m *Namer) unique(parent, subname string) string <span class="cov7" title="
 
 // parseSubtestNumber splits a subtest name into a "#%02d"-formatted int32
 // suffix (if present), and a prefix preceding that suffix (always).
-func parseSubtestNumber(s string) (prefix string, nn int32) <span class="cov7" title="39">{
+func parseSubtestNumber(s string) (prefix string, nn int32) <span class="cov7" title="43">{
         i := strings.LastIndex(s, "#")
-        if i &lt; 0 </span><span class="cov6" title="24">{
+        if i &lt; 0 </span><span class="cov6" title="28">{
                 return s, 0
         }</span>
 
@@ -1208,10 +1208,10 @@ func parseSubtestNumber(s string) (prefix string, nn int32) <span class="cov7" t
 
 // rewrite rewrites a subname to having only printable characters and no white
 // space.
-func rewrite(s string) string <span class="cov7" title="40">{
+func rewrite(s string) string <span class="cov7" title="44">{
         var b []byte
 
-        for _, r := range s </span><span class="cov10" title="230">{
+        for _, r := range s </span><span class="cov10" title="265">{
                 switch </span>{
                 case isSpace(r):<span class="cov3" title="4">
                         b = append(b, '_')</span>
@@ -1221,16 +1221,16 @@ func rewrite(s string) string <span class="cov7" title="40">{
 
                         b = append(b, s[1:len(s)-1]...)</span>
 
-                default:<span class="cov9" title="224">
+                default:<span class="cov9" title="259">
                         b = append(b, string(r)...)</span>
                 }
         }
 
-        <span class="cov7" title="40">return string(b)</span>
+        <span class="cov7" title="44">return string(b)</span>
 }
 
-func isSpace(r rune) bool <span class="cov10" title="230">{
-        if r &lt; 0x2000 </span><span class="cov9" title="229">{
+func isSpace(r rune) bool <span class="cov10" title="265">{
+        if r &lt; 0x2000 </span><span class="cov9" title="264">{
                 switch r </span>{
                 // Note: not the same as Unicode Z class.
                 case '\t', '\n', '\v', '\f', '\r', ' ', 0x85, 0xA0, 0x1680:<span class="cov3" title="4">
@@ -1247,7 +1247,7 @@ func isSpace(r rune) bool <span class="cov10" title="230">{
                 }
         }
 
-        <span class="cov9" title="226">return false</span>
+        <span class="cov9" title="261">return false</span>
 }
 </pre>
 		
@@ -1281,7 +1281,7 @@ func Options(options ...testoplugin.Option) <span class="cov0" title="0">{
         globalOptions = append(globalOptions, options...)
 }</span>
 
-func getOptions() []testoplugin.Option <span class="cov10" title="3">{
+func getOptions() []testoplugin.Option <span class="cov10" title="5">{
         globalOptionsMutex.RLock()
         defer globalOptionsMutex.RUnlock()
 
@@ -1555,12 +1555,31 @@ func RunSuite[Suite suite[T], T CommonT](
         testingT TestingT,
         suite Suite,
         options ...testoplugin.Option,
-) bool <span class="cov3" title="3">{
+) bool <span class="cov4" title="4">{
         testingT.Helper()
 
         r := newRunner[Suite]()
 
-        return r.runSuite(testingT, suite, options...)
+        return r.runSuite(testingT, suite, nil, options...)
+}</span>
+
+// RunSubSuite runs a sub-suite.
+//
+// This is similar to [RunSuite] but designed to be called from other suites.
+//
+// RunSubSuite reports whether all sub-suite tests succeeded.
+//
+// NOTE: this function may cause infinite loop if called within the same suite as passed to it.
+func RunSubSuite[Suite suite[Sub], Parent, Sub CommonT](
+        t Parent,
+        suite Suite,
+        options ...testoplugin.Option,
+) bool <span class="cov1" title="1">{
+        t.Helper()
+
+        r := newRunner[Suite]()
+
+        return r.runSuite(t.unwrap().testingT, suite, &amp;t.unwrap().reflection.Suite, options...)
 }</span>
 
 // Run runs f as a subtest of t called name. It runs f in a separate goroutine
@@ -1631,14 +1650,14 @@ type runner[Suite suite[T], T CommonT] struct {
         testNamer *testnamer.Namer
 }
 
-func newRunner[Suite suite[T], T CommonT]() runner[Suite, T] <span class="cov3" title="3">{
+func newRunner[Suite suite[T], T CommonT]() runner[Suite, T] <span class="cov4" title="5">{
         return runner[Suite, T]{
                 suiteName: reflectutil.NameOf[Suite](),
                 testNamer: testnamer.New(),
         }
 }</span>
 
-func (r *runner[Suite, T]) collectTests(t TestingT, caller string) suiteTests[Suite, T] <span class="cov3" title="3">{
+func (r *runner[Suite, T]) collectTests(t TestingT, caller string) suiteTests[Suite, T] <span class="cov4" title="5">{
         t.Helper()
 
         collector := testsCollector[Suite, T]{
@@ -1652,8 +1671,9 @@ func (r *runner[Suite, T]) collectTests(t TestingT, caller string) suiteTests[Su
 func (r *runner[Suite, T]) runSuite(
         testingT TestingT,
         suite Suite,
+        parentSuite *testoreflect.SuiteInfo,
         options ...testoplugin.Option,
-) bool <span class="cov3" title="3">{
+) bool <span class="cov4" title="5">{
         testingT.Helper()
 
         options = append(getOptions(), options...)
@@ -1663,19 +1683,20 @@ func (r *runner[Suite, T]) runSuite(
         tests := r.collectTests(testingT, caller)
 
         suiteInfo := testoreflect.SuiteInfo{
+                Parent:   parentSuite,
                 Name:     r.suiteName,
                 Caller:   testingT.Name(),
                 TestingT: testingT,
                 Value:    suite,
         }
 
-        return testingT.Run(r.suiteName, func(testingT *testing.T) </span><span class="cov3" title="3">{
+        return testingT.Run(r.suiteName, func(testingT *testing.T) </span><span class="cov4" title="5">{
                 testingT.Helper()
 
                 t := construct[T](
                         testingT,
                         nil,
-                        func(t *testoT) </span><span class="cov3" title="3">{
+                        func(t *testoT) </span><span class="cov4" title="5">{
                                 t.testNamer = r.testNamer
                                 t.reflection.Suite = suiteInfo
                                 t.reflection.Test = testoreflect.RegularTestInfo{
@@ -1686,13 +1707,13 @@ func (r *runner[Suite, T]) runSuite(
                         options...,
                 )
 
-                <span class="cov3" title="3">t.unwrap().logPlugins()
+                <span class="cov4" title="5">t.unwrap().logPlugins()
 
                 r.runSuiteTests(t, suite, tests)</span>
         })
 }
 
-func runHook(t testing.TB, h testoplugin.Hook) <span class="cov10" title="52">{
+func runHook(t testing.TB, h testoplugin.Hook) <span class="cov10" title="60">{
         t.Helper()
 
         if h.Func != nil </span><span class="cov9" title="48">{
@@ -1700,26 +1721,27 @@ func runHook(t testing.TB, h testoplugin.Hook) <span class="cov10" title="52">{
         }</span>
 }
 
-func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T]) <span class="cov3" title="3">{
+func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T]) <span class="cov4" title="5">{
         t.Helper()
 
-        defer func() </span><span class="cov3" title="3">{
-                if !t.Skipped() </span><span class="cov3" title="3">{
+        defer func() </span><span class="cov4" title="5">{
+                if !t.Skipped() </span><span class="cov4" title="5">{
                         runHook(t, t.unwrap().spec.Hooks.AfterAll)
                 }</span>
         }()
 
-        <span class="cov3" title="3">runHook(t, t.unwrap().spec.Hooks.BeforeAll)
+        <span class="cov4" title="5">runHook(t, t.unwrap().spec.Hooks.BeforeAll)
 
-        defer func() </span><span class="cov3" title="3">{
-                if !t.Skipped() </span><span class="cov3" title="3">{
+        defer func() </span><span class="cov4" title="5">{
+                if !t.Skipped() </span><span class="cov4" title="5">{
                         s.AfterAll(t)
                 }</span>
         }()
 
-        <span class="cov3" title="3">s.BeforeAll(t)
+        <span class="cov4" title="5">s.BeforeAll(t)
 
         suiteInfo := testoreflect.SuiteInfo{
+                Parent:   t.unwrap().reflection.Suite.Parent,
                 Name:     t.unwrap().reflection.Suite.Name,
                 Caller:   t.unwrap().reflection.Suite.Caller,
                 TestingT: t.unwrap().reflection.Suite.TestingT,
@@ -1733,15 +1755,15 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
                 tests.Collect(s),
         )
 
-        t.unwrap().testingT.Run(parallelWrapperTest, func(testingT *testing.T) </span><span class="cov3" title="3">{
+        t.unwrap().testingT.Run(parallelWrapperTest, func(testingT *testing.T) </span><span class="cov4" title="5">{
                 testingT.Helper()
 
-                for _, test := range allTests </span><span class="cov6" title="11">{
-                        testingT.Run(test.Name, func(testingT *testing.T) </span><span class="cov6" title="11">{
+                for _, test := range allTests </span><span class="cov6" title="13">{
+                        testingT.Run(test.Name, func(testingT *testing.T) </span><span class="cov6" title="13">{
                                 innerT := construct(
                                         testingT,
                                         &amp;t,
-                                        func(t *testoT) </span><span class="cov6" title="11">{
+                                        func(t *testoT) </span><span class="cov6" title="13">{
                                                 t.testNamer = r.testNamer
                                                 t.reflection.Suite = suiteInfo
                                                 t.reflection.Test = test.Info
@@ -1749,7 +1771,7 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
                                         test.Options...,
                                 )
 
-                                <span class="cov6" title="11">r.runSuiteTest(
+                                <span class="cov6" title="13">r.runSuiteTest(
                                         innerT,
                                         s,
                                         test.suiteTest,
@@ -1763,10 +1785,10 @@ func (r *runner[Suite, T]) runSuiteTest(
         t T,
         s Suite,
         test suiteTest[Suite, T],
-) <span class="cov6" title="11">{
+) <span class="cov6" title="13">{
         t.Helper()
 
-        defer func() </span><span class="cov6" title="11">{
+        defer func() </span><span class="cov6" title="13">{
                 if r := recover(); r != nil </span><span class="cov0" title="0">{
                         trace := string(debug.Stack())
 
@@ -1779,7 +1801,7 @@ func (r *runner[Suite, T]) runSuiteTest(
                 }</span>
         }()
 
-        <span class="cov6" title="11">defer runHook(t, t.unwrap().spec.Hooks.AfterEach)
+        <span class="cov6" title="13">defer runHook(t, t.unwrap().spec.Hooks.AfterEach)
 
         runHook(t, t.unwrap().spec.Hooks.BeforeEach)
 
@@ -1794,27 +1816,27 @@ func (r *runner[Suite, T]) applyPlan(
         t T,
         suiteInfo testoreflect.SuiteInfo,
         tests []annotatedSuiteTest[Suite, T],
-) []annotatedSuiteTest[Suite, T] <span class="cov3" title="3">{
+) []annotatedSuiteTest[Suite, T] <span class="cov4" title="5">{
         t.Helper()
 
         plannedTests := make([]testoplugin.PlannedTest, 0, len(tests))
 
-        for _, t := range tests </span><span class="cov6" title="11">{
+        for _, t := range tests </span><span class="cov6" title="13">{
                 plannedTests = append(plannedTests, plannedSuiteTest[Suite, T]{t})
         }</span>
 
-        <span class="cov3" title="3">if prepare := t.unwrap().spec.Plan.Prepare; prepare != nil </span><span class="cov2" title="2">{
+        <span class="cov4" title="5">if prepare := t.unwrap().spec.Plan.Prepare; prepare != nil </span><span class="cov2" title="2">{
                 prepare(suiteInfo, &amp;plannedTests)
         }</span>
 
-        <span class="cov3" title="3">testsToReturn := make([]annotatedSuiteTest[Suite, T], 0, len(plannedTests))
+        <span class="cov4" title="5">testsToReturn := make([]annotatedSuiteTest[Suite, T], 0, len(plannedTests))
 
-        for _, t := range plannedTests </span><span class="cov6" title="11">{
+        for _, t := range plannedTests </span><span class="cov6" title="13">{
                 if t == nil </span><span class="cov0" title="0">{
                         continue</span>
                 }
 
-                <span class="cov6" title="11">planned, ok := t.(plannedSuiteTest[Suite, T])
+                <span class="cov6" title="13">planned, ok := t.(plannedSuiteTest[Suite, T])
                 if !ok </span><span class="cov0" title="0">{
                         // must be unreachable because of "DoNotImplement" directive.
                         panic(fmt.Sprintf(
@@ -1823,10 +1845,10 @@ func (r *runner[Suite, T]) applyPlan(
                         ))</span>
                 }
 
-                <span class="cov6" title="11">testsToReturn = append(testsToReturn, planned.inner)</span>
+                <span class="cov6" title="13">testsToReturn = append(testsToReturn, planned.inner)</span>
         }
 
-        <span class="cov3" title="3">return testsToReturn</span>
+        <span class="cov4" title="5">return testsToReturn</span>
 }
 </pre>
 		
@@ -1864,6 +1886,8 @@ type suite[T CommonT] interface {
         private()
 }
 
+var _ suite[*T] = (*Suite[*T])(nil)
+
 // Suite is the base suite that all user-defined
 // suites must embed.
 //
@@ -1887,22 +1911,22 @@ type Suite[T CommonT] struct {
 }
 
 // BeforeAll hook.
-func (Suite[T]) BeforeAll(t T) <span class="cov8" title="1">{
+func (Suite[T]) BeforeAll(t T) <span class="cov10" title="3">{
         t.unwrap().reflection.Suite.Hooks.MissedBeforeAll = true
 }</span>
 
 // BeforeEach hook.
-func (Suite[T]) BeforeEach(t T) <span class="cov8" title="1">{
+func (Suite[T]) BeforeEach(t T) <span class="cov10" title="3">{
         t.unwrap().reflection.Suite.Hooks.MissedBeforeEach = true
 }</span>
 
 // AfterEach hook.
-func (Suite[T]) AfterEach(t T) <span class="cov8" title="1">{
+func (Suite[T]) AfterEach(t T) <span class="cov10" title="3">{
         t.unwrap().reflection.Suite.Hooks.MissedAfterEach = true
 }</span>
 
 // AfterAll hook.
-func (Suite[T]) AfterAll(t T) <span class="cov8" title="1">{
+func (Suite[T]) AfterAll(t T) <span class="cov10" title="3">{
         t.unwrap().reflection.Suite.Hooks.MissedAfterAll = true
 }</span>
 
@@ -2001,7 +2025,7 @@ type (
 // Plugin implements [testoplugin.Plugin].
 //
 // This is a placeholder to prevent other .Plugin methods being promoted.
-func (*T) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec <span class="cov6" title="15">{
+func (*T) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec <span class="cov5" title="15">{
         return testoplugin.Spec{}
 }</span>
 
@@ -2158,7 +2182,7 @@ func (t *T) Skipf(format string, args ...any) <span class="cov1" title="1">{
 }</span>
 
 // Skipped reports whether the test was skipped.
-func (t *T) Skipped() bool <span class="cov4" title="7">{
+func (t *T) Skipped() bool <span class="cov5" title="11">{
         t.Helper()
 
         return t.spec.Overrides.Skipped.Call(t.common.Skipped)()
@@ -2300,7 +2324,7 @@ func (t *T) Cleanup(f func()) <span class="cov1" title="1">{
 // The name will include the name of the test along with the names of
 // any nested sub-tests. If two sibling sub-tests have the same name,
 // Name will append a suffix to guarantee the returned name is unique.
-func (t *T) Name() string <span class="cov8" title="43">{
+func (t *T) Name() string <span class="cov7" title="43">{
         t.Helper()
 
         return t.reflection.Test.GetName()
@@ -2309,7 +2333,7 @@ func (t *T) Name() string <span class="cov8" title="43">{
 // unwrap the underlying T.
 //
 // It works since T's are embedded in user-defined structs.
-func (t *T) unwrap() *T <span class="cov10" title="124">{
+func (t *T) unwrap() *T <span class="cov10" title="170">{
         return t
 }</span>
 
@@ -2368,16 +2392,16 @@ func (t *T) options() []testoplugin.Option <span class="cov7" title="32">{
 
         parent := t.parent
 
-        for parent != nil </span><span class="cov7" title="27">{
+        for parent != nil </span><span class="cov6" title="27">{
                 level := make([]testoplugin.Option, 0, len(parent.levelOptions))
 
                 for _, o := range parent.levelOptions </span><span class="cov4" title="6">{
-                        if o.Propagate </span><span class="cov3" title="3">{
+                        if o.Propagate </span><span class="cov2" title="3">{
                                 level = append(level, o)
                         }</span>
                 }
 
-                <span class="cov7" title="27">byLevel = append(byLevel, level)
+                <span class="cov6" title="27">byLevel = append(byLevel, level)
 
                 size += len(level)
 
@@ -2395,7 +2419,7 @@ func (t *T) options() []testoplugin.Option <span class="cov7" title="32">{
         <span class="cov7" title="32">return options</span>
 }
 
-func (t *T) pluginNames() []string <span class="cov3" title="3">{
+func (t *T) pluginNames() []string <span class="cov3" title="5">{
         names := make([]string, 0, len(t.unwrap().plugins))
 
         for typ := range t.unwrap().plugins </span><span class="cov3" title="4">{
@@ -2406,16 +2430,16 @@ func (t *T) pluginNames() []string <span class="cov3" title="3">{
                 <span class="cov2" title="2">names = append(names, reflectutil.Elem(typ).String())</span>
         }
 
-        <span class="cov3" title="3">slices.Sort(names)
+        <span class="cov3" title="5">slices.Sort(names)
 
         return names</span>
 }
 
-func (t *T) logPlugins() <span class="cov3" title="3">{
+func (t *T) logPlugins() <span class="cov3" title="5">{
         t.Helper()
 
         names := t.unwrap().pluginNames()
-        if len(names) == 0 </span><span class="cov1" title="1">{
+        if len(names) == 0 </span><span class="cov2" title="3">{
                 return
         }</span>
 
@@ -2449,7 +2473,7 @@ func (t *T) logPlugins() <span class="cov3" title="3">{
 //                        }
 //                 }
 //        }
-func Reflect(t CommonT) testoreflect.Reflection <span class="cov4" title="5">{
+func Reflect(t CommonT) testoreflect.Reflection <span class="cov4" title="6">{
         t.Helper()
 
         internal := t.unwrap()
@@ -2466,7 +2490,7 @@ func Reflect(t CommonT) testoreflect.Reflection <span class="cov4" title="5">{
 
 type atomicInt[T ~int | ~int8 | ~int32 | ~int64] atomic.Int64
 
-func (a *atomicInt[T]) Load() T <span class="cov5" title="10">{
+func (a *atomicInt[T]) Load() T <span class="cov5" title="12">{
         return T((*atomic.Int64)(a).Load())
 }</span>
 
@@ -2755,8 +2779,8 @@ type Override[F any] func(f F) F
 
 // Call returns an overridden f.
 // If override is nil f is returned as is.
-func (o Override[F]) Call(f F) F <span class="cov10" title="26">{
-        if o == nil </span><span class="cov2" title="2">{
+func (o Override[F]) Call(f F) F <span class="cov10" title="30">{
+        if o == nil </span><span class="cov5" title="6">{
                 return f
         }</span>
 
@@ -3036,6 +3060,10 @@ func (ParametrizedTestInfo) isTestInfo() {<span class="cov0" title="0">}</span>
 
 // SuiteInfo is the information about suite.
 type SuiteInfo struct {
+        // Parent refers to the parent suite info.
+        // Non-nil value means that current suite is sub-suite.
+        Parent *SuiteInfo
+
         // Name of this suite.
         Name string
 
