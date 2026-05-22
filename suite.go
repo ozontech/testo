@@ -1,13 +1,16 @@
 package testo
 
+import "github.com/ozontech/testo/testoplugin"
+
 // singleton is a special (virtual) suite with a single test.
 //
 // Used by [RunTest] & [Test] functions to invoke a single suite-less test.
 type singleton[T CommonT] struct {
 	Suite[T]
 
-	name string
-	test func(t T)
+	name    string
+	test    func(t T)
+	options []testoplugin.Option
 }
 
 type suite[T CommonT] interface {

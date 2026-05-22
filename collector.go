@@ -189,6 +189,7 @@ func (st suiteTests[Suite, T]) Collect(s Suite, name func(string) string) []anno
 				},
 				Run: func(_ Suite, t T) { s.test(t) },
 			},
+			Options: s.options,
 		})
 	}
 

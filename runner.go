@@ -117,11 +117,12 @@ func RunTest[T CommonT](
 	testingT.Helper()
 
 	s := singleton[T]{
-		test: f,
-		name: path.Base(testingT.Name()),
+		test:    f,
+		name:    path.Base(testingT.Name()),
+		options: options,
 	}
 
-	return RunSuite(testingT, s, options...)
+	return RunSuite(testingT, s)
 }
 
 // RunSuite runs tests under a suite.
