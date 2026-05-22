@@ -41,8 +41,10 @@ import (
 type T = *testo.T
 ```
 
-Now we need a Suite. Note, that it's possible to run tests without suites, more on that later.
-A Suite must "inherit" `testo.Suite[T]` by embedding it.
+Now we need a Suite. A Suite must "inherit" `testo.Suite[T]` by embedding it.
+
+> [!NOTE]
+> It's possible to run tests without suites, more on that in [later](#running-tests-without-suites).
 
 ```go
 type Suite struct{ testo.Suite[T] }
