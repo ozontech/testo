@@ -38,7 +38,9 @@ const parallelWrapperTest = "testo!"
 //			})
 //		})
 //	}
-func Test[T CommonT](f func(t T), options ...testoplugin.Option) TestFunc {
+//
+//nolint:unexported-return // users should use it as func(*testing.T), might change later
+func Test[T CommonT](f func(t T), options ...testoplugin.Option) testFunc[*testing.T] {
 	return func(t *testing.T) {
 		t.Helper()
 
@@ -46,10 +48,23 @@ func Test[T CommonT](f func(t T), options ...testoplugin.Option) TestFunc {
 	}
 }
 
-type TestFunc func(t *testing.T)
+type testFunc[T common] func(t T)
 
-func (f TestFunc) Parallel() TestFunc {
-	return func(t *testing.T) {
+// Parallel wraps this test with call to Parallel.
+//
+//	func Test(t *testing.T) {
+//		t.Run("first", testo.Test(func(t T) {
+//			t.Log("...")
+//		}).Parallel()
+//
+//		t.Run("second", testo.Test(func(t T) {
+//			t.Log("...")
+//		}).Parallel()
+//	}
+//
+// NOTE: calling this function more than once will cause panic upon test execution.
+func (f testFunc[T]) Parallel() testFunc[T] {
+	return func(t T) {
 		t.Helper()
 
 		t.Parallel()
