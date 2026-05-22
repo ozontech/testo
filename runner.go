@@ -48,6 +48,11 @@ func Test[T CommonT](f func(t T), options ...testoplugin.Option) testFunc[*testi
 	}
 }
 
+// it's only used with [testing.T] for now, but
+// type param makes it more readable for the end user:
+//
+//	Test(f, options) testFunc[*testing.T ] // vs
+//	Test(f, options) testFunc
 type testFunc[T common] func(t T)
 
 // Parallel wraps this test with call to Parallel.
