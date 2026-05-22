@@ -140,7 +140,7 @@ func RunSuite[Suite suite[T], T CommonT](
 ) bool {
 	testingT.Helper()
 
-	r := newRunner[Suite]()
+	r := newRunner[Suite](testingT)
 
 	return r.runSuite(testingT, suite, nil, options...)
 }
@@ -159,7 +159,7 @@ func RunSubSuite[Suite suite[Sub], Parent, Sub CommonT](
 ) bool {
 	t.Helper()
 
-	r := newRunner[Suite]()
+	r := newRunner[Suite](t)
 
 	return r.runSuite(t.unwrap().testingT, suite, &t.unwrap().reflection.Suite, options...)
 }
@@ -228,35 +228,37 @@ func Run[T CommonT](
 }
 
 type runner[Suite suite[T], T CommonT] struct {
+	caller    string
 	suiteName string
 	testNamer *testnamer.Namer
 }
 
-func newRunner[Suite suite[T], T CommonT]() runner[Suite, T] {
-	name := reflectutil.NameOf[Suite]()
-	if name == reflectutil.NameOf[singleton[T]]() {
-		name = ""
+func newRunner[Suite suite[T], T CommonT](t common) runner[Suite, T] {
+	suiteName := reflectutil.NameOf[Suite]()
+	if suiteName == reflectutil.NameOf[singleton[T]]() {
+		suiteName = ""
 	}
 
+	namer := testnamer.New()
+
 	return runner[Suite, T]{
-		suiteName: name,
-		testNamer: testnamer.New(),
+		caller:    namer.Name(t.Name(), suiteName),
+		suiteName: suiteName,
+		testNamer: namer,
 	}
 }
 
 func (r *runner[Suite, T]) collectTests(
 	t TestingT,
-	caller string,
-	suite Suite,
 ) suiteTests[Suite, T] {
 	t.Helper()
 
 	collector := testsCollector[Suite, T]{
-		CallerName: caller,
+		CallerName: r.caller,
 		TestNamer:  r.testNamer,
 	}
 
-	return collector.Collect(t, suite)
+	return collector.Collect(t)
 }
 
 func (r *runner[Suite, T]) runSuite(
@@ -269,9 +271,7 @@ func (r *runner[Suite, T]) runSuite(
 
 	options = append(getOptions(), options...)
 
-	caller := r.testNamer.Name(testingT.Name(), r.suiteName)
-
-	tests := r.collectTests(testingT, caller, suite)
+	tests := r.collectTests(testingT)
 
 	suiteInfo := testoreflect.SuiteInfo{
 		Parent:   parentSuite,
@@ -291,7 +291,7 @@ func (r *runner[Suite, T]) runSuite(
 				t.testNamer = r.testNamer
 				t.reflection.Suite = suiteInfo
 				t.reflection.Test = testoreflect.RegularTestInfo{
-					Name:        caller,
+					Name:        r.caller,
 					RawBaseName: r.suiteName,
 				}
 			},
@@ -343,7 +343,9 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 	allTests := r.applyPlan(
 		t,
 		suiteInfo,
-		tests.Collect(s),
+		tests.Collect(s, func(name string) string {
+			return r.testNamer.Name(r.caller, name)
+		}),
 	)
 
 	t.unwrap().testingT.Run(parallelWrapperTest, func(testingT *testing.T) {

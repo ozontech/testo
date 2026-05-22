@@ -160,7 +160,7 @@ type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 //
 // Suite instance is required here to get
 // parameter cases (CasesXXX funcs), not to invoke the actual tests.
-func (st suiteTests[Suite, T]) Collect(s Suite) []annotatedSuiteTest[Suite, T] {
+func (st suiteTests[Suite, T]) Collect(s Suite, name func(string) string) []annotatedSuiteTest[Suite, T] {
 	tests := make([]annotatedSuiteTest[Suite, T], 0, len(st.Regular))
 
 	for _, r := range st.Regular {
@@ -174,6 +174,22 @@ func (st suiteTests[Suite, T]) Collect(s Suite) []annotatedSuiteTest[Suite, T] {
 		cases := p.Tests(s)
 
 		tests = append(tests, cases...)
+	}
+
+	// special case for [Test] and [RunTest].
+	if s, ok := any(s).(singleton[T]); ok {
+		tests = append(tests, annotatedSuiteTest[Suite, T]{
+			suiteTest: suiteTest[Suite, T]{
+				Name: s.name,
+				Info: testoreflect.RegularTestInfo{
+					Name:        name(s.name),
+					RawBaseName: s.name,
+					Level:       1,
+					FuncPC:      reflect.ValueOf(s.test).Pointer(),
+				},
+				Run: func(_ Suite, t T) { s.test(t) },
+			},
+		})
 	}
 
 	return tests
@@ -191,27 +207,8 @@ func (tc *testsCollector[Suite, T]) testName(base string) string {
 //nolint:cyclop,funlen,gocognit // splitting it would make it even more complex
 func (tc *testsCollector[Suite, T]) Collect(
 	tb testing.TB,
-	suite Suite,
 ) suiteTests[Suite, T] {
 	tb.Helper()
-
-	// special case for [Test] and [RunTest].
-	if s, ok := any(suite).(singleton[T]); ok {
-		return suiteTests[Suite, T]{
-			Regular: []suiteTest[Suite, T]{
-				{
-					Name: s.name,
-					Info: testoreflect.RegularTestInfo{
-						Name:        tc.testName(s.name),
-						RawBaseName: s.name,
-						Level:       1,
-						FuncPC:      reflect.ValueOf(s.test).Pointer(),
-					},
-					Run: func(_ Suite, t T) { s.test(t) },
-				},
-			},
-		}
-	}
 
 	cases := suiteCasesOf[Suite](tb)
 
