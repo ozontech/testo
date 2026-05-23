@@ -7,4 +7,4 @@
         --- PASS: Test/Suite/testo! (0.00s)
             --- PASS: Test/Suite/testo!/TestMath (0.00s)
 PASS
-ok  	github.com/ozontech/testo/examples/01_minimal	0.212s
+ok  	github.com/ozontech/testo/examples/01_suite	0.212s

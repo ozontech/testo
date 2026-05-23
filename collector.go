@@ -153,6 +153,7 @@ type suiteTests[Suite suite[T], T CommonT] struct {
 type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 	suiteTest[Suite, T]
 
+	// Options to pass specifically for this test.
 	Options []testoplugin.Option
 }
 
@@ -180,6 +181,8 @@ func (st suiteTests[Suite, T]) Collect(
 	}
 
 	// special case for [Test] and [RunTest].
+	//
+	// NOTE(metafates): future "special" suites should be handled here in a type switch.
 	if s, ok := any(s).(singleton[T]); ok {
 		tests = append(tests, annotatedSuiteTest[Suite, T]{
 			suiteTest: suiteTest[Suite, T]{
