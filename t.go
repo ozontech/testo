@@ -80,6 +80,12 @@ type (
 		failureKind     atomicInt[testoreflect.TestFailureKind]
 		hasFatalSubtest atomic.Bool
 
+		// propagateParallel if enabled, will route .Parallel() calls
+		// to suite's TestingT.
+		//
+		// Used in [RunTest] and [Test].
+		propagateParallel bool
+
 		plugins map[reflect.Type]testoplugin.Plugin
 	}
 
@@ -121,7 +127,19 @@ func (t *T) Context() context.Context {
 func (t *T) Parallel() {
 	t.Helper()
 
-	t.spec.Overrides.Parallel.Call(t.common.Parallel)()
+	t.spec.Overrides.Parallel.Call(t.parallel)()
+}
+
+func (t *T) parallel() {
+	t.Helper()
+
+	if t.propagateParallel {
+		t.reflection.Suite.TestingT.Parallel()
+
+		return
+	}
+
+	t.common.Parallel()
 }
 
 // Setenv calls os.Setenv(key, value) and uses Cleanup to

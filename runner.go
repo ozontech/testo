@@ -45,43 +45,11 @@ const parallelWrapperTest = "testo!"
 //
 // This function accepts plugin options, see [testoplugin.Option].
 // Passed options are treated as test scoped, not suite scoped.
-//
-//nolint:unexported-return // users should use it as func(*testing.T), might change later
-func Test[T CommonT](f func(t T), options ...testoplugin.Option) testFunc[*testing.T] {
+func Test[T CommonT](f func(t T), options ...testoplugin.Option) func(*testing.T) {
 	return func(t *testing.T) {
 		t.Helper()
 
 		RunTest(t, f, options...)
-	}
-}
-
-// it's only used with [testing.T] for now, but
-// type param makes it more readable for the end user:
-//
-//	Test(f, options) testFunc[*testing.T ] // vs
-//	Test(f, options) testFunc
-type testFunc[T common] func(t T)
-
-// Parallel wraps this test with call to Parallel.
-//
-//	func Test(t *testing.T) {
-//		t.Run("first", testo.Test(func(t T) {
-//			t.Log("...")
-//		}).Parallel()
-//
-//		t.Run("second", testo.Test(func(t T) {
-//			t.Log("...")
-//		}).Parallel()
-//	}
-//
-// NOTE: calling this function more than once will cause panic upon test execution.
-func (f testFunc[T]) Parallel() testFunc[T] {
-	return func(t T) {
-		t.Helper()
-
-		t.Parallel()
-
-		f(t)
 	}
 }
 
@@ -372,6 +340,10 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 						t.testNamer = r.testNamer
 						t.reflection.Suite = suiteInfo
 						t.reflection.Test = test.Info
+
+						if test.Configure != nil {
+							test.Configure(t)
+						}
 					},
 					test.Options...,
 				)

@@ -28,10 +28,14 @@ func TestMultiple(t *testing.T) {
 
 func TestMultipleParallel(t *testing.T) {
 	t.Run("First test", testo.Test(func(t T) {
+		t.Parallel()
+
 		t.Log("Hello from the first test!")
-	}).Parallel())
+	}))
 
 	t.Run("Second test", testo.Test(func(t T) {
+		t.Parallel()
+
 		t.Log("Hello from the second test!")
-	}).Parallel())
+	}))
 }

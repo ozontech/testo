@@ -29,19 +29,21 @@
                 --- PASS: TestMultiple/Second_test/#00/testo!/Second_test (0.00s)
 === RUN   TestMultipleParallel
 === RUN   TestMultipleParallel/First_test
-=== PAUSE TestMultipleParallel/First_test
-=== RUN   TestMultipleParallel/Second_test
-=== PAUSE TestMultipleParallel/Second_test
-=== CONT  TestMultipleParallel/First_test
 === RUN   TestMultipleParallel/First_test/#00
 === RUN   TestMultipleParallel/First_test/#00/testo!
 === RUN   TestMultipleParallel/First_test/#00/testo!/First_test
-    main_test.go:31: Hello from the first test!
-=== CONT  TestMultipleParallel/Second_test
+=== PAUSE TestMultipleParallel/First_test
+=== RUN   TestMultipleParallel/Second_test
 === RUN   TestMultipleParallel/Second_test/#00
 === RUN   TestMultipleParallel/Second_test/#00/testo!
 === RUN   TestMultipleParallel/Second_test/#00/testo!/Second_test
-    main_test.go:35: Hello from the second test!
+=== PAUSE TestMultipleParallel/Second_test
+=== CONT  TestMultipleParallel/First_test
+=== NAME  TestMultipleParallel/First_test/#00/testo!/First_test
+    main_test.go:33: Hello from the first test!
+=== CONT  TestMultipleParallel/Second_test
+=== NAME  TestMultipleParallel/Second_test/#00/testo!/Second_test
+    main_test.go:39: Hello from the second test!
 --- PASS: TestMultipleParallel (0.00s)
     --- PASS: TestMultipleParallel/First_test (0.00s)
         --- PASS: TestMultipleParallel/First_test/#00 (0.00s)
@@ -52,4 +54,4 @@
             --- PASS: TestMultipleParallel/Second_test/#00/testo! (0.00s)
                 --- PASS: TestMultipleParallel/Second_test/#00/testo!/Second_test (0.00s)
 PASS
-ok  	github.com/ozontech/testo/examples/01_suiteless	0.209s
+ok  	github.com/ozontech/testo/examples/01_suiteless	0.318s

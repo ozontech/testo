@@ -155,6 +155,8 @@ type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 
 	// Options to pass specifically for this test.
 	Options []testoplugin.Option
+
+	Configure func(*testoT)
 }
 
 // Collect all suite tests.
@@ -196,6 +198,9 @@ func (st suiteTests[Suite, T]) Collect(
 				Run: func(_ Suite, t T) { s.test(t) },
 			},
 			Options: s.options,
+			Configure: func(tt *testoT) {
+				tt.propagateParallel = true
+			},
 		})
 	}
 
@@ -330,7 +335,6 @@ type suiteTestParametrized[Suite suite[T], T CommonT] struct {
 	Tests func(Suite) []annotatedSuiteTest[Suite, T]
 }
 
-//nolint:funlen // no way to reduce length without losing readability
 func (tc *testsCollector[Suite, T]) newParametrizedTest(
 	method reflect.Method,
 	cases map[string]suiteCase[Suite, T],
