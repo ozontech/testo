@@ -160,7 +160,10 @@ type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 //
 // Suite instance is required here to get
 // parameter cases (CasesXXX funcs), not to invoke the actual tests.
-func (st suiteTests[Suite, T]) Collect(s Suite, name func(string) string) []annotatedSuiteTest[Suite, T] {
+func (st suiteTests[Suite, T]) Collect(
+	s Suite,
+	name func(string) string,
+) []annotatedSuiteTest[Suite, T] {
 	tests := make([]annotatedSuiteTest[Suite, T], 0, len(st.Regular))
 
 	for _, r := range st.Regular {
