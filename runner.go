@@ -23,6 +23,8 @@ const parallelWrapperTest = "testo!"
 
 // Test constructs a new test ready to run as a native [testing] test.
 //
+// # Examples
+//
 //	func Test(t *testing.T) {
 //		t.Run("My awesome test", testo.Test(func(t T) {
 //			// your test goes here
@@ -38,6 +40,11 @@ const parallelWrapperTest = "testo!"
 //			})
 //		})
 //	}
+//
+// # Options
+//
+// This function accepts plugin options, see [testoplugin.Option].
+// Passed options are treated as test scoped, not suite scoped.
 //
 //nolint:unexported-return // users should use it as func(*testing.T), might change later
 func Test[T CommonT](f func(t T), options ...testoplugin.Option) testFunc[*testing.T] {
@@ -83,10 +90,7 @@ func (f testFunc[T]) Parallel() testFunc[T] {
 // Under the hood it constructs a special singleton suite with one test, named
 // as the parent test, and calls [RunSuite].
 //
-// It also accepts options for the plugins which can be used to configure those plugins.
-// See [testoplugin.Option].
-//
-// For example:
+// # Examples
 //
 //	func TestFoo(t *testing.T) {
 //		testo.RunTest(t, func(t T) {
@@ -104,7 +108,14 @@ func (f testFunc[T]) Parallel() testFunc[T] {
 //		}))
 //	}
 //
-// NOTE: running this function more than once inside the same test
+// # Options
+//
+// This function accepts plugin options, see [testoplugin.Option].
+// Passed options are treated as test scoped, not suite scoped.
+//
+// # Note
+//
+// Running this function more than once inside the same test
 // means rerunning the same test, not running several different tests.
 // If you want to run several suite-less tests from a single test, use [Test].
 //

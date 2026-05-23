@@ -13,14 +13,64 @@
 //		"github.com/ozontech/testo"
 //	)
 //
-//	type T struct { *testo.T }
+//	func Test(t *testing.T) {
+//		testo.RunTest(t, func(t *testo.T) {
+//			t.Log("Hello, Testo!")
+//		})
+//	}
+//
+// # Plugins
+//
+// Plugins are the core feature of Testo.
+// Plugins can generate reports, add custom methods to T,
+// override built-in methods, plan test execution and more.
+//
+// Plugins are installed by defining our own T with embedded [T] and plugins:
+//
+//	type T struct {
+//		*testo.T
+//		*myplugin.PluginFoo
+//		*myplugin.PluginBar
+//	}
+//
+//	func Test(t *testing.T) {
+//		testo.RunTest(t, func(t T) {
+//			t.Log("Hello, Testo!")
+//		})
+//	}
+//
+// Notice that we now use our T instead of *testo.T in a test.
+//
+// # Suites & Standalone Tests
+//
+// Testo supports several ways to run tests.
+//
+// Suites:
+//
 //	type Suite struct { testo.Suite[T] }
 //
-//	func (Suite) Test(t T) { t.Log("Hello, world!") }
+//	func (Suite) TestFoo(t T) { t.Log("Foo") }
+//	func (Suite) TestBar(t T) { t.Log("Bar") }
 //
-//	func Test(t *testing.T) { testo.RunSuite(t, new(Suite)) }
+//	func Test(t *testing.T) {
+//		testo.RunSuite(t, new(Suite))
+//	}
 //
-// Notice the `Test(t *testing.T)` - since [RunSuite] requires
-// an instance of `testing.T` we must declare a regular go test first,
-// and only inside it we will be able to actually call our Testo suite.
+// Standalone:
+//
+//	func TestFoo(t *testing.T) {
+//		testo.RunTest(t, func(t T) {
+//			t.Log("Foo")
+//		})
+//	}
+//
+//	func Test(t *testing.T) {
+//		t.Run("Foo", testo.Test(func(t T) {
+//			t.Log("Foo")
+//		}))
+//
+//		t.Run("Bar", testo.Test(func(t T) {
+//			t.Log("Bar")
+//		}))
+//	}
 package testo
