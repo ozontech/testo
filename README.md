@@ -54,13 +54,9 @@ import (
     "github.com/ozontech/testo"
 )
 
-// A special construct that describes what plugins to use.
-// Here we use the base T without plugins.
-type T struct { *testo.T }
-
 func Test(t *testing.T) {
-    testo.RunTest(t, func(t T) {
-        t.Log("Hello Testo!")
+    testo.RunTest(t, func(t *testo.T) {
+        t.Log("Hello, Testo!")
     })
 }
 ```
@@ -71,21 +67,8 @@ And run it with `go test` as usual:
 go test .
 ```
 
-Testo also supports suites:
-
-```go
-type T struct { *testo.T }
-
-type MySuite struct { testo.Suite[T] }
-
-func (MySuite) TestHello(t T) {
-    t.Log("Hello from Testo Suite!")
-}
-
-func Test(t *testing.T) {
-    testo.RunSuite(t, new(MySuite))
-}
-```
+But there is more!
+Testo supports suites, parametrized tests & plugins, see [Next steps](#next-steps).
 
 See also [VS Code extension for Testo](#vs-code-extension).
 
