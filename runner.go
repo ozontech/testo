@@ -85,7 +85,7 @@ func Test[T CommonT](f func(t T), options ...testoplugin.Option) func(*testing.T
 //
 // Running this function more than once inside the same test
 // means rerunning the same test, not running several different tests.
-// If you want to run several suite-less tests from a single test, use [Test].
+// If you want to run several suite-less tests from a single test see [Test].
 //
 // RunTest reports whether f succeeded.
 func RunTest[T CommonT](

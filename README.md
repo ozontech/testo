@@ -1,4 +1,4 @@
-![Testo banner showing its chef gopher macost](./banner.svg)
+[![Testo banner showing its chef gopher mascot on a blue background](./banner.svg)](https://github.com/ozontech/testo)
 
 # Testo
 
