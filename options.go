@@ -16,7 +16,7 @@ var (
 
 // Options appends given options to the global options.
 //
-// Global options are prepended to each [RunSuite] call.
+// Global options are prepended to each [RunSuite] & [RunTest] call.
 //
 //	func init() {
 //	    testo.Options(myplugin.OutputDir("..."))

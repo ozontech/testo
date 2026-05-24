@@ -2,6 +2,44 @@
 
 Learn how to use the features of Testo.
 
+## How to write parametrized tests
+
+Parametrized tests are defined as regular tests with a second argument:
+
+```go
+func (*Suite) TestFoo(t *testo.T, p struct{ Name string; Age int }) {
+    t.Logf("Using name=%q and age=%d", p.Name, p.Age)
+}
+```
+
+To define all possible parameter values create a special `CasesXxx` method in a suite:
+
+```go
+func (*Suite) CasesName() []string {
+    return []string{"John", "Joe"}
+}
+
+func (*Suite) CasesAge() []int {
+    return []int{18, 60, 6}
+}
+```
+
+> [!TIP]
+> `CasesXxx` are invoked *after* `BeforeAll` hook.
+
+Field names used in a `struct{ Name string; Age int}` must be equal to existing `CasesXxx` functions.
+
+Given that, test `TestFoo` will be invoked with all possible combinations of names and ages:
+
+```python
+TestFoo(name=John, age=18)
+TestFoo(name=John, age=60)
+TestFoo(name=John, age=6)
+TestFoo(name=Joe, age=18)
+TestFoo(name=Joe, age=60)
+TestFoo(name=Joe, age=6)
+```
+
 ## How to write parallel tests
 
 You can use your regular `t.Parallel` method to mark a test as parallel.

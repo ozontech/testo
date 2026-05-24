@@ -1,5 +1,18 @@
 package testo
 
+import "github.com/ozontech/testo/testoplugin"
+
+// singleton is a special (virtual) suite with a single test.
+//
+// Used by [RunTest] & [Test] functions to invoke a single suite-less test.
+type singleton[T CommonT] struct {
+	Suite[T]
+
+	name    string
+	test    func(t T)
+	options []testoplugin.Option
+}
+
 type suite[T CommonT] interface {
 	// BeforeAll is called before all suite tests once.
 	// T is shared with a top-level suite test.
@@ -13,7 +26,7 @@ type suite[T CommonT] interface {
 	// AfterEach is called after each suite test.
 	// T is shared with an actual test.
 	//
-	// WARN: this hook is defered to run at the end of the test.
+	// WARN: this hook is deferred to run at the end of the test.
 	// If that test has sub-tests marked as parallel,
 	// this hook will run BEFORE those sub-tests are finished.
 	//
@@ -76,5 +89,4 @@ func (Suite[T]) AfterAll(t T) {
 	t.unwrap().reflection.Suite.Hooks.MissedAfterAll = true
 }
 
-//nolint:unused // sealed interface
 func (Suite[T]) private() {}

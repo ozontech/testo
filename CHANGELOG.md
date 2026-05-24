@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Ability to run tests without suites.
+
 ### Changed
 
 - `testo.Options` now returns an empty struct to enable `var _ = testo.Options(...)` usage.

@@ -57,6 +57,8 @@ linters:
           - thelper
 
   settings:
+    funlen:
+      lines: 70
     gosec:
       excludes:
         - G304

@@ -153,14 +153,20 @@ type suiteTests[Suite suite[T], T CommonT] struct {
 type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 	suiteTest[Suite, T]
 
+	// Options to pass specifically for this test.
 	Options []testoplugin.Option
+
+	Configure func(*testoT)
 }
 
 // Collect all suite tests.
 //
 // Suite instance is required here to get
 // parameter cases (CasesXXX funcs), not to invoke the actual tests.
-func (st suiteTests[Suite, T]) Collect(s Suite) []annotatedSuiteTest[Suite, T] {
+func (st suiteTests[Suite, T]) Collect(
+	s Suite,
+	name func(string) string,
+) []annotatedSuiteTest[Suite, T] {
 	tests := make([]annotatedSuiteTest[Suite, T], 0, len(st.Regular))
 
 	for _, r := range st.Regular {
@@ -174,6 +180,28 @@ func (st suiteTests[Suite, T]) Collect(s Suite) []annotatedSuiteTest[Suite, T] {
 		cases := p.Tests(s)
 
 		tests = append(tests, cases...)
+	}
+
+	// special case for [Test] and [RunTest].
+	//
+	// NOTE(metafates): future "special" suites should be handled here in a type switch.
+	if s, ok := any(s).(singleton[T]); ok {
+		tests = append(tests, annotatedSuiteTest[Suite, T]{
+			suiteTest: suiteTest[Suite, T]{
+				Name: s.name,
+				Info: testoreflect.RegularTestInfo{
+					Name:        name(s.name),
+					RawBaseName: s.name,
+					Level:       1,
+					FuncPC:      reflect.ValueOf(s.test).Pointer(),
+				},
+				Run: func(_ Suite, t T) { s.test(t) },
+			},
+			Options: s.options,
+			Configure: func(tt *testoT) {
+				tt.propagateParallel = true
+			},
+		})
 	}
 
 	return tests
@@ -196,12 +224,12 @@ func (tc *testsCollector[Suite, T]) Collect(
 
 	cases := suiteCasesOf[Suite](tb)
 
-	suite := reflect.TypeFor[Suite]()
+	suiteTyp := reflect.TypeFor[Suite]()
 
 	var tests suiteTests[Suite, T]
 
-	for i := range suite.NumMethod() {
-		method := suite.Method(i)
+	for i := range suiteTyp.NumMethod() {
+		method := suiteTyp.Method(i)
 
 		if !isTest(method.Name, "Test") {
 			continue
@@ -213,7 +241,7 @@ func (tc *testsCollector[Suite, T]) Collect(
 			//nolint:lll // it's a long message
 			tb.Fatalf(
 				"testo: wrong signature for (%[1]s).%[2]s, must be: func (%[1]s).%[2]s(%[3]s) or func (%[1]s).%[2]s(%[3]s, struct{...})",
-				suite,
+				suiteTyp,
 				method.Name,
 				reflect.TypeFor[T](),
 			)
@@ -307,7 +335,6 @@ type suiteTestParametrized[Suite suite[T], T CommonT] struct {
 	Tests func(Suite) []annotatedSuiteTest[Suite, T]
 }
 
-//nolint:funlen // no way to reduce length without losing readability
 func (tc *testsCollector[Suite, T]) newParametrizedTest(
 	method reflect.Method,
 	cases map[string]suiteCase[Suite, T],
