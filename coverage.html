@@ -57,7 +57,7 @@
 				
 				<option value="file0">github.com/ozontech/testo/annotations.go (100.0%)</option>
 				
-				<option value="file1">github.com/ozontech/testo/collector.go (84.2%)</option>
+				<option value="file1">github.com/ozontech/testo/collector.go (82.3%)</option>
 				
 				<option value="file2">github.com/ozontech/testo/construct.go (95.7%)</option>
 				
@@ -73,11 +73,11 @@
 				
 				<option value="file8">github.com/ozontech/testo/plugin.go (97.0%)</option>
 				
-				<option value="file9">github.com/ozontech/testo/runner.go (90.0%)</option>
+				<option value="file9">github.com/ozontech/testo/runner.go (82.4%)</option>
 				
 				<option value="file10">github.com/ozontech/testo/suite.go (100.0%)</option>
 				
-				<option value="file11">github.com/ozontech/testo/t.go (61.0%)</option>
+				<option value="file11">github.com/ozontech/testo/t.go (58.9%)</option>
 				
 				<option value="file12">github.com/ozontech/testo/testocache/cache.go (84.8%)</option>
 				
@@ -355,14 +355,20 @@ type suiteTests[Suite suite[T], T CommonT] struct {
 type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
         suiteTest[Suite, T]
 
+        // Options to pass specifically for this test.
         Options []testoplugin.Option
+
+        Configure func(*testoT)
 }
 
 // Collect all suite tests.
 //
 // Suite instance is required here to get
 // parameter cases (CasesXXX funcs), not to invoke the actual tests.
-func (st suiteTests[Suite, T]) Collect(s Suite) []annotatedSuiteTest[Suite, T] <span class="cov4" title="5">{
+func (st suiteTests[Suite, T]) Collect(
+        s Suite,
+        name func(string) string,
+) []annotatedSuiteTest[Suite, T] <span class="cov4" title="5">{
         tests := make([]annotatedSuiteTest[Suite, T], 0, len(st.Regular))
 
         for _, r := range st.Regular </span><span class="cov5" title="7">{
@@ -377,6 +383,28 @@ func (st suiteTests[Suite, T]) Collect(s Suite) []annotatedSuiteTest[Suite, T] <
 
                 tests = append(tests, cases...)
         }</span>
+
+        // special case for [Test] and [RunTest].
+        //
+        // NOTE(metafates): future "special" suites should be handled here in a type switch.
+        <span class="cov4" title="5">if s, ok := any(s).(singleton[T]); ok </span><span class="cov0" title="0">{
+                tests = append(tests, annotatedSuiteTest[Suite, T]{
+                        suiteTest: suiteTest[Suite, T]{
+                                Name: s.name,
+                                Info: testoreflect.RegularTestInfo{
+                                        Name:        name(s.name),
+                                        RawBaseName: s.name,
+                                        Level:       1,
+                                        FuncPC:      reflect.ValueOf(s.test).Pointer(),
+                                },
+                                Run: func(_ Suite, t T) </span><span class="cov0" title="0">{ s.test(t) }</span>,
+                        },
+                        Options: s.options,
+                        Configure: func(tt *testoT) <span class="cov0" title="0">{
+                                tt.propagateParallel = true
+                        }</span>,
+                })
+        }
 
         <span class="cov4" title="5">return tests</span>
 }
@@ -398,12 +426,12 @@ func (tc *testsCollector[Suite, T]) Collect(
 
         cases := suiteCasesOf[Suite](tb)
 
-        suite := reflect.TypeFor[Suite]()
+        suiteTyp := reflect.TypeFor[Suite]()
 
         var tests suiteTests[Suite, T]
 
-        for i := range suite.NumMethod() </span><span class="cov8" title="30">{
-                method := suite.Method(i)
+        for i := range suiteTyp.NumMethod() </span><span class="cov8" title="30">{
+                method := suiteTyp.Method(i)
 
                 if !isTest(method.Name, "Test") </span><span class="cov7" title="22">{
                         continue</span>
@@ -415,7 +443,7 @@ func (tc *testsCollector[Suite, T]) Collect(
                         //nolint:lll // it's a long message
                         tb.Fatalf(
                                 "testo: wrong signature for (%[1]s).%[2]s, must be: func (%[1]s).%[2]s(%[3]s) or func (%[1]s).%[2]s(%[3]s, struct{...})",
-                                suite,
+                                suiteTyp,
                                 method.Name,
                                 reflect.TypeFor[T](),
                         )
@@ -509,7 +537,6 @@ type suiteTestParametrized[Suite suite[T], T CommonT] struct {
         Tests func(Suite) []annotatedSuiteTest[Suite, T]
 }
 
-//nolint:funlen // no way to reduce length without losing readability
 func (tc *testsCollector[Suite, T]) newParametrizedTest(
         method reflect.Method,
         cases map[string]suiteCase[Suite, T],
@@ -852,7 +879,7 @@ func collectPlugins(typ reflect.Type, plugins map[reflect.Type]struct{}) <span c
                 return
         }</span>
 
-        <span class="cov6" title="22">for i := range typ.NumField() </span><span class="cov10" title="133">{
+        <span class="cov6" title="22">for i := range typ.NumField() </span><span class="cov10" title="143">{
                 field := typ.Field(i)
 
                 if field.IsExported() </span><span class="cov6" title="17">{
@@ -928,16 +955,16 @@ type canElem[Self any] interface {
 // Nested pointers are also supported - e.g. given "****value" it will return "value".
 //
 // Non-pointer values will be returned as is.
-func Elem[T canElem[T]](v T) T <span class="cov8" title="167">{
+func Elem[T canElem[T]](v T) T <span class="cov8" title="172">{
         for v.Kind() == reflect.Pointer </span><span class="cov8" title="231">{
                 v = v.Elem()
         }</span>
 
-        <span class="cov8" title="167">return v</span>
+        <span class="cov8" title="172">return v</span>
 }
 
 // NameOf returns name of the underlying type T.
-func NameOf[T any]() string <span class="cov5" title="29">{
+func NameOf[T any]() string <span class="cov5" title="34">{
         t := reflect.TypeFor[T]()
 
         return Elem(t).Name()
@@ -992,10 +1019,10 @@ func findRecursiveType(t reflect.Type, visited map[reflect.Type]bool) reflect.Ty
 
                 <span class="cov3" title="6">visited[t] = true
 
-                for i := range t.NumField() </span><span class="cov5" title="21">{
+                for i := range t.NumField() </span><span class="cov5" title="22">{
                         field := t.Field(i)
 
-                        if !field.IsExported() </span><span class="cov4" title="13">{
+                        if !field.IsExported() </span><span class="cov4" title="14">{
                                 continue</span>
                         }
 
@@ -1036,10 +1063,10 @@ func fill(v reflect.Value, visited map[reflect.Type]bool) bool <span class="cov8
 
                 <span class="cov7" title="113">visited[typ] = true
 
-                for i := range v.NumField() </span><span class="cov10" title="640">{
+                for i := range v.NumField() </span><span class="cov10" title="689">{
                         field := v.Field(i)
 
-                        if !field.CanSet() </span><span class="cov9" title="558">{
+                        if !field.CanSet() </span><span class="cov9" title="607">{
                                 continue</span>
                         }
 
@@ -1269,7 +1296,7 @@ var (
 
 // Options appends given options to the global options.
 //
-// Global options are prepended to each [RunSuite] call.
+// Global options are prepended to each [RunSuite] &amp; [RunTest] call.
 //
 //        func init() {
 //            testo.Options(myplugin.OutputDir("..."))
@@ -1532,6 +1559,7 @@ func mergeOverride[F any](
 
 import (
         "fmt"
+        "path"
         "reflect"
         "runtime/debug"
         "testing"
@@ -1550,7 +1578,90 @@ import (
 // cannot include (like exclamation mark), so that it won't collide with suite type name.
 const parallelWrapperTest = "testo!"
 
-// RunSuite will run the tests under the given suite.
+// Test constructs a new test ready to run as a native [testing] test.
+//
+// # Examples
+//
+//        func Test(t *testing.T) {
+//                t.Run("My awesome test", testo.Test(func(t T) {
+//                        // your test goes here
+//                }))
+//        }
+//
+// This is syntactic sugar for a more verbose [RunTest] API:
+//
+//        func Test(t *testing.T) {
+//                t.Run("My awesome test", func(t *testing.T) {
+//                        testo.RunTest(t, func(t T) {
+//                                // your test goes here
+//                        })
+//                })
+//        }
+//
+// # Options
+//
+// This function accepts plugin options, see [testoplugin.Option].
+// Passed options are treated as test scoped, not suite scoped.
+func Test[T CommonT](f func(t T), options ...testoplugin.Option) func(*testing.T) <span class="cov0" title="0">{
+        return func(t *testing.T) </span><span class="cov0" title="0">{
+                t.Helper()
+
+                RunTest(t, f, options...)
+        }</span>
+}
+
+// RunTest runs a single test without a suite.
+//
+// Under the hood it constructs a special singleton suite with one test, named
+// as the parent test, and calls [RunSuite].
+//
+// # Examples
+//
+//        func TestFoo(t *testing.T) {
+//                testo.RunTest(t, func(t T) {
+//                        t.Log("Hi")
+//                })
+//        }
+//
+// In the example above plugins would see this test as a suite with a single TestFoo method.
+//
+// See also [Test] as a syntax sugar to run a named test:
+//
+//        func TestFoo(t *testing.T) {
+//                t.Run("named-test", testo.Test(func(t T) {
+//                        t.Log("Hi")
+//                }))
+//        }
+//
+// # Options
+//
+// This function accepts plugin options, see [testoplugin.Option].
+// Passed options are treated as test scoped, not suite scoped.
+//
+// # Note
+//
+// Running this function more than once inside the same test
+// means rerunning the same test, not running several different tests.
+// If you want to run several suite-less tests from a single test see [Test].
+//
+// RunTest reports whether f succeeded.
+func RunTest[T CommonT](
+        testingT TestingT,
+        f func(t T),
+        options ...testoplugin.Option,
+) bool <span class="cov0" title="0">{
+        testingT.Helper()
+
+        s := singleton[T]{
+                test:    f,
+                name:    path.Base(testingT.Name()),
+                options: options,
+        }
+
+        return RunSuite(testingT, s)
+}</span>
+
+// RunSuite runs tests under a suite.
 //
 // Test is defined as a suite method in the form of "TestXXX" or "Test"
 // which accepts a single parameter of the same type as T passed to this function.
@@ -1558,7 +1669,7 @@ const parallelWrapperTest = "testo!"
 // It also accepts options for the plugins which can be used to configure those plugins.
 // See [testoplugin.Option].
 //
-// RunSuite reports whether all suite tests succeeded.
+// RunSuite reports whether suite succeeded.
 func RunSuite[Suite suite[T], T CommonT](
         testingT TestingT,
         suite Suite,
@@ -1566,7 +1677,7 @@ func RunSuite[Suite suite[T], T CommonT](
 ) bool <span class="cov4" title="4">{
         testingT.Helper()
 
-        r := newRunner[Suite]()
+        r := newRunner[Suite](testingT)
 
         return r.runSuite(testingT, suite, nil, options...)
 }</span>
@@ -1585,7 +1696,7 @@ func RunSubSuite[Suite suite[Sub], Parent, Sub CommonT](
 ) bool <span class="cov1" title="1">{
         t.Helper()
 
-        r := newRunner[Suite]()
+        r := newRunner[Suite](t)
 
         return r.runSuite(t.unwrap().testingT, suite, &amp;t.unwrap().reflection.Suite, options...)
 }</span>
@@ -1654,22 +1765,33 @@ func Run[T CommonT](
 }
 
 type runner[Suite suite[T], T CommonT] struct {
+        caller    string
         suiteName string
         testNamer *testnamer.Namer
 }
 
-func newRunner[Suite suite[T], T CommonT]() runner[Suite, T] <span class="cov4" title="5">{
-        return runner[Suite, T]{
-                suiteName: reflectutil.NameOf[Suite](),
-                testNamer: testnamer.New(),
-        }
-}</span>
+func newRunner[Suite suite[T], T CommonT](t common) runner[Suite, T] <span class="cov4" title="5">{
+        suiteName := reflectutil.NameOf[Suite]()
+        if suiteName == reflectutil.NameOf[singleton[T]]() </span><span class="cov0" title="0">{
+                suiteName = ""
+        }</span>
 
-func (r *runner[Suite, T]) collectTests(t TestingT, caller string) suiteTests[Suite, T] <span class="cov4" title="5">{
+        <span class="cov4" title="5">namer := testnamer.New()
+
+        return runner[Suite, T]{
+                caller:    namer.Name(t.Name(), suiteName),
+                suiteName: suiteName,
+                testNamer: namer,
+        }</span>
+}
+
+func (r *runner[Suite, T]) collectTests(
+        t TestingT,
+) suiteTests[Suite, T] <span class="cov4" title="5">{
         t.Helper()
 
         collector := testsCollector[Suite, T]{
-                CallerName: caller,
+                CallerName: r.caller,
                 TestNamer:  r.testNamer,
         }
 
@@ -1686,9 +1808,7 @@ func (r *runner[Suite, T]) runSuite(
 
         options = append(getOptions(), options...)
 
-        caller := r.testNamer.Name(testingT.Name(), r.suiteName)
-
-        tests := r.collectTests(testingT, caller)
+        tests := r.collectTests(testingT)
 
         suiteInfo := testoreflect.SuiteInfo{
                 Parent:   parentSuite,
@@ -1708,7 +1828,7 @@ func (r *runner[Suite, T]) runSuite(
                                 t.testNamer = r.testNamer
                                 t.reflection.Suite = suiteInfo
                                 t.reflection.Test = testoreflect.RegularTestInfo{
-                                        Name:        caller,
+                                        Name:        r.caller,
                                         RawBaseName: r.suiteName,
                                 }
                         }</span>,
@@ -1760,10 +1880,12 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
         allTests := r.applyPlan(
                 t,
                 suiteInfo,
-                tests.Collect(s),
+                tests.Collect(s, func(name string) string </span><span class="cov0" title="0">{
+                        return r.testNamer.Name(r.caller, name)
+                }</span>),
         )
 
-        t.unwrap().testingT.Run(parallelWrapperTest, func(testingT *testing.T) </span><span class="cov4" title="5">{
+        <span class="cov4" title="5">t.unwrap().testingT.Run(parallelWrapperTest, func(testingT *testing.T) </span><span class="cov4" title="5">{
                 testingT.Helper()
 
                 for _, test := range allTests </span><span class="cov6" title="13">{
@@ -1775,7 +1897,11 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
                                                 t.testNamer = r.testNamer
                                                 t.reflection.Suite = suiteInfo
                                                 t.reflection.Test = test.Info
-                                        }</span>,
+
+                                                if test.Configure != nil </span><span class="cov0" title="0">{
+                                                        test.Configure(t)
+                                                }</span>
+                                        },
                                         test.Options...,
                                 )
 
@@ -1862,6 +1988,19 @@ func (r *runner[Suite, T]) applyPlan(
 		
 		<pre class="file" id="file10" style="display: none">package testo
 
+import "github.com/ozontech/testo/testoplugin"
+
+// singleton is a special (virtual) suite with a single test.
+//
+// Used by [RunTest] &amp; [Test] functions to invoke a single suite-less test.
+type singleton[T CommonT] struct {
+        Suite[T]
+
+        name    string
+        test    func(t T)
+        options []testoplugin.Option
+}
+
 type suite[T CommonT] interface {
         // BeforeAll is called before all suite tests once.
         // T is shared with a top-level suite test.
@@ -1875,7 +2014,7 @@ type suite[T CommonT] interface {
         // AfterEach is called after each suite test.
         // T is shared with an actual test.
         //
-        // WARN: this hook is defered to run at the end of the test.
+        // WARN: this hook is deferred to run at the end of the test.
         // If that test has sub-tests marked as parallel,
         // this hook will run BEFORE those sub-tests are finished.
         //
@@ -1938,7 +2077,6 @@ func (Suite[T]) AfterAll(t T) <span class="cov10" title="3">{
         t.unwrap().reflection.Suite.Hooks.MissedAfterAll = true
 }</span>
 
-//nolint:unused // sealed interface
 func (Suite[T]) private() {<span class="cov0" title="0">}</span>
 </pre>
 		
@@ -2024,6 +2162,12 @@ type (
                 failureKind     atomicInt[testoreflect.TestFailureKind]
                 hasFatalSubtest atomic.Bool
 
+                // propagateParallel if enabled, will route .Parallel() calls
+                // to suite's TestingT.
+                //
+                // Used in [RunTest] and [Test].
+                propagateParallel bool
+
                 plugins map[reflect.Type]testoplugin.Plugin
         }
 
@@ -2055,8 +2199,20 @@ func (t *T) Context() context.Context <span class="cov1" title="1">{
 func (t *T) Parallel() <span class="cov1" title="1">{
         t.Helper()
 
-        t.spec.Overrides.Parallel.Call(t.common.Parallel)()
+        t.spec.Overrides.Parallel.Call(t.parallel)()
 }</span>
+
+func (t *T) parallel() <span class="cov0" title="0">{
+        t.Helper()
+
+        if t.propagateParallel </span><span class="cov0" title="0">{
+                t.reflection.Suite.TestingT.Parallel()
+
+                return
+        }</span>
+
+        <span class="cov0" title="0">t.common.Parallel()</span>
+}
 
 // Setenv calls os.Setenv(key, value) and uses Cleanup to
 // restore the environment variable to its original value
@@ -2332,7 +2488,7 @@ func (t *T) Cleanup(f func()) <span class="cov1" title="1">{
 // The name will include the name of the test along with the names of
 // any nested sub-tests. If two sibling sub-tests have the same name,
 // Name will append a suffix to guarantee the returned name is unique.
-func (t *T) Name() string <span class="cov7" title="43">{
+func (t *T) Name() string <span class="cov7" title="44">{
         t.Helper()
 
         return t.reflection.Test.GetName()
@@ -3073,6 +3229,7 @@ type SuiteInfo struct {
         Parent *SuiteInfo
 
         // Name of this suite.
+        // For suite-less tests this field is an empty string.
         Name string
 
         // Caller is the full test name from
@@ -3154,7 +3311,7 @@ type RegularTestInfo struct {
 }
 
 // GetName returns value of [RegularTestInfo.Name] field.
-func (i RegularTestInfo) GetName() string <span class="cov9" title="19">{ return i.Name }</span>
+func (i RegularTestInfo) GetName() string <span class="cov9" title="20">{ return i.Name }</span>
 
 // GetLevel returns value of [RegularTestInfo.Level] field.
 func (i RegularTestInfo) GetLevel() int <span class="cov5" title="5">{ return i.Level }</span>
