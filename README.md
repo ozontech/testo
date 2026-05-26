@@ -105,7 +105,7 @@ Examples:
 
 Testo has its own [VS Code extension](./vscode-extension).
 
-Makes it easier to run and debug individual suite tests.
+Makes it easier to run and debug individual suite tests and adds helpful snippets.
 
 ![VSCode extension screenshot showing codelens buttons for running and debugging a test](./vscode-extension/example.png)
 

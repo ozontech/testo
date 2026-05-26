@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - VS Code extension snippets for common Testo blocks.
+
+## [1.3.0] - 2026-05-24
+
+### Added
+
 - Ability to run tests without suites.
 
 ### Changed
@@ -47,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial stable version.
 
+[1.3.0]: https://github.com/ozontech/testo/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/ozontech/testo/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ozontech/testo/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/ozontech/testo/compare/v1.0.0...v1.0.1
