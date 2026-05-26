@@ -5,6 +5,7 @@ VSCode extension for Go testing framework testo.
 ![CodeLens provided by this extension](./example.png)
 
 It provides CodeLens to run (and debug) either specific suite test or whole suite.
+It also provides snippets for common Testo blocks.
 
 It automatically determines a suite caller (a regular test which calls `testo.RunSuite`)
 and runs it in terminal or debug REPL.
