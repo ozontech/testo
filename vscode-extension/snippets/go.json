@@ -1,0 +1,67 @@
+{
+    "Testo T Type": {
+        "prefix": "testo-t",
+        "body": [
+            "type ${1:T} struct{ *testo.T }"
+        ],
+        "description": "Declare a Testo T type embedding *testo.T."
+    },
+    "Testo Suite": {
+        "prefix": "testo-suite",
+        "body": [
+            "type ${1:Suite} struct{ testo.Suite[${2:T}] }"
+        ],
+        "description": "Declare a Testo suite type."
+    },
+    "Testo Suite Test": {
+        "prefix": "testo-suite-test",
+        "body": [
+            "func (*${1:Suite}) ${2:Test}(t ${3:T}) {",
+            "\t$0",
+            "}"
+        ],
+        "description": "Declare a Testo suite test method."
+    },
+    "Testo Run Suite": {
+        "prefix": "testo-run-suite",
+        "body": [
+            "func ${1:TestSuite}(t *testing.T) {",
+            "\ttesto.RunSuite(t, new(${2:Suite}))",
+            "}"
+        ],
+        "description": "Declare a Go test function that runs a Testo suite."
+    },
+    "Testo Suite With Runner": {
+        "prefix": "testo-suite-runner",
+        "body": [
+            "type ${1:Suite} struct{ testo.Suite[${2:T}] }",
+            "",
+            "func (*${1:Suite}) ${3:Test}(t ${2:T}) {",
+            "\t$0",
+            "}",
+            "",
+            "func ${4:TestSuite}(t *testing.T) {",
+            "\ttesto.RunSuite(t, new(${1:Suite}))",
+            "}"
+        ],
+        "description": "Declare a Testo suite with a test method and runner."
+    },
+    "Testo Plugin Assertion": {
+        "prefix": "testo-plugin-assert",
+        "body": [
+            "var _ testoplugin.Plugin = (*${1:Plugin})(nil)"
+        ],
+        "description": "Assert that a type implements testoplugin.Plugin."
+    },
+    "Testo Plugin Spec": {
+        "prefix": "testo-plugin-spec",
+        "body": [
+            "func (*${1:Plugin}) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {",
+            "\treturn testoplugin.Spec{",
+            "\t\t$0",
+            "\t}",
+            "}"
+        ],
+        "description": "Declare a Testo plugin specification method."
+    }
+}

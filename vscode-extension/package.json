@@ -16,7 +16,8 @@
         "node": ">=16.14.2"
     },
     "categories": [
-        "Testing"
+        "Testing",
+        "Snippets"
     ],
     "tags": [
         "golang"
@@ -35,6 +36,12 @@
                 "aliases": [
                     "Go"
                 ]
+            }
+        ],
+        "snippets": [
+            {
+                "language": "go",
+                "path": "./snippets/go.json"
             }
         ],
         "commands": [],
