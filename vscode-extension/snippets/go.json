@@ -2,7 +2,10 @@
     "Testo T Type": {
         "prefix": "testo-t",
         "body": [
-            "type ${1:T} struct{ *testo.T }"
+            "type ${1:T} struct {",
+            "\t*testo.T",
+            "\t$0",
+            "}"
         ],
         "description": "Declare a Testo T type embedding *testo.T."
     },
@@ -46,22 +49,17 @@
         ],
         "description": "Declare a Testo suite with a test method and runner."
     },
-    "Testo Plugin Assertion": {
-        "prefix": "testo-plugin-assert",
+    "Testo Plugin": {
+        "prefix": "testo-plugin",
         "body": [
-            "var _ testoplugin.Plugin = (*${1:Plugin})(nil)"
-        ],
-        "description": "Assert that a type implements testoplugin.Plugin."
-    },
-    "Testo Plugin Spec": {
-        "prefix": "testo-plugin-spec",
-        "body": [
+            "var _ testoplugin.Plugin = (*${1:Plugin})(nil)",
+            "",
+            "type ${1:Plugin} struct{ *testo.T }",
+            "",
             "func (*${1:Plugin}) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {",
-            "\treturn testoplugin.Spec{",
-            "\t\t$0",
-            "\t}",
+            "\treturn testoplugin.Spec{}",
             "}"
         ],
-        "description": "Declare a Testo plugin specification method."
+        "description": "Declare a Testo plugin with interface assertion and specification method."
     }
 }
