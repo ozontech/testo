@@ -85,6 +85,8 @@ var kvMu sync.RWMutex
 //		'\\' c      matches character c
 //		lo '-' hi   matches character c for lo <= c <= hi
 //
+// Keys requires pattern to match all of name, not just a substring.
+//
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Keys(pattern string) (keys []string, err error) {
 	if err := validate(pattern); err != nil {
@@ -131,11 +133,13 @@ func extractKey(p string) (string, error) {
 	}
 	defer f.Close()
 
+	var collected []byte
+
 	// heuristic
-	buf := make([]byte, 32)
+	chunk := make([]byte, 32)
 
 	for {
-		n, err := io.ReadAtLeast(f, buf, 1)
+		n, err := io.ReadAtLeast(f, chunk, 1)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return "", nil
@@ -144,10 +148,16 @@ func extractKey(p string) (string, error) {
 			return "", err
 		}
 
-		before, _, ok := bytes.Cut(buf[:n], []byte{0})
+		before, _, ok := bytes.Cut(chunk[:n], []byte{0})
 		if ok {
-			return string(before), nil
+			if len(collected) == 0 {
+				return string(before), nil
+			}
+
+			return string(append(collected, before...)), nil
 		}
+
+		collected = append(collected, before...)
 	}
 }
 
