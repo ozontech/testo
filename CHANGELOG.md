@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - VS Code extension snippets for common Testo blocks.
 
+### Fixed
+
+- Fixed a bug when long cache keys could trigger an error.
+
 ## [1.3.0] - 2026-05-24
 
 ### Added
