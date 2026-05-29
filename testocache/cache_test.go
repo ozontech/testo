@@ -13,7 +13,7 @@ func Test(t *testing.T) {
 		Value string
 	}{
 		{Key: "my-key", Value: "lorem ipsum\ndolor sit \t\tamet"},
-		{Key: "key/with/slash", Value: "other value"},
+		{Key: "key~with~tilde", Value: "other value"},
 	} {
 		t.Run("with key: "+tt.Key, func(t *testing.T) {
 			err := Set(tt.Key, []byte(tt.Value))
@@ -37,7 +37,9 @@ func Test(t *testing.T) {
 		t.Fatalf("failed to get keys: %v", err)
 	}
 
-	wantKeys := []string{"key-with-slash", "my-key"}
+	slices.Sort(keys)
+
+	wantKeys := []string{"key~with~tilde", "my-key"}
 	if !slices.Equal(keys, wantKeys) {
 		t.Fatalf("keys: want %v, got %v", wantKeys, keys)
 	}

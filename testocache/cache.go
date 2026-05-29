@@ -13,16 +13,17 @@
 package testocache
 
 import (
+	"bytes"
 	"cmp"
 	"errors"
 	"flag"
-	"io/fs"
+	"hash/fnv"
+	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
-	"unicode"
 )
 
 var (
@@ -56,10 +57,30 @@ func Disabled() bool {
 var kvMu sync.RWMutex
 
 // Keys returns all glob-matched keys by the given pattern.
-// E.g. "myplugin-prefix-*"
+//
+// The pattern syntax is:
+//
+//	pattern:
+//		{ term }
+//	term:
+//		'*'         matches any sequence of non-/ characters
+//		'?'         matches any single non-/ character
+//		'[' [ '^' ] { character-range } ']'
+//		            character class (must be non-empty)
+//		c           matches character c (c != '*', '?', '\\', '[')
+//		'\\' c      matches character c
+//
+//	character-range:
+//		c           matches character c (c != '\\', '-', ']')
+//		'\\' c      matches character c
+//		lo '-' hi   matches character c for lo <= c <= hi
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Keys(pattern string) (keys []string, err error) {
+	if _, err := path.Match(pattern, ""); err != nil {
+		return nil, err
+	}
+
 	dir, err := cacheDir()
 	if err != nil {
 		return nil, err
@@ -68,7 +89,51 @@ func Keys(pattern string) (keys []string, err error) {
 	kvMu.RLock()
 	defer kvMu.RUnlock()
 
-	return fs.Glob(os.DirFS(dir), pattern)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	keys = make([]string, 0, len(keys))
+
+	for _, e := range entries {
+		key, err := extractKey(filepath.Join(dir, e.Name()))
+		if err != nil {
+			return nil, err
+		}
+
+		if ok, _ := path.Match(pattern, key); ok {
+			keys = append(keys, key)
+		}
+	}
+
+	return keys, nil
+}
+
+func extractKey(p string) (string, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	buf := make([]byte, 16)
+
+	for {
+		n, err := io.ReadAtLeast(f, buf, 1)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return "", err
+		}
+
+		before, _, ok := bytes.Cut(buf[:n], []byte{0})
+		if ok {
+			return string(before), nil
+		}
+
+		if errors.Is(err, io.EOF) {
+			return "", nil
+		}
+	}
 }
 
 // Get cached object by the given key.
@@ -83,9 +148,24 @@ func Get(key string) ([]byte, error) {
 	kvMu.RLock()
 	defer kvMu.RUnlock()
 
-	path := filepath.Join(dir, sanitizeFilename(key))
+	h, err := hash(key)
+	if err != nil {
+		return nil, err
+	}
 
-	return os.ReadFile(path)
+	p := filepath.Join(dir, h)
+
+	value, err := os.ReadFile(p)
+	if err != nil {
+		return nil, err
+	}
+
+	_, after, ok := bytes.Cut(value, []byte{0})
+	if !ok {
+		return value, nil
+	}
+
+	return after, nil
 }
 
 // Set saves value to cache with the given key.
@@ -100,9 +180,21 @@ func Set(key string, value []byte) error {
 	kvMu.Lock()
 	defer kvMu.Unlock()
 
-	path := filepath.Join(dir, sanitizeFilename(key))
+	h, err := hash(key)
+	if err != nil {
+		return err
+	}
 
-	return os.WriteFile(path, value, permFile)
+	p := filepath.Join(dir, h)
+
+	buf := bytes.NewBufferString(key)
+
+	buf.Grow(1 + len(value))
+
+	buf.WriteByte(0)
+	buf.Write(value)
+
+	return os.WriteFile(p, buf.Bytes(), permFile)
 }
 
 // Remove object from cache by the given key.
@@ -117,9 +209,14 @@ func Remove(key string) error {
 	kvMu.Lock()
 	defer kvMu.Unlock()
 
-	path := filepath.Join(dir, sanitizeFilename(key))
+	h, err := hash(key)
+	if err != nil {
+		return err
+	}
 
-	return os.Remove(path)
+	p := filepath.Join(dir, h)
+
+	return os.Remove(p)
 }
 
 func cacheDir() (string, error) {
@@ -146,25 +243,13 @@ func parseBool(s string) bool {
 	return b
 }
 
-func sanitizeFilename(name string) string {
-	var sb strings.Builder
+func hash(key string) (string, error) {
+	h := fnv.New64a()
 
-	sb.Grow(len(name))
-
-	const (
-		invalid     = `\/<>:\"|?*.`
-		replacement = '-'
-	)
-
-	for _, r := range name {
-		switch {
-		case r == 0, unicode.IsControl(r), strings.ContainsRune(invalid, r):
-			sb.WriteRune(replacement)
-
-		default:
-			sb.WriteRune(r)
-		}
+	_, err := h.Write([]byte(key))
+	if err != nil {
+		return "", err
 	}
 
-	return sb.String()
+	return strconv.FormatUint(h.Sum64(), 36), nil
 }
