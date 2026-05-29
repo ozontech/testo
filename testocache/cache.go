@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync"
 )
@@ -39,8 +40,17 @@ var (
 	)
 )
 
-// ErrDisabled indicates that caching is disabled.
-var ErrDisabled = errors.New("cache is disabled")
+var (
+	// ErrDisabled indicates that caching is disabled.
+	ErrDisabled = errors.New("testocache: cache is disabled")
+
+	// ErrInvalidKey indicates that passed key is invalid.
+	// Currently, key is invalid if it contains a NUL-byte.
+	ErrInvalidKey = errors.New("testocache: invalid key")
+
+	// ErrNotFound indicates that value was not found the passed key.
+	ErrNotFound = errors.New("testocache: not found")
+)
 
 const (
 	permFile os.FileMode = 0o600
@@ -77,6 +87,10 @@ var kvMu sync.RWMutex
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Keys(pattern string) (keys []string, err error) {
+	if err := validate(pattern); err != nil {
+		return nil, err
+	}
+
 	if _, err := path.Match(pattern, ""); err != nil {
 		return nil, err
 	}
@@ -117,11 +131,16 @@ func extractKey(p string) (string, error) {
 	}
 	defer f.Close()
 
-	buf := make([]byte, 16)
+	// heuristic
+	buf := make([]byte, 32)
 
 	for {
 		n, err := io.ReadAtLeast(f, buf, 1)
-		if err != nil && !errors.Is(err, io.EOF) {
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return "", nil
+			}
+
 			return "", err
 		}
 
@@ -129,17 +148,18 @@ func extractKey(p string) (string, error) {
 		if ok {
 			return string(before), nil
 		}
-
-		if errors.Is(err, io.EOF) {
-			return "", nil
-		}
 	}
 }
 
 // Get cached object by the given key.
+// Key must not contain a NUL-byte.
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Get(key string) ([]byte, error) {
+	if err := validate(key); err != nil {
+		return nil, err
+	}
+
 	dir, err := cacheDir()
 	if err != nil {
 		return nil, err
@@ -155,6 +175,11 @@ func Get(key string) ([]byte, error) {
 
 	p := filepath.Join(dir, h)
 
+	_, err = os.Stat(p)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
 	value, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err
@@ -169,9 +194,14 @@ func Get(key string) ([]byte, error) {
 }
 
 // Set saves value to cache with the given key.
+// Key must not contain a NUL-byte.
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Set(key string, value []byte) error {
+	if err := validate(key); err != nil {
+		return err
+	}
+
 	dir, err := cacheDir()
 	if err != nil {
 		return err
@@ -198,9 +228,14 @@ func Set(key string, value []byte) error {
 }
 
 // Remove object from cache by the given key.
+// Key must not contain a NUL-byte.
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Remove(key string) error {
+	if err := validate(key); err != nil {
+		return err
+	}
+
 	dir, err := cacheDir()
 	if err != nil {
 		return err
@@ -241,6 +276,14 @@ func parseBool(s string) bool {
 	b, _ := strconv.ParseBool(s)
 
 	return b
+}
+
+func validate(key string) error {
+	if slices.Contains([]byte(key), 0) {
+		return ErrInvalidKey
+	}
+
+	return nil
 }
 
 func hash(key string) (string, error) {
