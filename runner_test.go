@@ -2,7 +2,9 @@ package testo
 
 import (
 	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/ozontech/testo/testoplugin"
 )
@@ -202,3 +204,59 @@ func (s TestSuite) TestFoo(t *TestT) {
 }
 
 func (s *TestSuite) TestBar(t *TestT) {}
+
+type PluginGoroutine struct {
+	*T
+
+	wg sync.WaitGroup
+}
+
+func (p *PluginGoroutine) Go(f func()) {
+	p.Helper()
+
+	p.wg.Add(1)
+
+	go func() {
+		defer p.wg.Done()
+
+		p.Helper()
+
+		f()
+	}()
+}
+
+func (p *PluginGoroutine) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
+	return testoplugin.Spec{
+		Hooks: testoplugin.Hooks{
+			AfterAll:     p.after(),
+			AfterEach:    p.after(),
+			AfterEachSub: p.after(),
+		},
+	}
+}
+
+func (p *PluginGoroutine) after() testoplugin.Hook {
+	return testoplugin.Hook{
+		Priority: testoplugin.TryFirst,
+		Func:     p.wg.Wait,
+	}
+}
+
+func TestDataRace(t *testing.T) {
+	t.Parallel()
+
+	type DataRaceT struct {
+		*T
+		*PluginGoroutine
+	}
+
+	RunTest(t, func(t DataRaceT) {
+		t.Go(func() {
+			Run(t, "inner", func(t DataRaceT) {
+				time.Sleep(time.Second)
+			})
+		})
+
+		t.Log("test")
+	})
+}

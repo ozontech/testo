@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ozontech/testo/internal/reflectutil"
+	"github.com/ozontech/testo/internal/syncutil"
 	"github.com/ozontech/testo/internal/testnamer"
 	"github.com/ozontech/testo/testoplugin"
 	"github.com/ozontech/testo/testoreflect"
@@ -74,7 +75,7 @@ type (
 		levelOptions []testoplugin.Option
 
 		// reflection holds information for [Reflect].
-		reflection testoreflect.Reflection
+		reflection syncutil.Guarded[testoreflect.Reflection]
 
 		failureSource   atomicInt[testoreflect.TestFailureSource]
 		failureKind     atomicInt[testoreflect.TestFailureKind]
@@ -124,7 +125,7 @@ func (t *T) parallel() {
 	t.Helper()
 
 	if t.propagateParallel {
-		t.reflection.Suite.TestingT.Parallel()
+		t.reflection.Load().Suite.TestingT.Parallel()
 
 		return
 	}
@@ -409,7 +410,7 @@ func (t *T) Cleanup(f func()) {
 func (t *T) Name() string {
 	t.Helper()
 
-	return t.reflection.Test.GetName()
+	return t.reflection.Load().Test.GetName()
 }
 
 // unwrap the underlying T.
@@ -560,7 +561,7 @@ func Reflect(t CommonT) testoreflect.Reflection {
 
 	internal := t.unwrap()
 
-	info := internal.reflection
+	info := internal.reflection.Load()
 
 	info.FailureSource = internal.failureSource.Load()
 	info.FailureKind = internal.failureKind.Load()

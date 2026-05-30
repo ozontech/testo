@@ -1,6 +1,9 @@
 package testo
 
-import "github.com/ozontech/testo/testoplugin"
+import (
+	"github.com/ozontech/testo/testoplugin"
+	"github.com/ozontech/testo/testoreflect"
+)
 
 // singleton is a special (virtual) suite with a single test.
 //
@@ -71,22 +74,30 @@ type Suite[T CommonT] struct {
 
 // BeforeAll hook.
 func (Suite[T]) BeforeAll(t T) {
-	t.unwrap().reflection.Suite.Hooks.MissedBeforeAll = true
+	t.unwrap().reflection.Modify(func(r *testoreflect.Reflection) {
+		r.Suite.Hooks.MissedBeforeAll = true
+	})
 }
 
 // BeforeEach hook.
 func (Suite[T]) BeforeEach(t T) {
-	t.unwrap().reflection.Suite.Hooks.MissedBeforeEach = true
+	t.unwrap().reflection.Modify(func(r *testoreflect.Reflection) {
+		r.Suite.Hooks.MissedBeforeEach = true
+	})
 }
 
 // AfterEach hook.
 func (Suite[T]) AfterEach(t T) {
-	t.unwrap().reflection.Suite.Hooks.MissedAfterEach = true
+	t.unwrap().reflection.Modify(func(r *testoreflect.Reflection) {
+		r.Suite.Hooks.MissedAfterEach = true
+	})
 }
 
 // AfterAll hook.
 func (Suite[T]) AfterAll(t T) {
-	t.unwrap().reflection.Suite.Hooks.MissedAfterAll = true
+	t.unwrap().reflection.Modify(func(r *testoreflect.Reflection) {
+		r.Suite.Hooks.MissedAfterAll = true
+	})
 }
 
 func (Suite[T]) private() {}

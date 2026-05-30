@@ -141,7 +141,9 @@ func RunSubSuite[Suite suite[Sub], Parent, Sub CommonT](
 
 	r := newRunner[Suite](t)
 
-	return r.runSuite(t.unwrap().testingT, suite, &t.unwrap().reflection.Suite, options...)
+	parent := t.unwrap().reflection.Load().Suite
+
+	return r.runSuite(t.unwrap().testingT, suite, &parent, options...)
 }
 
 // Run runs f as a subtest of t called name. It runs f in a separate goroutine
@@ -174,14 +176,19 @@ func Run[T CommonT](
 			&parentT,
 			func(t *testoT) {
 				t.testNamer = parentT.unwrap().testNamer
-				t.reflection.Suite = parentT.unwrap().reflection.Suite
-				t.reflection.Test = testoreflect.RegularTestInfo{
-					Name:        parentT.unwrap().testNamer.Name(parentT.unwrap().Name(), name),
-					RawBaseName: name,
-					Level:       t.level(),
-					IsSubtest:   true,
-					FuncPC:      reflect.ValueOf(f).Pointer(),
-				}
+
+				parentSuite := parentT.unwrap().reflection.Load().Suite
+
+				t.reflection.Modify(func(r *testoreflect.Reflection) {
+					r.Suite = parentSuite
+					r.Test = testoreflect.RegularTestInfo{
+						Name:        parentT.unwrap().testNamer.Name(parentT.unwrap().Name(), name),
+						RawBaseName: name,
+						Level:       t.level(),
+						IsSubtest:   true,
+						FuncPC:      reflect.ValueOf(f).Pointer(),
+					}
+				})
 			},
 			options...,
 		)
@@ -190,10 +197,12 @@ func Run[T CommonT](
 			if r := recover(); r != nil {
 				trace := string(debug.Stack())
 
-				t.unwrap().reflection.Panic = &testoreflect.PanicInfo{
-					Value: r,
-					Trace: trace,
-				}
+				t.unwrap().reflection.Modify(func(r *testoreflect.Reflection) {
+					r.Panic = &testoreflect.PanicInfo{
+						Value: r,
+						Trace: trace,
+					}
+				})
 
 				t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), r, trace)
 			}
@@ -269,11 +278,14 @@ func (r *runner[Suite, T]) runSuite(
 			nil,
 			func(t *testoT) {
 				t.testNamer = r.testNamer
-				t.reflection.Suite = suiteInfo
-				t.reflection.Test = testoreflect.RegularTestInfo{
-					Name:        r.caller,
-					RawBaseName: r.suiteName,
-				}
+
+				t.reflection.Modify(func(ref *testoreflect.Reflection) {
+					ref.Suite = suiteInfo
+					ref.Test = testoreflect.RegularTestInfo{
+						Name:        r.caller,
+						RawBaseName: r.suiteName,
+					}
+				})
 			},
 			options...,
 		)
@@ -311,13 +323,15 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 
 	s.BeforeAll(t)
 
+	suiteReflection := t.unwrap().reflection.Load().Suite
+
 	suiteInfo := testoreflect.SuiteInfo{
-		Parent:   t.unwrap().reflection.Suite.Parent,
-		Name:     t.unwrap().reflection.Suite.Name,
-		Caller:   t.unwrap().reflection.Suite.Caller,
-		TestingT: t.unwrap().reflection.Suite.TestingT,
+		Parent:   suiteReflection.Parent,
+		Name:     suiteReflection.Name,
+		Caller:   suiteReflection.Caller,
+		TestingT: suiteReflection.TestingT,
 		Value:    s,
-		Hooks:    t.unwrap().reflection.Suite.Hooks,
+		Hooks:    suiteReflection.Hooks,
 	}
 
 	allTests := r.applyPlan(
@@ -338,8 +352,11 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 					&t,
 					func(t *testoT) {
 						t.testNamer = r.testNamer
-						t.reflection.Suite = suiteInfo
-						t.reflection.Test = test.Info
+
+						t.reflection.Modify(func(r *testoreflect.Reflection) {
+							r.Suite = suiteInfo
+							r.Test = test.Info
+						})
 
 						if test.Configure != nil {
 							test.Configure(t)
@@ -369,10 +386,12 @@ func (r *runner[Suite, T]) runSuiteTest(
 		if r := recover(); r != nil {
 			trace := string(debug.Stack())
 
-			t.unwrap().reflection.Panic = &testoreflect.PanicInfo{
-				Value: r,
-				Trace: trace,
-			}
+			t.unwrap().reflection.Modify(func(ref *testoreflect.Reflection) {
+				ref.Panic = &testoreflect.PanicInfo{
+					Value: r,
+					Trace: trace,
+				}
+			})
 
 			t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), r, trace)
 		}
