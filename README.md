@@ -27,6 +27,7 @@ Add some flavor to your tests with
 - Sub-tests & sub-suites - support for nested tests and nested suites.
 - Test reflection - deeply inspect test's meta-information.
 - Caching - key-value storage persistent between test runs.
+- [Zero dependencies](./go.mod).
 
 ## Why Testo
 
