@@ -7,6 +7,10 @@ import (
 
 // Plan for running the tests.
 type Plan struct {
+	// Priority sets plan priority.
+	// Plans with lower priority value are executed first.
+	Priority Priority
+
 	// Prepare may filter or re-order planned tests in-place.
 	// Nil values are ignored.
 	//

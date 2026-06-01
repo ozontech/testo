@@ -33,6 +33,10 @@ func mergeSpecs(tb testing.TB, plugins ...testoplugin.Spec) testoplugin.Spec {
 func mergePlans(tb testing.TB, plans ...testoplugin.Plan) testoplugin.Plan {
 	tb.Helper()
 
+	slices.SortStableFunc(plans, func(a, b testoplugin.Plan) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	})
+
 	return testoplugin.Plan{
 		Prepare: func(suite testoreflect.SuiteInfo, tests *[]testoplugin.PlannedTest) {
 			tb.Helper()
@@ -113,6 +117,10 @@ func mergeHooks(tb testing.TB, hooks ...testoplugin.Hooks) testoplugin.Hooks {
 
 //nolint:funlen // splitting this into subfunctons would make it worse
 func mergeOverrides(overrides ...testoplugin.Overrides) testoplugin.Overrides {
+	slices.SortStableFunc(overrides, func(a, b testoplugin.Overrides) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	})
+
 	return testoplugin.Overrides{
 		Log: mergeOverride(
 			overrides,
