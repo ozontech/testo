@@ -19,6 +19,8 @@ import "math"
 // invoked when other parts are available.
 //
 // "Plugin component" means plan, hook, override, etc.
+//
+// See [TryFirst] and [TryLast] for predefined priority values.
 type Priority int
 
 const (
