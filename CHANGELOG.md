@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Support priority for plugin plans and overrides.
+- Support for setting plugin priority (order) for `Plan` and `Overrides` components.
 
 ### Fixed
 
