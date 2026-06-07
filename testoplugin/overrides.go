@@ -13,6 +13,10 @@ import (
 // There exists a certain hierarchy what method calls what underneath.
 // For example, overriding Log will affect Error, Skip, Fatal and their printf equivalents.
 type Overrides struct {
+	// Priority defines global priority for these overrides.
+	// Overrides with lower priority values are called first.
+	Priority Priority
+
 	Log      Override[FuncLog]
 	Parallel Override[FuncParallel]
 	TempDir  Override[FuncTempDir]

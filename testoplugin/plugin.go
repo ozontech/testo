@@ -15,10 +15,12 @@ package testoplugin
 import "math"
 
 // Priority defines execution order (priority).
-// It defines when a plugin part should be invoked when other parts are available.
+// It defines when a plugin component should be
+// invoked when other parts are available.
 //
-// "Plugin part" means plan, hook, override, etc.
-// Right now, only [Hook]s are supported.
+// "Plugin component" means plan, hook, override, etc.
+//
+// See [TryFirst] and [TryLast] for predefined priority values.
 type Priority int
 
 const (

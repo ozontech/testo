@@ -347,6 +347,8 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 
 		for _, test := range allTests {
 			testingT.Run(test.Name, func(testingT *testing.T) {
+				testingT.Helper()
+
 				innerT := construct(
 					testingT,
 					&t,
