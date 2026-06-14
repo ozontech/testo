@@ -256,7 +256,7 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 
 			//nolint:lll // it's a long message
 			tb.Fatalf(
-				"testo: wrong signature for (%[1]s).%[2]s, must be: func (%[1]s).%[2]s(%[3]s) or func (%[1]s).%[2]s(%[3]s, struct{...})",
+				"testo: wrong signature for (%[1]s).%[2]s, must be either:\nfunc (%[1]s).%[2]s(%[3]s)\nfunc (%[1]s).%[2]s(%[3]s, struct{...})",
 				suiteTyp,
 				method.Name,
 				reflect.TypeFor[T](),

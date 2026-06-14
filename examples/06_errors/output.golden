@@ -11,7 +11,9 @@
 === RUN   Test/empty_cases/EmptyCases/testo!
 === RUN   Test/wrong_t
 === RUN   Test/wrong_t/WrongT
-    main_test.go:41: testo: wrong signature for (*main.WrongT).Test, must be: func (*main.WrongT).Test(main.T) or func (*main.WrongT).Test(main.T, struct{...})
+    main_test.go:41: testo: wrong signature for (*main.WrongT).Test, must be either:
+        func (*main.WrongT).Test(main.T)
+        func (*main.WrongT).Test(main.T, struct{...})
 --- FAIL: Test (0.00s)
     --- FAIL: Test/missing_cases (0.00s)
         --- FAIL: Test/missing_cases/MissingCases (0.00s)
@@ -23,5 +25,5 @@
     --- FAIL: Test/wrong_t (0.00s)
         --- FAIL: Test/wrong_t/WrongT (0.00s)
 FAIL
-FAIL	github.com/ozontech/testo/examples/06_errors	0.217s
+FAIL	github.com/ozontech/testo/examples/06_errors	0.315s
 FAIL
