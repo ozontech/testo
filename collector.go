@@ -3,7 +3,6 @@ package testo
 import (
 	"fmt"
 	"maps"
-	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -164,9 +163,12 @@ type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 // Suite instance is required here to get
 // parameter cases (CasesXXX funcs), not to invoke the actual tests.
 func (st suiteTests[Suite, T]) Collect(
+	tb testing.TB,
 	s Suite,
 	name func(string) string,
 ) []annotatedSuiteTest[Suite, T] {
+	tb.Helper()
+
 	tests := make([]annotatedSuiteTest[Suite, T], 0, len(st.Regular))
 
 	for _, r := range st.Regular {
@@ -177,7 +179,7 @@ func (st suiteTests[Suite, T]) Collect(
 	}
 
 	for _, p := range st.Parametrized {
-		cases := p.Tests(s)
+		cases := p.Tests(tb, s)
 
 		tests = append(tests, cases...)
 	}
@@ -332,7 +334,7 @@ func (tc *testsCollector[Suite, T]) Collect(
 }
 
 type suiteTestParametrized[Suite suite[T], T CommonT] struct {
-	Tests func(Suite) []annotatedSuiteTest[Suite, T]
+	Tests func(testing.TB, Suite) []annotatedSuiteTest[Suite, T]
 }
 
 func (tc *testsCollector[Suite, T]) newParametrizedTest(
@@ -340,7 +342,9 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 	cases map[string]suiteCase[Suite, T],
 ) suiteTestParametrized[Suite, T] {
 	return suiteTestParametrized[Suite, T]{
-		Tests: func(s Suite) []annotatedSuiteTest[Suite, T] {
+		Tests: func(tb testing.TB, s Suite) []annotatedSuiteTest[Suite, T] {
+			tb.Helper()
+
 			casesValues := make(map[string][]reflect.Value, len(cases))
 
 			for caseName, c := range cases {
@@ -349,13 +353,18 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 				if len(values) == 0 {
 					structName := method.Type.In(0).String()
 
-					fmt.Fprintf(
-						os.Stderr,
-						"testo: warning: (%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s will not run\n",
+					msg := fmt.Sprintf(
+						"testo: (%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s will not run",
 						structName,
 						caseName,
 						method.Name,
 					)
+
+					if *flagStrict {
+						tb.Fatal(msg)
+					} else {
+						tb.Log(msg)
+					}
 
 					return nil
 				}

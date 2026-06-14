@@ -8,6 +8,8 @@ import (
 	_ "github.com/ozontech/testo/testocache"
 )
 
+var flagStrict = flag.Bool("testo.strict", false, "run tests in strict mode")
+
 var flagMethod = flagRegexp{Regexp: regexp.MustCompile("")}
 
 func init() {

@@ -337,7 +337,7 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 	allTests := r.applyPlan(
 		t,
 		suiteInfo,
-		tests.Collect(s, func(name string) string {
+		tests.Collect(t, s, func(name string) string {
 			return r.testNamer.Name(r.caller, name)
 		}),
 	)
