@@ -57,6 +57,8 @@ linters:
           - thelper
 
   settings:
+    cyclop:
+      max-complexity: 15
     funlen:
       lines: 80
     gosec:
