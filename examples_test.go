@@ -71,7 +71,11 @@ func requireEqualLines(t *testing.T, a, b string, ignoreOrder bool) {
 	}
 
 	if !slices.Equal(aLines, bLines) {
-		t.Fatalf("lines not equal:\n\n%s\n\n%s", aLines, bLines)
+		t.Fatalf(
+			"lines not equal:\n\n%s\n\n%s",
+			strings.Join(aLines, "\n"),
+			strings.Join(bLines, "\n"),
+		)
 	}
 }
 

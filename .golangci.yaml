@@ -2,7 +2,6 @@
 version: "2"
 formatters:
   enable:
-    - gci
     - gofumpt
     - goimports
     - golines
@@ -15,6 +14,7 @@ formatters:
         - pattern: "interface{}"
           replacement: "any"
     gofumpt:
+      module-path: github.com/ozontech/testo
       extra-rules: true
 
 linters:
@@ -58,7 +58,7 @@ linters:
 
   settings:
     funlen:
-      lines: 70
+      lines: 80
     gosec:
       excludes:
         - G304
