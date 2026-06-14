@@ -1,9 +1,7 @@
 package testo
 
 import (
-	"fmt"
 	"maps"
-	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -81,7 +79,16 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
 		const prefix = "Cases"
 
 		if !isTest(method.Name, prefix) {
-			continue
+			if !strings.HasPrefix(method.Name, prefix) {
+				continue
+			}
+
+			tb.Fatalf(
+				"testo: (%s).%s has malformed name: first letter after '%s' must not be lowercase",
+				reflect.TypeFor[Suite](),
+				method.Name,
+				prefix,
+			)
 		}
 
 		name := strings.TrimPrefix(method.Name, prefix)
@@ -95,7 +102,7 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
 
 		if !isValidIn || !isValidOut {
 			tb.Fatalf(
-				"testo: wrong signature for %[1]s.%[2]s, must be: func (%[1]s) %[2]s() []...",
+				"testo: wrong signature for %[1]s.%[2]s, must be: func (%[1]s) %[2]s() []Type",
 				reflect.TypeFor[Suite](), method.Name, tb,
 			)
 		}
@@ -150,6 +157,10 @@ type suiteTests[Suite suite[T], T CommonT] struct {
 	Parametrized []suiteTestParametrized[Suite, T]
 }
 
+func (st suiteTests[Suite, T]) isEmpty() bool {
+	return len(st.Regular) == 0 && len(st.Parametrized) == 0
+}
+
 type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 	suiteTest[Suite, T]
 
@@ -164,9 +175,12 @@ type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 // Suite instance is required here to get
 // parameter cases (CasesXXX funcs), not to invoke the actual tests.
 func (st suiteTests[Suite, T]) Collect(
+	tb testing.TB,
 	s Suite,
 	name func(string) string,
 ) []annotatedSuiteTest[Suite, T] {
+	tb.Helper()
+
 	tests := make([]annotatedSuiteTest[Suite, T], 0, len(st.Regular))
 
 	for _, r := range st.Regular {
@@ -177,7 +191,7 @@ func (st suiteTests[Suite, T]) Collect(
 	}
 
 	for _, p := range st.Parametrized {
-		cases := p.Tests(s)
+		cases := p.Tests(tb, s)
 
 		tests = append(tests, cases...)
 	}
@@ -217,22 +231,36 @@ func (tc *testsCollector[Suite, T]) testName(base string) string {
 }
 
 //nolint:cyclop,funlen,gocognit // splitting it would make it even more complex
-func (tc *testsCollector[Suite, T]) Collect(
-	tb testing.TB,
-) suiteTests[Suite, T] {
+func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] {
 	tb.Helper()
 
-	cases := suiteCasesOf[Suite](tb)
-
 	suiteTyp := reflect.TypeFor[Suite]()
+
+	if suiteTyp == reflect.TypeFor[singleton[T]]() {
+		return suiteTests[Suite, T]{}
+	}
+
+	cases := suiteCasesOf[Suite](tb)
 
 	var tests suiteTests[Suite, T]
 
 	for i := range suiteTyp.NumMethod() {
 		method := suiteTyp.Method(i)
 
-		if !isTest(method.Name, "Test") {
-			continue
+		const prefix = "Test"
+
+		if !isTest(method.Name, prefix) {
+			if !strings.HasPrefix(method.Name, prefix) {
+				continue
+			}
+
+			// identical to native go test behavior
+			tb.Fatalf(
+				"testo: (%s).%s has malformed name: first letter after '%s' must not be lowercase",
+				suiteTyp,
+				method.Name,
+				prefix,
+			)
 		}
 
 		raiseWrongSignatureError := func() {
@@ -240,7 +268,7 @@ func (tc *testsCollector[Suite, T]) Collect(
 
 			//nolint:lll // it's a long message
 			tb.Fatalf(
-				"testo: wrong signature for (%[1]s).%[2]s, must be: func (%[1]s).%[2]s(%[3]s) or func (%[1]s).%[2]s(%[3]s, struct{...})",
+				"testo: wrong signature for (%[1]s).%[2]s, must be either:\nfunc (%[1]s).%[2]s(%[3]s)\nfunc (%[1]s).%[2]s(%[3]s, struct{...})",
 				suiteTyp,
 				method.Name,
 				reflect.TypeFor[T](),
@@ -328,11 +356,15 @@ func (tc *testsCollector[Suite, T]) Collect(
 		}
 	}
 
+	if tests.isEmpty() {
+		warnf(tb, "suite %s has no tests", suiteTyp)
+	}
+
 	return tests
 }
 
 type suiteTestParametrized[Suite suite[T], T CommonT] struct {
-	Tests func(Suite) []annotatedSuiteTest[Suite, T]
+	Tests func(testing.TB, Suite) []annotatedSuiteTest[Suite, T]
 }
 
 func (tc *testsCollector[Suite, T]) newParametrizedTest(
@@ -340,7 +372,9 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 	cases map[string]suiteCase[Suite, T],
 ) suiteTestParametrized[Suite, T] {
 	return suiteTestParametrized[Suite, T]{
-		Tests: func(s Suite) []annotatedSuiteTest[Suite, T] {
+		Tests: func(tb testing.TB, s Suite) []annotatedSuiteTest[Suite, T] {
+			tb.Helper()
+
 			casesValues := make(map[string][]reflect.Value, len(cases))
 
 			for caseName, c := range cases {
@@ -349,9 +383,9 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 				if len(values) == 0 {
 					structName := method.Type.In(0).String()
 
-					fmt.Fprintf(
-						os.Stderr,
-						"testo: warning: (%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s will not run\n",
+					warnf(
+						tb,
+						"(%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s won't run",
 						structName,
 						caseName,
 						method.Name,

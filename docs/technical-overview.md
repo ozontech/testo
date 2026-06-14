@@ -7,9 +7,9 @@ A technical overview of Testo.
 When you call `testo.RunSuite` the following happens:
 
 ```txt
-Suite tests are collected and verified.
-
 A root test named the same as a suite is run {
+    Suite tests are collected and verified.
+
     Plugins are collected and initialized with ".Plugin(parent: nil, options)" method call, if implemented. Innermost plugins are initialized first.
 
     "BeforeAll" plugin hooks are called.

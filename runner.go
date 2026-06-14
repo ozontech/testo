@@ -237,9 +237,7 @@ func newRunner[Suite suite[T], T CommonT](t common) runner[Suite, T] {
 	}
 }
 
-func (r *runner[Suite, T]) collectTests(
-	t TestingT,
-) suiteTests[Suite, T] {
+func (r *runner[Suite, T]) collectTests(t TestingT) suiteTests[Suite, T] {
 	t.Helper()
 
 	collector := testsCollector[Suite, T]{
@@ -260,8 +258,6 @@ func (r *runner[Suite, T]) runSuite(
 
 	options = append(getOptions(), options...)
 
-	tests := r.collectTests(testingT)
-
 	suiteInfo := testoreflect.SuiteInfo{
 		Parent:   parentSuite,
 		Name:     r.suiteName,
@@ -272,6 +268,8 @@ func (r *runner[Suite, T]) runSuite(
 
 	return testingT.Run(r.suiteName, func(testingT *testing.T) {
 		testingT.Helper()
+
+		tests := r.collectTests(testingT)
 
 		t := construct[T](
 			testingT,
@@ -337,7 +335,7 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 	allTests := r.applyPlan(
 		t,
 		suiteInfo,
-		tests.Collect(s, func(name string) string {
+		tests.Collect(t, s, func(name string) string {
 			return r.testNamer.Name(r.caller, name)
 		}),
 	)

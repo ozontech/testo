@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+## Added
+
+- Added strict mode which turns warnings into hard errors. Can be enabled with `-testo.strict` command line argument and `TESTO_STRICT` environment variable (lower priority).
+
+### Changed
+
+- Testo error messages are now more descriptive.
+- Malformed method names (e.g. lowercase letter after `Test` prefix) raise fatal errors, similar to native `go test` runner.
+
 ## [1.4.0] - 2026-06-07
 
 ### Added

@@ -1,21 +1,46 @@
 === RUN   Test
+=== RUN   Test/malformed_cases
+=== RUN   Test/malformed_cases/MalformedCases
+    main_test.go:53: testo: (*main.MalformedCases).Casesfoo has malformed name: first letter after 'Cases' must not be lowercase
+=== RUN   Test/malformed_test
+=== RUN   Test/malformed_test/MalformedTest
+    main_test.go:54: testo: (*main.MalformedTest).Testimony has malformed name: first letter after 'Test' must not be lowercase
 === RUN   Test/missing_cases
-    main_test.go:38: testo: wrong param signature for (*main.MissingCases).Test: missing (*main.MissingCases).CasesFoo() []int for param "Foo"
+=== RUN   Test/missing_cases/MissingCases
+    main_test.go:55: testo: wrong param signature for (*main.MissingCases).Test: missing (*main.MissingCases).CasesFoo() []int for param "Foo"
 === RUN   Test/invalid_cases
-    main_test.go:39: testo: wrong param signature for (*main.InvalidCases).Test: (*main.InvalidCases).CasesFoo provides string values, not assignable to param "Foo" of type int
+=== RUN   Test/invalid_cases/InvalidCases
+    main_test.go:56: testo: wrong param signature for (*main.InvalidCases).Test: (*main.InvalidCases).CasesFoo provides string values, not assignable to param "Foo" of type int
 === RUN   Test/empty_cases
 === RUN   Test/empty_cases/EmptyCases
-testo: warning: (*main.EmptyCases).CasesFoo provides zero values, (*main.EmptyCases).Test will not run
+    main_test.go:57: testo: warning: (*main.EmptyCases).CasesFoo provides zero values, (*main.EmptyCases).Test won't run
 === RUN   Test/empty_cases/EmptyCases/testo!
 === RUN   Test/wrong_t
-    main_test.go:41: testo: wrong signature for (*main.WrongT).Test, must be: func (*main.WrongT).Test(main.T) or func (*main.WrongT).Test(main.T, struct{...})
+=== RUN   Test/wrong_t/WrongT
+    main_test.go:58: testo: wrong signature for (*main.WrongT).Test, must be either:
+        func (*main.WrongT).Test(main.T)
+        func (*main.WrongT).Test(main.T, struct{...})
+=== RUN   Test/missing_tests
+=== RUN   Test/missing_tests/MissingTests
+    main_test.go:59: testo: warning: suite *main.MissingTests has no tests
+=== RUN   Test/missing_tests/MissingTests/testo!
 --- FAIL: Test (0.00s)
+    --- FAIL: Test/malformed_cases (0.00s)
+        --- FAIL: Test/malformed_cases/MalformedCases (0.00s)
+    --- FAIL: Test/malformed_test (0.00s)
+        --- FAIL: Test/malformed_test/MalformedTest (0.00s)
     --- FAIL: Test/missing_cases (0.00s)
+        --- FAIL: Test/missing_cases/MissingCases (0.00s)
     --- FAIL: Test/invalid_cases (0.00s)
+        --- FAIL: Test/invalid_cases/InvalidCases (0.00s)
     --- PASS: Test/empty_cases (0.00s)
         --- PASS: Test/empty_cases/EmptyCases (0.00s)
             --- PASS: Test/empty_cases/EmptyCases/testo! (0.00s)
     --- FAIL: Test/wrong_t (0.00s)
+        --- FAIL: Test/wrong_t/WrongT (0.00s)
+    --- PASS: Test/missing_tests (0.00s)
+        --- PASS: Test/missing_tests/MissingTests (0.00s)
+            --- PASS: Test/missing_tests/MissingTests/testo! (0.00s)
 FAIL
-FAIL	github.com/ozontech/testo/examples/06_errors	0.316s
+FAIL	github.com/ozontech/testo/examples/06_errors	0.334s
 FAIL
