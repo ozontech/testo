@@ -354,7 +354,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 					structName := method.Type.In(0).String()
 
 					msg := fmt.Sprintf(
-						"testo: (%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s will not run",
+						"testo: (%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s won't run",
 						structName,
 						caseName,
 						method.Name,
