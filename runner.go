@@ -237,9 +237,7 @@ func newRunner[Suite suite[T], T CommonT](t common) runner[Suite, T] {
 	}
 }
 
-func (r *runner[Suite, T]) collectTests(
-	t TestingT,
-) suiteTests[Suite, T] {
+func (r *runner[Suite, T]) collectTests(t TestingT) suiteTests[Suite, T] {
 	t.Helper()
 
 	collector := testsCollector[Suite, T]{

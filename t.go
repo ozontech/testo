@@ -584,3 +584,21 @@ func (a *atomicInt[T]) Store(value T) {
 func (a *atomicInt[T]) CompareAndSwap(oldvalue, newvalue T) bool {
 	return (*atomic.Int64)(a).CompareAndSwap(int64(oldvalue), int64(newvalue))
 }
+
+func warnf(tb testing.TB, f string, args ...any) {
+	tb.Helper()
+
+	warn(tb, fmt.Sprintf(f, args...))
+}
+
+func warn(tb testing.TB, args ...any) {
+	tb.Helper()
+
+	const prefix = "testo: "
+
+	if *flagStrict {
+		tb.Fatal(prefix + fmt.Sprint(args...))
+	}
+
+	tb.Log(prefix + "warning: " + fmt.Sprint(args...))
+}

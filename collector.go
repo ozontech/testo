@@ -1,7 +1,6 @@
 package testo
 
 import (
-	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -149,6 +148,10 @@ type suiteTests[Suite suite[T], T CommonT] struct {
 	Parametrized []suiteTestParametrized[Suite, T]
 }
 
+func (st suiteTests[Suite, T]) isEmpty() bool {
+	return len(st.Regular) == 0 && len(st.Parametrized) == 0
+}
+
 type annotatedSuiteTest[Suite suite[T], T CommonT] struct {
 	suiteTest[Suite, T]
 
@@ -219,14 +222,16 @@ func (tc *testsCollector[Suite, T]) testName(base string) string {
 }
 
 //nolint:cyclop,funlen,gocognit // splitting it would make it even more complex
-func (tc *testsCollector[Suite, T]) Collect(
-	tb testing.TB,
-) suiteTests[Suite, T] {
+func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] {
 	tb.Helper()
 
-	cases := suiteCasesOf[Suite](tb)
-
 	suiteTyp := reflect.TypeFor[Suite]()
+
+	if suiteTyp == reflect.TypeFor[singleton[T]]() {
+		return suiteTests[Suite, T]{}
+	}
+
+	cases := suiteCasesOf[Suite](tb)
 
 	var tests suiteTests[Suite, T]
 
@@ -234,7 +239,16 @@ func (tc *testsCollector[Suite, T]) Collect(
 		method := suiteTyp.Method(i)
 
 		if !isTest(method.Name, "Test") {
-			continue
+			if !strings.HasPrefix(method.Name, "Test") {
+				continue
+			}
+
+			// identical to native go test behavior
+			tb.Fatalf(
+				"testo: (%s).%s has malformed name: first letter after 'Test' must not be lowercase",
+				suiteTyp,
+				method.Name,
+			)
 		}
 
 		raiseWrongSignatureError := func() {
@@ -330,6 +344,10 @@ func (tc *testsCollector[Suite, T]) Collect(
 		}
 	}
 
+	if tests.isEmpty() {
+		warnf(tb, "suite %s has no tests", suiteTyp)
+	}
+
 	return tests
 }
 
@@ -353,18 +371,13 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 				if len(values) == 0 {
 					structName := method.Type.In(0).String()
 
-					msg := fmt.Sprintf(
+					warnf(
+						tb,
 						"testo: (%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s won't run",
 						structName,
 						caseName,
 						method.Name,
 					)
-
-					if *flagStrict {
-						tb.Fatal(msg)
-					} else {
-						tb.Log(msg)
-					}
 
 					return nil
 				}
