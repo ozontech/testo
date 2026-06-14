@@ -26,18 +26,19 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/ozontech/testo/internal/env"
 	"github.com/ozontech/testo/internal/parse"
 )
 
 var (
 	flagDir = flag.String(
 		"cache.dir",
-		cmp.Or(os.Getenv("TESTO_CACHE_DIR"), ".testo_cache"),
+		cmp.Or(env.TestoCacheDir.Get(), ".testo_cache"),
 		"directory where the testo cache is stored",
 	)
 	flagDisable = flag.Bool(
 		"cache.disable",
-		parse.Bool(os.Getenv("TESTO_CACHE_DISABLE")),
+		parse.Bool(env.TestoCacheDisable.Get()),
 		"disable caching in testo",
 	)
 )

@@ -2,18 +2,19 @@ package testo
 
 import (
 	"flag"
-	"os"
 	"regexp"
 
+	"github.com/ozontech/testo/internal/env"
 	"github.com/ozontech/testo/internal/parse"
+
 	// so that cache flags are always available.
 	_ "github.com/ozontech/testo/testocache"
 )
 
 var flagStrict = flag.Bool(
 	"testo.strict",
-	parse.Bool(os.Getenv("TESTO_STRICT")),
-	"run tests in strict mode",
+	parse.Bool(env.TestoStrict.Get()),
+	"turn warnings into errors",
 )
 
 var flagMethod = flagRegexp{Regexp: regexp.MustCompile("")}
