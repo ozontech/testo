@@ -373,7 +373,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 
 					warnf(
 						tb,
-						"testo: (%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s won't run",
+						"(%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s won't run",
 						structName,
 						caseName,
 						method.Name,
