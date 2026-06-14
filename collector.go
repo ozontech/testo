@@ -79,7 +79,16 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
 		const prefix = "Cases"
 
 		if !isTest(method.Name, prefix) {
-			continue
+			if !strings.HasPrefix(method.Name, prefix) {
+				continue
+			}
+
+			tb.Fatalf(
+				"testo: (%s).%s has malformed name: first letter after '%s' must not be lowercase",
+				reflect.TypeFor[Suite](),
+				method.Name,
+				prefix,
+			)
 		}
 
 		name := strings.TrimPrefix(method.Name, prefix)
@@ -93,7 +102,7 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
 
 		if !isValidIn || !isValidOut {
 			tb.Fatalf(
-				"testo: wrong signature for %[1]s.%[2]s, must be: func (%[1]s) %[2]s() []...",
+				"testo: wrong signature for %[1]s.%[2]s, must be: func (%[1]s) %[2]s() []Type",
 				reflect.TypeFor[Suite](), method.Name, tb,
 			)
 		}
@@ -238,16 +247,19 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 	for i := range suiteTyp.NumMethod() {
 		method := suiteTyp.Method(i)
 
-		if !isTest(method.Name, "Test") {
-			if !strings.HasPrefix(method.Name, "Test") {
+		const prefix = "Test"
+
+		if !isTest(method.Name, prefix) {
+			if !strings.HasPrefix(method.Name, prefix) {
 				continue
 			}
 
 			// identical to native go test behavior
 			tb.Fatalf(
-				"testo: (%s).%s has malformed name: first letter after 'Test' must not be lowercase",
+				"testo: (%s).%s has malformed name: first letter after '%s' must not be lowercase",
 				suiteTyp,
 				method.Name,
+				prefix,
 			)
 		}
 
