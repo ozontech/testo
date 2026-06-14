@@ -260,8 +260,6 @@ func (r *runner[Suite, T]) runSuite(
 
 	options = append(getOptions(), options...)
 
-	tests := r.collectTests(testingT)
-
 	suiteInfo := testoreflect.SuiteInfo{
 		Parent:   parentSuite,
 		Name:     r.suiteName,
@@ -272,6 +270,8 @@ func (r *runner[Suite, T]) runSuite(
 
 	return testingT.Run(r.suiteName, func(testingT *testing.T) {
 		testingT.Helper()
+
+		tests := r.collectTests(testingT)
 
 		t := construct[T](
 			testingT,
