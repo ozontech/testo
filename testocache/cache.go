@@ -25,6 +25,8 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+
+	"github.com/ozontech/testo/internal/parse"
 )
 
 var (
@@ -35,7 +37,7 @@ var (
 	)
 	flagDisable = flag.Bool(
 		"cache.disable",
-		parseBool(os.Getenv("TESTO_CACHE_DISABLE")),
+		parse.Bool(os.Getenv("TESTO_CACHE_DISABLE")),
 		"disable caching in testo",
 	)
 )
@@ -280,12 +282,6 @@ func cacheDir() (string, error) {
 	}
 
 	return dir, nil
-}
-
-func parseBool(s string) bool {
-	b, _ := strconv.ParseBool(s)
-
-	return b
 }
 
 func validate(key string) error {

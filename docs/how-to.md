@@ -40,6 +40,26 @@ TestFoo(name=Joe, age=60)
 TestFoo(name=Joe, age=6)
 ```
 
+If for at least one required parameter function `CasesXxx`
+returns zero values Testo will log a warning with similar message:
+
+```txt
+main_test.go:15: testo: (*main.Suite).CasesName provides zero values, (*main.Suite).TestFoo will not run
+```
+
+To turn this log into fatal error and do not proceed with further execution
+pass flag `-testo.strict` to the `go test` command invocation:
+
+```bash
+go test ./... -testo.strict
+```
+
+> [!TIP]
+> You can also set `TESTO_STRICT` environment variable to `true`
+> for the same effect.
+>
+> Flags have higher priority than environment variables.
+
 ## How to write parallel tests
 
 You can use your regular `t.Parallel` method to mark a test as parallel.
