@@ -6,9 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"unicode"
-	"unicode/utf8"
 
+	"github.com/ozontech/testo/internal/parse"
 	"github.com/ozontech/testo/internal/pragma"
 	"github.com/ozontech/testo/internal/testnamer"
 	"github.com/ozontech/testo/testoplugin"
@@ -44,28 +43,6 @@ func (t plannedSuiteTest[Suite, T]) Annotations() []testoplugin.Option {
 	return slices.Clone(t.inner.Options)
 }
 
-// isTest states whether name is a valid test name (or other type, according to prefix).
-//
-// It checks if the next character after prefix is uppercase.
-//
-//	TestFoo    => true
-//	Test       => true
-//	TestfooBar => false
-func isTest(name, prefix string) bool {
-	if !strings.HasPrefix(name, prefix) {
-		return false
-	}
-
-	// "Test" is ok
-	if len(name) == len(prefix) {
-		return true
-	}
-
-	r, _ := utf8.DecodeRuneInString(name[len(prefix):])
-
-	return !unicode.IsLower(r)
-}
-
 func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase[Suite, T] {
 	tb.Helper()
 
@@ -78,7 +55,7 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
 
 		const prefix = "Cases"
 
-		if !isTest(method.Name, prefix) {
+		if !parse.IsTest(method.Name, prefix) {
 			if !strings.HasPrefix(method.Name, prefix) {
 				continue
 			}
@@ -249,7 +226,7 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 
 		const prefix = "Test"
 
-		if !isTest(method.Name, prefix) {
+		if !parse.IsTest(method.Name, prefix) {
 			if !strings.HasPrefix(method.Name, prefix) {
 				continue
 			}

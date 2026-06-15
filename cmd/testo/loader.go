@@ -1,0 +1,446 @@
+package main
+
+import (
+	"fmt"
+	"go/token"
+	"go/types"
+	"os"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"golang.org/x/tools/go/packages"
+)
+
+type LoadError struct {
+	FSet        *token.FileSet
+	Diagnostics []Diagnostic
+}
+
+func (l *LoadError) Error() string {
+	msgs := make([]string, 0, len(l.Diagnostics))
+
+	for _, d := range l.Diagnostics {
+		msgs = append(msgs, d.Format(l.FSet))
+	}
+
+	return strings.Join(msgs, "\n")
+}
+
+type LoadSuiteConfig struct {
+	Tags   string
+	Testo  string
+	Strict bool
+}
+
+func LoadSuites(cfg LoadSuiteConfig, patterns ...string) ([]Suite, error) {
+	fset := token.NewFileSet()
+
+	pkgs, err := packages.Load(&packages.Config{
+		Mode:       packages.LoadFiles | packages.LoadAllSyntax | packages.LoadImports,
+		Tests:      true,
+		BuildFlags: []string{"-tags", cfg.Tags},
+		Fset:       fset,
+		Env:        os.Environ(),
+	}, patterns...)
+	if err != nil {
+		return nil, err
+	}
+
+	if packages.PrintErrors(pkgs) > 0 {
+		os.Exit(1)
+	}
+
+	var suites []Suite
+	var diagnostics []Diagnostic
+
+	for _, pkg := range pkgs {
+		if !pkg.Types.Complete() {
+			return nil, fmt.Errorf("package %q is not complete", pkg.Name)
+		}
+
+		scope := pkg.Types.Scope()
+
+		for _, name := range scope.Names() {
+			obj := scope.Lookup(name)
+
+			suite, d, ok := cfg.asSuite(obj)
+			if !ok {
+				continue
+			}
+
+			diagnostics = append(diagnostics, d...)
+
+			suites = append(suites, suite)
+		}
+	}
+
+	if len(diagnostics) > 0 {
+		return suites, &LoadError{
+			FSet:        fset,
+			Diagnostics: diagnostics,
+		}
+	}
+
+	return suites, nil
+}
+
+func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
+	named, ok := obj.Type().(*types.Named)
+	if !ok {
+		return Suite{}, nil, false
+	}
+
+	s, ok := named.Underlying().(*types.Struct)
+	if !ok {
+		return Suite{}, nil, false
+	}
+
+	var t types.Type
+	var isSuite bool
+
+	for f := range s.Fields() {
+		if !f.Embedded() {
+			continue
+		}
+
+		if f.Name() != "Suite" {
+			continue
+		}
+
+		suite, ok := f.Type().(*types.Named)
+		if !ok {
+			continue
+		}
+
+		if suite.Obj().Pkg().Path() != c.Testo {
+			continue
+		}
+
+		struct_ := suite.Underlying().(*types.Struct)
+		field := struct_.Field(0)
+		array := field.Type().Underlying().(*types.Array)
+		pointer := array.Elem().Underlying().(*types.Pointer)
+
+		t = pointer.Elem()
+		isSuite = true
+
+		break
+	}
+
+	if !isSuite {
+		return Suite{}, nil, false
+	}
+
+	suite := Suite{
+		Name: named.Obj().Name(),
+		T:    t,
+	}
+
+	cases, diagnostics := collectCases(named)
+	if len(diagnostics) > 0 {
+		return suite, diagnostics, true
+	}
+
+	for m := range named.Methods() {
+		name := m.Name()
+
+		const prefix = "Test"
+
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+
+		if !IsTest(name, prefix) {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos:   m.Pos(),
+				Issue: MalformedName(fmt.Sprintf("first letter after %q in %q must not be lowercase", prefix, name)),
+			})
+
+			continue
+		}
+
+		sig := m.Signature()
+
+		if sig.Results().Len() > 0 {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos:   m.Pos(),
+				Issue: InvalidSignature(name + " must not return values"),
+			})
+
+			continue
+		}
+
+		params := sig.Params()
+
+		switch params.Len() {
+		case 1:
+			in := params.At(0)
+
+			if !types.Identical(in.Type(), suite.T) {
+				diagnostics = append(diagnostics, Diagnostic{
+					Pos:   m.Pos(),
+					Issue: InvalidSignature(fmt.Sprintf("%s must accept %s, got %s", name, suite.T, in.Type())),
+				})
+			}
+
+			suite.Tests = append(suite.Tests, SuiteTest{
+				Name: name,
+			})
+
+		case 2:
+			first := params.At(0)
+
+			if !types.Identical(first.Type(), suite.T) {
+				diagnostics = append(diagnostics, Diagnostic{
+					Pos:   m.Pos(),
+					Issue: InvalidSignature(fmt.Sprintf("%s must accept %s, got %s", name, suite.T, first.Type())),
+				})
+
+				continue
+			}
+
+			second := params.At(1)
+
+			params, ok := second.Type().Underlying().(*types.Struct)
+			if !ok {
+				diagnostics = append(diagnostics, Diagnostic{
+					Pos:   m.Pos(),
+					Issue: InvalidSignature(fmt.Sprintf("%s must accept struct as second parameter, got %s", name, second.Type())),
+				})
+
+				continue
+			}
+
+			var invalidParams bool
+
+			var paramNames []string
+
+			for f := range params.Fields() {
+				if !f.Exported() {
+					diagnostics = append(diagnostics, Diagnostic{
+						Pos:   m.Pos(),
+						Issue: InvalidSignature(fmt.Sprintf("%s parameters must be exported, got %s", name, f.Name())),
+					})
+
+					invalidParams = true
+
+					continue
+				}
+
+				forParam, ok := cases[f.Name()]
+				if !ok {
+					diagnostics = append(diagnostics, Diagnostic{
+						Pos:   m.Pos(),
+						Issue: InvalidSignature(fmt.Sprintf("%s requires unknown parameter %s", name, f.Name())),
+					})
+
+					invalidParams = true
+
+					continue
+				}
+
+				if !types.AssignableTo(forParam.Type, f.Type()) {
+					diagnostics = append(diagnostics, Diagnostic{
+						Pos:   m.Pos(),
+						Issue: InvalidSignature(fmt.Sprintf("%s requires param %s to be of type %s, have %s", name, f.Name(), f.Type(), forParam.Type)),
+					})
+
+					invalidParams = true
+
+					continue
+				}
+
+				paramNames = append(paramNames, f.Name())
+			}
+
+			suite.Tests = append(suite.Tests, SuiteTest{
+				Name:         name,
+				Parametrized: true,
+				Parameters:   paramNames,
+			})
+
+			if invalidParams {
+				continue
+			}
+
+		default:
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos:   m.Pos(),
+				Issue: InvalidSignature(fmt.Sprintf("%s must accept either 1 or 2 parameters, got %d", name, params.Len())),
+			})
+		}
+	}
+
+	if c.Strict && len(diagnostics) == 0 && len(suite.Tests) == 0 {
+		diagnostics = append(diagnostics, Diagnostic{
+			Pos:   obj.Pos(),
+			Issue: TestsMissing(fmt.Sprintf("suite %s has no tests", suite.Name)),
+		})
+	}
+
+	return suite, diagnostics, true
+}
+
+type Cases map[string]Case
+
+type Case struct {
+	Name string
+	Type types.Type
+}
+
+func collectCases(suite *types.Named) (Cases, []Diagnostic) {
+	cases := make(Cases)
+
+	const prefix = "Cases"
+
+	var diagnostics []Diagnostic
+
+	for m := range suite.Methods() {
+		if !strings.HasPrefix(m.Name(), prefix) {
+			continue
+		}
+
+		if !IsTest(m.Name(), prefix) {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos:   m.Pos(),
+				Issue: MalformedName(fmt.Sprintf("first letter after %q in %q must not be lowercase", prefix, m.Name())),
+			})
+
+			continue
+		}
+
+		sig := m.Signature()
+
+		if sig.Params().Len() != 0 {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos:   m.Pos(),
+				Issue: InvalidSignature(m.Name() + " must not accept parameters"),
+			})
+
+			continue
+		}
+
+		results := sig.Results()
+
+		if results.Len() != 1 {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos:   m.Pos(),
+				Issue: InvalidSignature(m.Name() + " must return exactly one result"),
+			})
+
+			continue
+		}
+
+		out := results.At(0).Type().Underlying()
+
+		s, ok := out.(*types.Slice)
+		if !ok {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos:   m.Pos(),
+				Issue: InvalidSignature(fmt.Sprintf("%s must return a slice, got %s", m.Name(), out)),
+			})
+
+			continue
+		}
+
+		name := strings.TrimPrefix(m.Name(), prefix)
+
+		cases[name] = Case{
+			Name: name,
+			Type: s.Elem(),
+		}
+	}
+
+	return cases, diagnostics
+}
+
+type Diagnostic struct {
+	Pos   token.Pos
+	Issue Issue
+}
+
+func (d Diagnostic) Format(set *token.FileSet) string {
+	file := set.File(d.Pos)
+	line := file.Line(d.Pos)
+
+	return fmt.Sprintf("%s:%d: %s", file.Name(), line, d.Issue.String())
+}
+
+type Issue interface {
+	fmt.Stringer
+
+	Kind() string
+
+	issue()
+}
+
+type MalformedName string
+
+func (mn MalformedName) Kind() string {
+	return "malformed name"
+}
+
+func (mn MalformedName) String() string {
+	return mn.Kind() + ": " + string(mn)
+}
+
+func (MalformedName) issue() {}
+
+type InvalidSignature string
+
+func (is InvalidSignature) Kind() string {
+	return "invalid signature"
+}
+
+func (is InvalidSignature) String() string {
+	return is.Kind() + ": " + string(is)
+}
+
+func (InvalidSignature) issue() {}
+
+type TestsMissing string
+
+func (tm TestsMissing) Kind() string {
+	return "tests missing"
+}
+
+func (tm TestsMissing) String() string {
+	return tm.Kind() + ": " + string(tm)
+}
+
+func (TestsMissing) issue() {}
+
+// IsTest states whether name is a valid test name (or other type, according to prefix).
+//
+// It checks if the next character after prefix is uppercase.
+//
+//	TestFoo    => true
+//	Test       => true
+//	TestfooBar => false
+func IsTest(name, prefix string) bool {
+	if !strings.HasPrefix(name, prefix) {
+		return false
+	}
+
+	// "Test" is ok
+	if len(name) == len(prefix) {
+		return true
+	}
+
+	r, _ := utf8.DecodeRuneInString(name[len(prefix):])
+
+	return !unicode.IsLower(r)
+}
+
+type Suite struct {
+	Name  string
+	Tests []SuiteTest
+	T     types.Type
+}
+
+type SuiteTest struct {
+	Name         string
+	Parametrized bool
+	Parameters   []string
+}

@@ -39,7 +39,7 @@ coverage-html: coverage
 	go tool cover -html coverage.out
 
 install:
-	go install ./cmd/testo
+	go install ./cmd/...
 
 update-examples-output:
 	./update-examples-output.sh
