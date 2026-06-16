@@ -17,15 +17,10 @@ func (cmd Lint) Run(patterns ...string) error {
 		return nil
 	}
 
-	if errLoad, ok := errors.AsType[*LoadError](err); ok {
-		w := bufio.NewWriter(os.Stdout)
+	var errLoad *LoadError
 
-		type Node struct {
-			File    string
-			Line    int
-			Kind    string
-			Message string
-		}
+	if errors.As(err, &errLoad) {
+		w := bufio.NewWriter(os.Stdout)
 
 		for _, d := range errLoad.Diagnostics {
 			w.WriteString(d.Format(errLoad.FSet))

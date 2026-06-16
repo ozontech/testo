@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"go/token"
 	"go/types"
-	"os"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
-	"golang.org/x/tools/go/packages"
+	"github.com/ozontech/testo/cmd/testo/internal/packageslite"
+	"github.com/ozontech/testo/internal/parse"
 )
 
 type LoadError struct {
@@ -36,23 +34,22 @@ type LoadSuiteConfig struct {
 func LoadSuites(cfg LoadSuiteConfig, patterns ...string) ([]Suite, error) {
 	fset := token.NewFileSet()
 
-	pkgs, err := packages.Load(&packages.Config{
-		Mode:       packages.LoadFiles | packages.LoadAllSyntax | packages.LoadImports,
-		Tests:      true,
-		BuildFlags: []string{"-tags", cfg.Tags},
-		Fset:       fset,
-		Env:        os.Environ(),
+	pkgs, err := packageslite.Load(packageslite.Config{
+		FSet: fset,
+		Tags: cfg.Tags,
 	}, patterns...)
 	if err != nil {
 		return nil, err
 	}
 
-	if packages.PrintErrors(pkgs) > 0 {
-		os.Exit(1)
-	}
+	// if packages.PrintErrors(pkgs) > 0 {
+	// 	os.Exit(1)
+	// }
 
-	var suites []Suite
-	var diagnostics []Diagnostic
+	var (
+		suites      []Suite
+		diagnostics []Diagnostic
+	)
 
 	for _, pkg := range pkgs {
 		if !pkg.Types.Complete() {
@@ -96,8 +93,10 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 		return Suite{}, nil, false
 	}
 
-	var t types.Type
-	var isSuite bool
+	var (
+		t       types.Type
+		isSuite bool
+	)
 
 	for f := range s.Fields() {
 		if !f.Embedded() {
@@ -117,8 +116,8 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 			continue
 		}
 
-		struct_ := suite.Underlying().(*types.Struct)
-		field := struct_.Field(0)
+		aStruct := suite.Underlying().(*types.Struct)
+		field := aStruct.Field(0)
 		array := field.Type().Underlying().(*types.Array)
 		pointer := array.Elem().Underlying().(*types.Pointer)
 
@@ -134,7 +133,7 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 
 	suite := Suite{
 		Name: named.Obj().Name(),
-		T:    t,
+		T:    T{Type: t},
 	}
 
 	cases, diagnostics := collectCases(named)
@@ -151,10 +150,12 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 			continue
 		}
 
-		if !IsTest(name, prefix) {
+		if !parse.IsTest(name, prefix) {
 			diagnostics = append(diagnostics, Diagnostic{
-				Pos:   m.Pos(),
-				Issue: MalformedName(fmt.Sprintf("first letter after %q in %q must not be lowercase", prefix, name)),
+				Pos: m.Pos(),
+				Issue: MalformedName(
+					fmt.Sprintf("first letter after %q in %q must not be lowercase", prefix, name),
+				),
 			})
 
 			continue
@@ -177,10 +178,12 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 		case 1:
 			in := params.At(0)
 
-			if !types.Identical(in.Type(), suite.T) {
+			if !types.Identical(in.Type(), suite.T.Type) {
 				diagnostics = append(diagnostics, Diagnostic{
-					Pos:   m.Pos(),
-					Issue: InvalidSignature(fmt.Sprintf("%s must accept %s, got %s", name, suite.T, in.Type())),
+					Pos: m.Pos(),
+					Issue: InvalidSignature(
+						fmt.Sprintf("%s must accept %s, got %s", name, suite.T, in.Type()),
+					),
 				})
 			}
 
@@ -191,10 +194,12 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 		case 2:
 			first := params.At(0)
 
-			if !types.Identical(first.Type(), suite.T) {
+			if !types.Identical(first.Type(), suite.T.Type) {
 				diagnostics = append(diagnostics, Diagnostic{
-					Pos:   m.Pos(),
-					Issue: InvalidSignature(fmt.Sprintf("%s must accept %s, got %s", name, suite.T, first.Type())),
+					Pos: m.Pos(),
+					Issue: InvalidSignature(
+						fmt.Sprintf("%s must accept %s, got %s", name, suite.T, first.Type()),
+					),
 				})
 
 				continue
@@ -205,8 +210,14 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 			params, ok := second.Type().Underlying().(*types.Struct)
 			if !ok {
 				diagnostics = append(diagnostics, Diagnostic{
-					Pos:   m.Pos(),
-					Issue: InvalidSignature(fmt.Sprintf("%s must accept struct as second parameter, got %s", name, second.Type())),
+					Pos: m.Pos(),
+					Issue: InvalidSignature(
+						fmt.Sprintf(
+							"%s must accept struct as second parameter, got %s",
+							name,
+							second.Type(),
+						),
+					),
 				})
 
 				continue
@@ -219,8 +230,10 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 			for f := range params.Fields() {
 				if !f.Exported() {
 					diagnostics = append(diagnostics, Diagnostic{
-						Pos:   m.Pos(),
-						Issue: InvalidSignature(fmt.Sprintf("%s parameters must be exported, got %s", name, f.Name())),
+						Pos: m.Pos(),
+						Issue: InvalidSignature(
+							fmt.Sprintf("%s parameters must be exported, got %s", name, f.Name()),
+						),
 					})
 
 					invalidParams = true
@@ -231,8 +244,10 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 				forParam, ok := cases[f.Name()]
 				if !ok {
 					diagnostics = append(diagnostics, Diagnostic{
-						Pos:   m.Pos(),
-						Issue: InvalidSignature(fmt.Sprintf("%s requires unknown parameter %s", name, f.Name())),
+						Pos: m.Pos(),
+						Issue: InvalidSignature(
+							fmt.Sprintf("%s requires unknown parameter %s", name, f.Name()),
+						),
 					})
 
 					invalidParams = true
@@ -242,8 +257,16 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 
 				if !types.AssignableTo(forParam.Type, f.Type()) {
 					diagnostics = append(diagnostics, Diagnostic{
-						Pos:   m.Pos(),
-						Issue: InvalidSignature(fmt.Sprintf("%s requires param %s to be of type %s, have %s", name, f.Name(), f.Type(), forParam.Type)),
+						Pos: m.Pos(),
+						Issue: InvalidSignature(
+							fmt.Sprintf(
+								"%s requires param %s to be of type %s, have %s",
+								name,
+								f.Name(),
+								f.Type(),
+								forParam.Type,
+							),
+						),
 					})
 
 					invalidParams = true
@@ -266,8 +289,14 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 
 		default:
 			diagnostics = append(diagnostics, Diagnostic{
-				Pos:   m.Pos(),
-				Issue: InvalidSignature(fmt.Sprintf("%s must accept either 1 or 2 parameters, got %d", name, params.Len())),
+				Pos: m.Pos(),
+				Issue: InvalidSignature(
+					fmt.Sprintf(
+						"%s must accept either 1 or 2 parameters, got %d",
+						name,
+						params.Len(),
+					),
+				),
 			})
 		}
 	}
@@ -301,10 +330,16 @@ func collectCases(suite *types.Named) (Cases, []Diagnostic) {
 			continue
 		}
 
-		if !IsTest(m.Name(), prefix) {
+		if !parse.IsTest(m.Name(), prefix) {
 			diagnostics = append(diagnostics, Diagnostic{
-				Pos:   m.Pos(),
-				Issue: MalformedName(fmt.Sprintf("first letter after %q in %q must not be lowercase", prefix, m.Name())),
+				Pos: m.Pos(),
+				Issue: MalformedName(
+					fmt.Sprintf(
+						"first letter after %q in %q must not be lowercase",
+						prefix,
+						m.Name(),
+					),
+				),
 			})
 
 			continue
@@ -337,8 +372,10 @@ func collectCases(suite *types.Named) (Cases, []Diagnostic) {
 		s, ok := out.(*types.Slice)
 		if !ok {
 			diagnostics = append(diagnostics, Diagnostic{
-				Pos:   m.Pos(),
-				Issue: InvalidSignature(fmt.Sprintf("%s must return a slice, got %s", m.Name(), out)),
+				Pos: m.Pos(),
+				Issue: InvalidSignature(
+					fmt.Sprintf("%s must return a slice, got %s", m.Name(), out),
+				),
 			})
 
 			continue
@@ -411,32 +448,14 @@ func (tm TestsMissing) String() string {
 
 func (TestsMissing) issue() {}
 
-// IsTest states whether name is a valid test name (or other type, according to prefix).
-//
-// It checks if the next character after prefix is uppercase.
-//
-//	TestFoo    => true
-//	Test       => true
-//	TestfooBar => false
-func IsTest(name, prefix string) bool {
-	if !strings.HasPrefix(name, prefix) {
-		return false
-	}
-
-	// "Test" is ok
-	if len(name) == len(prefix) {
-		return true
-	}
-
-	r, _ := utf8.DecodeRuneInString(name[len(prefix):])
-
-	return !unicode.IsLower(r)
-}
-
 type Suite struct {
 	Name  string
 	Tests []SuiteTest
-	T     types.Type
+	T     T
+}
+
+type T struct {
+	Type types.Type
 }
 
 type SuiteTest struct {

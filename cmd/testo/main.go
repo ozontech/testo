@@ -23,14 +23,16 @@ func usage(f *flag.FlagSet) {
 }
 
 func main() {
+	const defaultTags = "example,e2e,integration,functional,smoke"
+
 	Register("lint", "run testo linter", func(f *flag.FlagSet, cmd *Lint) {
-		f.StringVar(&cmd.Load.Tags, "tags", "example,e2e,integration,functional,smoke", "build tags separated by comma")
+		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", "github.com/ozontech/testo", "testo package path")
 		f.BoolVar(&cmd.Load.Strict, "strict", false, "enable strict mode")
 	})
 
 	Register("suites", "show testo suites", func(f *flag.FlagSet, cmd *Suites) {
-		f.StringVar(&cmd.Load.Tags, "tags", "example,e2e,integration,functional,smoke", "build tags separated by comma")
+		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", "github.com/ozontech/testo", "testo package path")
 	})
 
@@ -85,6 +87,7 @@ func Register[C Command](name, desc string, flags func(f *flag.FlagSet, cmd *C))
 			flags(f, &command)
 
 			old := f.Usage
+
 			f.Usage = func() {
 				fmt.Fprintf(f.Output(), "%s\n\n", desc)
 

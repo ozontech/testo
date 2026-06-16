@@ -19,11 +19,7 @@ type Suite struct {
 	testo.Suite[T]
 }
 
-func (*Suite) CasesAboba() []uint {
-	return nil
-}
-
-func (s *Suite) TestiMath(t T) {
+func (s *Suite) TestMath(t T) {
 	if 2+2 != 4 {
 		t.Errorf("expected 2 + 2 to be 4, got: %d", 2+2)
 	}
