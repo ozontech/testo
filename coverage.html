@@ -57,7 +57,7 @@
 				
 				<option value="file0">github.com/ozontech/testo/annotations.go (100.0%)</option>
 				
-				<option value="file1">github.com/ozontech/testo/collector.go (83.8%)</option>
+				<option value="file1">github.com/ozontech/testo/collector.go (82.6%)</option>
 				
 				<option value="file2">github.com/ozontech/testo/construct.go (95.7%)</option>
 				
@@ -292,7 +292,7 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
                         }
 
                         <span class="cov0" title="0">tb.Fatalf(
-                                "testo: (%s).%s has malformed name: first letter after '%s' must not be lowercase",
+                                "testo: (%s).%s has malformed name: first letter after %q must not be lowercase",
                                 reflect.TypeFor[Suite](),
                                 method.Name,
                                 prefix,
@@ -450,7 +450,10 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 
         <span class="cov4" title="5">cases := suiteCasesOf[Suite](tb)
 
-        var tests suiteTests[Suite, T]
+        var (
+                tests      suiteTests[Suite, T]
+                skippedAny bool
+        )
 
         for i := range suiteTyp.NumMethod() </span><span class="cov8" title="30">{
                 method := suiteTyp.Method(i)
@@ -464,7 +467,7 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 
                         // identical to native go test behavior
                         <span class="cov0" title="0">tb.Fatalf(
-                                "testo: (%s).%s has malformed name: first letter after '%s' must not be lowercase",
+                                "testo: (%s).%s has malformed name: first letter after %q must not be lowercase",
                                 suiteTyp,
                                 method.Name,
                                 prefix,
@@ -501,6 +504,8 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 
                 case 2:<span class="cov5" title="7"> // regular test - (Suite, T)
                         if !flagMethod.MatchString(method.Name) </span><span class="cov0" title="0">{
+                                skippedAny = true
+
                                 continue</span>
                         }
 
@@ -554,6 +559,8 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
                         }
 
                         <span class="cov1" title="1">if !flagMethod.MatchString(method.Name) </span><span class="cov0" title="0">{
+                                skippedAny = true
+
                                 continue</span>
                         }
 
@@ -564,7 +571,7 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
                 }
         }
 
-        <span class="cov4" title="5">if tests.isEmpty() </span><span class="cov0" title="0">{
+        <span class="cov4" title="5">if !skippedAny &amp;&amp; tests.isEmpty() </span><span class="cov0" title="0">{
                 warnf(tb, "suite %s has no tests", suiteTyp)
         }</span>
 
@@ -1040,7 +1047,7 @@ type canElem[Self any] interface {
 //
 // Non-pointer values will be returned as is.
 func Elem[T canElem[T]](v T) T <span class="cov8" title="200">{
-        for v.Kind() == reflect.Pointer </span><span class="cov8" title="268">{
+        for v.Kind() == reflect.Pointer </span><span class="cov8" title="256">{
                 v = v.Elem()
         }</span>
 
@@ -1125,18 +1132,18 @@ func findRecursiveType(t reflect.Type, visited map[reflect.Type]bool) reflect.Ty
 }
 
 // fill returns true on success, meaning that type recursion was not detected.
-func fill(v reflect.Value, visited map[reflect.Type]bool) bool <span class="cov8" title="284">{
+func fill(v reflect.Value, visited map[reflect.Type]bool) bool <span class="cov8" title="273">{
         if !v.IsValid() </span><span class="cov0" title="0">{
                 return true
         }</span>
 
-        <span class="cov8" title="284">switch v.Kind() </span>{
-        case reflect.Pointer:<span class="cov7" title="145">
-                if v.IsNil() </span><span class="cov7" title="100">{
+        <span class="cov8" title="273">switch v.Kind() </span>{
+        case reflect.Pointer:<span class="cov7" title="134">
+                if v.IsNil() </span><span class="cov7" title="89">{
                         v.Set(reflect.New(v.Type().Elem()))
                 }</span>
 
-                <span class="cov7" title="145">return fill(v.Elem(), visited)</span>
+                <span class="cov7" title="134">return fill(v.Elem(), visited)</span>
 
         case reflect.Struct:<span class="cov7" title="133">
                 typ := v.Type()
