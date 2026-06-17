@@ -21,9 +21,9 @@ type TestSuite struct {
 	beforeAllTriggered bool
 }
 
-func (s *TestSuite) TestRegular(*TestT) {}
+func (s *TestSuite) TestRegular(TestT) {}
 
-func (s *TestSuite) TestParametrized(*TestT, struct{ A, B int }) {}
+func (s *TestSuite) TestParametrized(TestT, struct{ A, B int }) {}
 
 func (*TestSuite) CasesA() []int {
 	return []int{1, 2, 3}
@@ -169,13 +169,13 @@ func TestRunSuite(t *testing.T) {
 	equal([]string{"TestRunSuite/TestSuite"}, pluginAfterAll)
 }
 
-func (s *TestSuite) BeforeAll(t *TestT) {
+func (s *TestSuite) BeforeAll(t TestT) {
 	s.beforeAllTriggered = true
 
 	beforeAll = append(beforeAll, t.Name())
 }
 
-func (s TestSuite) BeforeEach(t *TestT) {
+func (s TestSuite) BeforeEach(t TestT) {
 	if !s.beforeAllTriggered {
 		t.Error("before all not triggered")
 	}
@@ -183,7 +183,7 @@ func (s TestSuite) BeforeEach(t *TestT) {
 	beforeEach = append(beforeEach, t.Name())
 }
 
-func (s TestSuite) AfterEach(t *TestT) {
+func (s TestSuite) AfterEach(t TestT) {
 	if !s.beforeAllTriggered {
 		t.Error("before all not triggered")
 	}
@@ -191,7 +191,7 @@ func (s TestSuite) AfterEach(t *TestT) {
 	afterEach = append(afterEach, t.Name())
 }
 
-func (s TestSuite) AfterAll(t *TestT) {
+func (s TestSuite) AfterAll(t TestT) {
 	if !s.beforeAllTriggered {
 		t.Error("before all not triggered")
 	}
@@ -199,11 +199,11 @@ func (s TestSuite) AfterAll(t *TestT) {
 	afterAll = append(afterAll, t.Name())
 }
 
-func (s TestSuite) TestFoo(t *TestT) {
-	Run(t, "subtest", func(t *TestT) {})
+func (s TestSuite) TestFoo(t TestT) {
+	Run(t, "subtest", func(t TestT) {})
 }
 
-func (s *TestSuite) TestBar(t *TestT) {}
+func (s *TestSuite) TestBar(t TestT) {}
 
 type PluginGoroutine struct {
 	*T
