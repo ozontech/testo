@@ -94,46 +94,24 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 	}
 
 	var (
-		t       types.Type
-		isSuite bool
+		t    T
+		hasT bool
 	)
 
 	for f := range s.Fields() {
-		if !f.Embedded() {
-			continue
+		t, hasT = c.asT(f)
+		if hasT {
+			break
 		}
-
-		if f.Name() != "Suite" {
-			continue
-		}
-
-		suite, ok := f.Type().(*types.Named)
-		if !ok {
-			continue
-		}
-
-		if suite.Obj().Pkg().Path() != c.Testo {
-			continue
-		}
-
-		aStruct := suite.Underlying().(*types.Struct)
-		field := aStruct.Field(0)
-		array := field.Type().Underlying().(*types.Array)
-		pointer := array.Elem().Underlying().(*types.Pointer)
-
-		t = pointer.Elem()
-		isSuite = true
-
-		break
 	}
 
-	if !isSuite {
+	if !hasT {
 		return Suite{}, nil, false
 	}
 
 	suite := Suite{
 		Name: named.Obj().Name(),
-		T:    T{Type: t},
+		T:    t,
 	}
 
 	cases, diagnostics := collectCases(named)
@@ -309,6 +287,34 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 	}
 
 	return suite, diagnostics, true
+}
+
+func (c LoadSuiteConfig) asT(f *types.Var) (T, bool) {
+	if !f.Embedded() {
+		return T{}, false
+	}
+
+	if f.Name() != "Suite" {
+		return T{}, false
+	}
+
+	suite, ok := f.Type().(*types.Named)
+	if !ok {
+		return T{}, false
+	}
+
+	if suite.Obj().Pkg().Path() != c.Testo {
+		return T{}, false
+	}
+
+	aStruct := suite.Underlying().(*types.Struct)
+	field := aStruct.Field(0)
+	array := field.Type().Underlying().(*types.Array)
+	pointer := array.Elem().Underlying().(*types.Pointer)
+
+	elem := pointer.Elem()
+
+	return T{Type: elem}, true
 }
 
 type Cases map[string]Case
