@@ -177,7 +177,8 @@ func goList(tags string, patterns ...string) ([]goPackage, error) {
 		"-pgo=off",
 		"-tags",
 		tags,
-		"-json=Dir,ImportPath,Name,DepOnly,GoFiles,CGoFiles,Imports,ImportMap,Incomplete,Error",
+		// "-json=Dir,ImportPath,Name,DepOnly,GoFiles,CGoFiles,Imports,ImportMap,Incomplete,Error",
+		"-json",
 		"--",
 	}
 

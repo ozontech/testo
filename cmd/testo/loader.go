@@ -114,8 +114,8 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 		T:    t,
 	}
 
-	cases, diagnostics := collectCases(named)
-	if len(diagnostics) > 0 {
+	cases, diagnostics, fatal := c.collectCases(named)
+	if fatal {
 		return suite, diagnostics, true
 	}
 
@@ -324,12 +324,12 @@ type Case struct {
 	Type types.Type
 }
 
-func collectCases(suite *types.Named) (Cases, []Diagnostic) {
-	cases := make(Cases)
+func (c LoadSuiteConfig) collectCases(
+	suite *types.Named,
+) (cases Cases, diagnostics []Diagnostic, fatal bool) {
+	cases = make(Cases)
 
 	const prefix = "Cases"
-
-	var diagnostics []Diagnostic
 
 	for m := range suite.Methods() {
 		if !strings.HasPrefix(m.Name(), prefix) {
@@ -348,6 +348,8 @@ func collectCases(suite *types.Named) (Cases, []Diagnostic) {
 				),
 			})
 
+			fatal = true
+
 			continue
 		}
 
@@ -359,6 +361,8 @@ func collectCases(suite *types.Named) (Cases, []Diagnostic) {
 				Issue: InvalidSignature(m.Name() + " must not accept parameters"),
 			})
 
+			fatal = true
+
 			continue
 		}
 
@@ -369,6 +373,8 @@ func collectCases(suite *types.Named) (Cases, []Diagnostic) {
 				Pos:   m.Pos(),
 				Issue: InvalidSignature(m.Name() + " must return exactly one result"),
 			})
+
+			fatal = true
 
 			continue
 		}
@@ -384,18 +390,58 @@ func collectCases(suite *types.Named) (Cases, []Diagnostic) {
 				),
 			})
 
+			fatal = true
+
 			continue
 		}
 
 		name := strings.TrimPrefix(m.Name(), prefix)
+		elem := s.Elem()
+
+		if private, numFields := findPrivateFields(elem); len(private) > 0 {
+			if len(private) == numFields {
+				diagnostics = append(diagnostics, Diagnostic{
+					Pos: private[0].Pos(),
+					Issue: PrivateField(fmt.Sprintf(
+						"type returned by %s%s contains only private fields",
+						prefix, name,
+					)),
+				})
+			} else if c.Strict {
+				diagnostics = append(diagnostics, Diagnostic{
+					Pos: private[0].Pos(),
+					Issue: PrivateField(fmt.Sprintf(
+						"type returned by %s%s contains private field %q",
+						prefix, name, private[0].Name(),
+					)),
+				})
+			}
+		}
 
 		cases[name] = Case{
 			Name: name,
-			Type: s.Elem(),
+			Type: elem,
 		}
 	}
 
-	return cases, diagnostics
+	return cases, diagnostics, fatal
+}
+
+func findPrivateFields(t types.Type) ([]*types.Var, int) {
+	s, ok := t.Underlying().(*types.Struct)
+	if !ok {
+		return nil, 0
+	}
+
+	private := make([]*types.Var, 0, s.NumFields())
+
+	for f := range s.Fields() {
+		if !f.Exported() {
+			private = append(private, f)
+		}
+	}
+
+	return private, s.NumFields()
 }
 
 type Diagnostic struct {
@@ -417,6 +463,18 @@ type Issue interface {
 
 	issue()
 }
+
+type PrivateField string
+
+func (pf PrivateField) Kind() string {
+	return "private field"
+}
+
+func (pf PrivateField) String() string {
+	return pf.Kind() + ": " + string(pf)
+}
+
+func (PrivateField) issue() {}
 
 type MalformedName string
 
