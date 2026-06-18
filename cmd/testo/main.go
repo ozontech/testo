@@ -102,6 +102,17 @@ func Register[C Command](name, desc string, flags func(f *flag.FlagSet, cmd *C))
 			f.Usage = func() {
 				fmt.Fprintf(f.Output(), "%s\n\n", desc)
 				fmt.Fprintln(f.Output(), "Usage:")
+
+				var hasFlags bool
+
+				f.VisitAll(func(*flag.Flag) { hasFlags = true })
+
+				if !hasFlags {
+					fmt.Fprintf(f.Output(), "  %s %s\n", os.Args[0], name)
+
+					return
+				}
+
 				fmt.Fprintf(f.Output(), "  %s %s [flags]\n\n", os.Args[0], name)
 				fmt.Fprintln(f.Output(), "Flags:")
 
