@@ -5,7 +5,23 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 )
+
+type Version struct{}
+
+func (cmd Version) Run(...string) error {
+	version := "unknown"
+
+	info, ok := debug.ReadBuildInfo()
+	if ok {
+		version = info.Main.Version
+	}
+
+	fmt.Println("testo version " + version)
+
+	return nil
+}
 
 type Lint struct {
 	Load LoadSuiteConfig

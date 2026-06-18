@@ -45,6 +45,8 @@ func main() {
 		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo import path")
 	})
 
+	Register("version", "Show testo version", func(*flag.FlagSet, *Version) {})
+
 	flag.Usage = func() {
 		usage(flag.CommandLine)
 	}
@@ -65,6 +67,8 @@ func main() {
 func run(command string, args ...string) error {
 	r, ok := commands[command]
 	if !ok {
+		fmt.Fprintf(flag.CommandLine.Output(), "unknown subcommand %q\n\n", command)
+
 		usage(flag.CommandLine)
 		os.Exit(2)
 
