@@ -29,6 +29,7 @@ func main() {
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", "github.com/ozontech/testo", "testo package path")
 		f.BoolVar(&cmd.Load.Strict, "strict", false, "enable strict mode")
+		f.BoolVar(&cmd.JSON, "json", false, "output json")
 	})
 
 	Register("suites", "show testo suites", func(f *flag.FlagSet, cmd *Suites) {

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/token"
 	"go/types"
+	"io"
 	"strings"
 
 	"github.com/ozontech/testo/cmd/testo/internal/packageslite"
@@ -449,6 +451,26 @@ type Diagnostic struct {
 	Issue Issue
 }
 
+func (d Diagnostic) FormatJSON(w io.Writer, set *token.FileSet) {
+	type Entry struct {
+		File    string `json:"file"`
+		Line    int    `json:"line"`
+		Kind    string `json:"kind"`
+		Message string `json:"message"`
+	}
+
+	file := set.File(d.Pos)
+
+	entry := Entry{
+		File:    file.Name(),
+		Line:    file.Line(d.Pos),
+		Kind:    d.Issue.Kind(),
+		Message: d.Issue.Message(),
+	}
+
+	_ = json.NewEncoder(w).Encode(entry)
+}
+
 func (d Diagnostic) Format(set *token.FileSet) string {
 	file := set.File(d.Pos)
 	line := file.Line(d.Pos)
@@ -460,6 +482,7 @@ type Issue interface {
 	fmt.Stringer
 
 	Kind() string
+	Message() string
 
 	issue()
 }
@@ -470,8 +493,12 @@ func (pf PrivateField) Kind() string {
 	return "private field"
 }
 
+func (pf PrivateField) Message() string {
+	return string(pf)
+}
+
 func (pf PrivateField) String() string {
-	return pf.Kind() + ": " + string(pf)
+	return pf.Kind() + ": " + pf.Message()
 }
 
 func (PrivateField) issue() {}
@@ -482,8 +509,12 @@ func (mn MalformedName) Kind() string {
 	return "malformed name"
 }
 
+func (mn MalformedName) Message() string {
+	return string(mn)
+}
+
 func (mn MalformedName) String() string {
-	return mn.Kind() + ": " + string(mn)
+	return mn.Kind() + ": " + mn.Message()
 }
 
 func (MalformedName) issue() {}
@@ -494,8 +525,12 @@ func (is InvalidSignature) Kind() string {
 	return "invalid signature"
 }
 
+func (is InvalidSignature) Message() string {
+	return string(is)
+}
+
 func (is InvalidSignature) String() string {
-	return is.Kind() + ": " + string(is)
+	return is.Kind() + ": " + is.Message()
 }
 
 func (InvalidSignature) issue() {}
@@ -506,8 +541,12 @@ func (tm TestsMissing) Kind() string {
 	return "tests missing"
 }
 
+func (tm TestsMissing) Message() string {
+	return string(tm)
+}
+
 func (tm TestsMissing) String() string {
-	return tm.Kind() + ": " + string(tm)
+	return tm.Kind() + ": " + tm.Message()
 }
 
 func (TestsMissing) issue() {}

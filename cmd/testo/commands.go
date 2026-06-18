@@ -9,6 +9,7 @@ import (
 
 type Lint struct {
 	Load LoadSuiteConfig
+	JSON bool
 }
 
 func (cmd Lint) Run(patterns ...string) error {
@@ -23,8 +24,12 @@ func (cmd Lint) Run(patterns ...string) error {
 		w := bufio.NewWriter(os.Stdout)
 
 		for _, d := range errLoad.Diagnostics {
-			w.WriteString(d.Format(errLoad.FSet))
-			w.WriteString("\n")
+			if cmd.JSON {
+				d.FormatJSON(w, errLoad.FSet)
+			} else {
+				w.WriteString(d.Format(errLoad.FSet))
+				w.WriteString("\n")
+			}
 		}
 
 		w.Flush()
