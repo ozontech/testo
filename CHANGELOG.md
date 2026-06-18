@@ -5,9 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-06-17
+
+### Fixed
+
+- Fixed a bug when skipped tests in suite would trigger "no suite tests" warning.
+
 ## [1.5.0] - 2026-06-14
 
-## Added
+### Added
 
 - Added strict mode which turns warnings into hard errors. Can be enabled with `-testo.strict` command line argument and `TESTO_STRICT` environment variable (lower priority).
 
@@ -83,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial stable version.
 
+[1.5.1]: https://github.com/ozontech/testo/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/ozontech/testo/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ozontech/testo/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/ozontech/testo/compare/v1.3.1...v1.3.2

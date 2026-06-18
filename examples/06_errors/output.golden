@@ -1,10 +1,10 @@
 === RUN   Test
 === RUN   Test/malformed_cases
 === RUN   Test/malformed_cases/MalformedCases
-    main_test.go:53: testo: (*main.MalformedCases).Casesfoo has malformed name: first letter after 'Cases' must not be lowercase
+    main_test.go:53: testo: (*main.MalformedCases).Casesfoo has malformed name: first letter after "Cases" must not be lowercase
 === RUN   Test/malformed_test
 === RUN   Test/malformed_test/MalformedTest
-    main_test.go:54: testo: (*main.MalformedTest).Testimony has malformed name: first letter after 'Test' must not be lowercase
+    main_test.go:54: testo: (*main.MalformedTest).Testimony has malformed name: first letter after "Test" must not be lowercase
 === RUN   Test/missing_cases
 === RUN   Test/missing_cases/MissingCases
     main_test.go:55: testo: wrong param signature for (*main.MissingCases).Test: missing (*main.MissingCases).CasesFoo() []int for param "Foo"

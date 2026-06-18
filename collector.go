@@ -61,7 +61,7 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
 			}
 
 			tb.Fatalf(
-				"testo: (%s).%s has malformed name: first letter after '%s' must not be lowercase",
+				"testo: (%s).%s has malformed name: first letter after %q must not be lowercase",
 				reflect.TypeFor[Suite](),
 				method.Name,
 				prefix,
@@ -219,7 +219,10 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 
 	cases := suiteCasesOf[Suite](tb)
 
-	var tests suiteTests[Suite, T]
+	var (
+		tests      suiteTests[Suite, T]
+		skippedAny bool
+	)
 
 	for i := range suiteTyp.NumMethod() {
 		method := suiteTyp.Method(i)
@@ -233,7 +236,7 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 
 			// identical to native go test behavior
 			tb.Fatalf(
-				"testo: (%s).%s has malformed name: first letter after '%s' must not be lowercase",
+				"testo: (%s).%s has malformed name: first letter after %q must not be lowercase",
 				suiteTyp,
 				method.Name,
 				prefix,
@@ -270,6 +273,8 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 
 		case 2: // regular test - (Suite, T)
 			if !flagMethod.MatchString(method.Name) {
+				skippedAny = true
+
 				continue
 			}
 
@@ -323,6 +328,8 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 			}
 
 			if !flagMethod.MatchString(method.Name) {
+				skippedAny = true
+
 				continue
 			}
 
@@ -333,7 +340,7 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 		}
 	}
 
-	if tests.isEmpty() {
+	if !skippedAny && tests.isEmpty() {
 		warnf(tb, "suite %s has no tests", suiteTyp)
 	}
 

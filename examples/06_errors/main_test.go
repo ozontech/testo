@@ -24,14 +24,14 @@ func (InvalidCases) Test(t T, p struct{ Foo int }) {}
 
 type MalformedCases struct{ testo.Suite[T] }
 
-// testo: (*main.MalformedCases).Casesfoo has malformed name: first letter after 'Cases' must not be lowercase
+// testo: (*main.MalformedCases).Casesfoo has malformed name: first letter after "Cases" must not be lowercase
 func (MalformedCases) Casesfoo() []string { return []string{"a", "b"} }
 
 func (MalformedCases) Test(t T, p struct{ Foo string }) {}
 
 type MalformedTest struct{ testo.Suite[T] }
 
-// testo: (*main.MalformedTest).Testimony has malformed name: first letter after 'Test' must not be lowercase
+// testo: (*main.MalformedTest).Testimony has malformed name: first letter after "Test" must not be lowercase
 func (MalformedTest) Testimony(t T) {}
 
 type EmptyCases struct{ testo.Suite[T] }
