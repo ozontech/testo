@@ -162,7 +162,12 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 				diagnostics = append(diagnostics, Diagnostic{
 					Pos: m.Pos(),
 					Issue: InvalidSignature(
-						fmt.Sprintf("%s must accept %s, got %s", name, suite.T, in.Type()),
+						fmt.Sprintf(
+							"%s must accept %s, got %s",
+							name,
+							formatType(suite.T.Type),
+							formatType(in.Type()),
+						),
 					),
 				})
 			}
@@ -178,7 +183,12 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 				diagnostics = append(diagnostics, Diagnostic{
 					Pos: m.Pos(),
 					Issue: InvalidSignature(
-						fmt.Sprintf("%s must accept %s, got %s", name, suite.T, first.Type()),
+						fmt.Sprintf(
+							"%s must accept %s, got %s",
+							name,
+							formatType(suite.T.Type),
+							formatType(first.Type()),
+						),
 					),
 				})
 
@@ -565,4 +575,24 @@ type SuiteTest struct {
 	Name         string
 	Parametrized bool
 	Parameters   []string
+}
+
+func formatType(t types.Type) string {
+	switch t := t.(type) {
+	case *types.Named:
+		return formatNamedType(t)
+
+	case *types.Pointer:
+		return "*" + formatType(t.Elem())
+
+	default:
+		return t.String()
+	}
+}
+
+func formatNamedType(t *types.Named) string {
+	pkg := t.Obj().Pkg().Name()
+	name := t.Obj().Name()
+
+	return pkg + "." + name
 }
