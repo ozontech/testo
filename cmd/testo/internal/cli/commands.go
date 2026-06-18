@@ -1,12 +1,35 @@
-package main
+package cli
 
 import (
 	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"runtime/debug"
+
+	"github.com/ozontech/testo/cmd/testo/internal/loader"
 )
+
+func init() {
+	const defaultTags = "example,e2e,integration,functional,smoke"
+	const defaultTesto = "github.com/ozontech/testo"
+
+	Register("lint", "Run testo linter", func(f *flag.FlagSet, cmd *Lint) {
+		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
+		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo import path")
+		f.BoolVar(&cmd.Load.Strict, "strict", false, "enable strict mode")
+		f.BoolVar(&cmd.JSON, "json", false, "output json")
+	})
+
+	Register("suites", "Show testo suites", func(f *flag.FlagSet, cmd *Suites) {
+		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
+		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo import path")
+	})
+
+	Register("version", "Show testo version", func(*flag.FlagSet, *Version) {})
+}
 
 type Version struct{}
 
@@ -18,23 +41,23 @@ func (cmd Version) Run(...string) error {
 		version = info.Main.Version
 	}
 
-	fmt.Println("testo version " + version)
+	fmt.Printf("testo version %s %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
 
 	return nil
 }
 
 type Lint struct {
-	Load LoadSuiteConfig
+	Load loader.LoadSuiteConfig
 	JSON bool
 }
 
 func (cmd Lint) Run(patterns ...string) error {
-	_, err := LoadSuites(cmd.Load, patterns...)
+	_, err := loader.LoadSuites(cmd.Load, patterns...)
 	if err == nil {
 		return nil
 	}
 
-	var errLoad *LoadError
+	var errLoad *loader.LoadError
 
 	if errors.As(err, &errLoad) {
 		w := bufio.NewWriter(os.Stdout)
@@ -57,11 +80,11 @@ func (cmd Lint) Run(patterns ...string) error {
 }
 
 type Suites struct {
-	Load LoadSuiteConfig
+	Load loader.LoadSuiteConfig
 }
 
 func (cmd Suites) Run(patterns ...string) error {
-	suites, err := LoadSuites(cmd.Load, patterns...)
+	suites, err := loader.LoadSuites(cmd.Load, patterns...)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-package main
+package loader
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"go/types"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/ozontech/testo/cmd/testo/internal/packageslite"
@@ -73,6 +74,13 @@ func LoadSuites(cfg LoadSuiteConfig, patterns ...string) ([]Suite, error) {
 			suites = append(suites, suite)
 		}
 	}
+
+	slices.SortFunc(diagnostics, func(a, b Diagnostic) int {
+		return strings.Compare(
+			fset.File(a.Pos).Name(),
+			fset.File(b.Pos).Name(),
+		)
+	})
 
 	if len(diagnostics) > 0 {
 		return suites, &LoadError{
