@@ -1,4 +1,5 @@
 MAKEFLAGS += --always-make
+TEST_FLAGS ?= 
 
 all: generate fmt lint test test-examples tidy
 
@@ -33,6 +34,15 @@ doc:
 coverage:
 	go test -coverprofile=coverage.out -coverpkg=./... ./...
 	go tool cover -func coverage.out
+
+# get test coverage-ci
+.PHONY: coverage-ci
+coverage-ci:
+	go test $(TEST_FLAGS) -coverprofile=coverage.unit.out -coverpkg=./... ./...
+	go test $(TEST_FLAGS) -tags e2e -coverprofile=coverage.e2e.out -coverpkg=./... ./... || true
+	go run github.com/dlespiau/covertool@latest merge -o coverage.out coverage.unit.out coverage.e2e.out
+	go tool cover -func=coverage.out
+	rm -f coverage.unit.out coverage.e2e.out
 
 # visualize test coverage
 coverage-html: coverage

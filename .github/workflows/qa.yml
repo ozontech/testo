@@ -39,7 +39,7 @@ jobs:
       - name: Run unit tests with race detector
         if: runner.os != 'Windows'
         run: |
-          go test -race -v -coverprofile=coverage.out -coverpkg=./... ./...
+          make coverage-ci TEST_FLAGS="-race -v"
 
           mkdir coverage
 
