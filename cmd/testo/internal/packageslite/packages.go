@@ -148,7 +148,7 @@ func (gp goPackage) Package(fset *token.FileSet) (Package, error) {
 			fset,
 			filepath.Join(gp.Dir, n),
 			nil,
-			parser.ParseComments,
+			parser.ParseComments|parser.SkipObjectResolution,
 		)
 		if err != nil {
 			return Package{}, err
