@@ -11,9 +11,11 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/importer"
 	"go/parser"
 	"go/token"
 	"go/types"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,6 +54,13 @@ func Load(config Config, patterns ...string) ([]*Package, error) {
 		return nil, err
 	}
 
+	goPkgMap := make(map[string]*goPackage, len(listed))
+	for i := range listed {
+		goPkgMap[listed[i].ImportPath] = &listed[i]
+	}
+
+	archiveImp := archiveImporter(config.FSet, goPkgMap)
+
 	pkgs := make(map[string]*Package)
 
 	var importMap map[string]string
@@ -72,17 +81,27 @@ func Load(config Config, patterns ...string) ([]*Package, error) {
 				}
 			}
 
-			pkg, ok := pkgs[path]
-			if !ok {
-				return nil, errors.New("package not found")
+			if pkg, ok := pkgs[path]; ok {
+				return pkg.Types, nil
 			}
 
-			return pkg.Types, nil
+			return archiveImp.Import(path)
 		}),
 	}
 
 	for _, l := range listed {
 		importMap = l.ImportMap
+
+		if l.DepOnly {
+			pkg, err := loadFromExport(&l, archiveImp)
+			if err != nil {
+				return nil, err
+			}
+
+			pkgs[pkg.Path] = pkg
+
+			continue
+		}
 
 		pkg, err := l.Package(config.FSet)
 		if err != nil {
@@ -118,6 +137,39 @@ func (i importerFunc) Import(path string) (*types.Package, error) {
 	return i(path)
 }
 
+func archiveImporter(fset *token.FileSet, goPkgs map[string]*goPackage) types.Importer {
+	return importer.ForCompiler(fset, "gc", func(path string) (io.ReadCloser, error) {
+		if path == "unsafe" {
+			return nil, errors.New("unsafe is built-in")
+		}
+
+		gp, ok := goPkgs[path]
+		if !ok {
+			return nil, fmt.Errorf("archive importer: unknown package %q", path)
+		}
+
+		if gp.Export == "" {
+			return nil, fmt.Errorf("archive importer: no export data for %q", path)
+		}
+
+		return os.Open(gp.Export)
+	})
+}
+
+func loadFromExport(gp *goPackage, imp types.Importer) (*Package, error) {
+	typesPkg, err := imp.Import(gp.ImportPath)
+	if err != nil {
+		return nil, fmt.Errorf("loading export of %s: %w", gp.ImportPath, err)
+	}
+
+	return &Package{
+		Path:    gp.ImportPath,
+		Name:    gp.Name,
+		Types:   typesPkg,
+		depOnly: true,
+	}, nil
+}
+
 type goPackage struct {
 	Dir        string
 	ImportPath string
@@ -125,6 +177,7 @@ type goPackage struct {
 	DepOnly    bool
 	GoFiles    []string
 	CGoFiles   []string
+	Export     string
 	Imports    []string
 	ImportMap  map[string]string
 	Incomplete bool
