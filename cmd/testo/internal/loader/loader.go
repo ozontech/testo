@@ -28,13 +28,13 @@ func (l *LoadError) Error() string {
 	return strings.Join(msgs, "\n")
 }
 
-type LoadSuiteConfig struct {
+type Config struct {
 	Tags   string
-	Pkg    string
+	Testo  string
 	Strict bool
 }
 
-func LoadSuites(cfg LoadSuiteConfig, patterns ...string) ([]Suite, error) {
+func Load(cfg Config, patterns ...string) ([]Suite, error) {
 	fset := token.NewFileSet()
 
 	pkgs, err := packageslite.Load(packageslite.Config{
@@ -88,7 +88,7 @@ func LoadSuites(cfg LoadSuiteConfig, patterns ...string) ([]Suite, error) {
 	return suites, nil
 }
 
-func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
+func (c Config) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 	named, ok := obj.Type().(*types.Named)
 	if !ok {
 		return Suite{}, nil, false
@@ -116,8 +116,9 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 	}
 
 	suite := Suite{
-		Name: named.Obj().Name(),
-		T:    t,
+		Package: obj.Pkg().Name(),
+		Name:    named.Obj().Name(),
+		T:       t,
 	}
 
 	cases, diagnostics, fatal := c.collectCases(named)
@@ -305,7 +306,7 @@ func (c LoadSuiteConfig) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 	return suite, diagnostics, true
 }
 
-func (c LoadSuiteConfig) asT(f *types.Var) (T, bool) {
+func (c Config) asT(f *types.Var) (T, bool) {
 	if !f.Embedded() {
 		return T{}, false
 	}
@@ -319,7 +320,7 @@ func (c LoadSuiteConfig) asT(f *types.Var) (T, bool) {
 		return T{}, false
 	}
 
-	if suite.Obj().Pkg().Path() != c.Pkg {
+	if suite.Obj().Pkg().Path() != c.Testo {
 		return T{}, false
 	}
 
@@ -340,7 +341,7 @@ type Case struct {
 	Type types.Type
 }
 
-func (c LoadSuiteConfig) collectCases(
+func (c Config) collectCases(
 	suite *types.Named,
 ) (cases Cases, diagnostics []Diagnostic, fatal bool) {
 	cases = make(Cases)
@@ -566,9 +567,10 @@ func (tm TestsMissing) String() string {
 func (TestsMissing) issue() {}
 
 type Suite struct {
-	Name  string
-	Tests []SuiteTest
-	T     T
+	Package string
+	Name    string
+	Tests   []SuiteTest
+	T       T
 }
 
 type T struct {
