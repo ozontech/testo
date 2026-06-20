@@ -30,7 +30,7 @@ func (l *LoadError) Error() string {
 
 type LoadSuiteConfig struct {
 	Tags   string
-	Testo  string
+	Pkg    string
 	Strict bool
 }
 
@@ -44,10 +44,6 @@ func LoadSuites(cfg LoadSuiteConfig, patterns ...string) ([]Suite, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// if packages.PrintErrors(pkgs) > 0 {
-	// 	os.Exit(1)
-	// }
 
 	var (
 		suites      []Suite
@@ -323,7 +319,7 @@ func (c LoadSuiteConfig) asT(f *types.Var) (T, bool) {
 		return T{}, false
 	}
 
-	if suite.Obj().Pkg().Path() != c.Testo {
+	if suite.Obj().Pkg().Path() != c.Pkg {
 		return T{}, false
 	}
 

@@ -6,8 +6,6 @@ import (
 )
 
 func BenchmarkLoad(b *testing.B) {
-	b.Chdir("/Users/vzbarashchenko/Code/ozon/mass-crm-api")
-
 	conf := Config{
 		FSet: token.NewFileSet(),
 		Tags: "e2e,smoke,functional,integration",

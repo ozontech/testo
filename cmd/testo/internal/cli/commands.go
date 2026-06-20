@@ -18,14 +18,14 @@ func init() {
 
 	Register("lint", "Run testo linter", func(f *flag.FlagSet, cmd *Lint) {
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
-		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo import path")
+		f.StringVar(&cmd.Load.Pkg, "pkg", defaultTesto, "testo package")
 		f.BoolVar(&cmd.Load.Strict, "strict", false, "enable strict mode")
 		f.BoolVar(&cmd.JSON, "json", false, "output json")
 	})
 
 	Register("suites", "Show testo suites", func(f *flag.FlagSet, cmd *Suites) {
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
-		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo import path")
+		f.StringVar(&cmd.Load.Pkg, "testo", defaultTesto, "testo package")
 	})
 
 	Register("version", "Show testo version", func(*flag.FlagSet, *Version) {})
