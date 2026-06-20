@@ -72,7 +72,7 @@ type registered struct {
 	Run  func(args ...string) error
 }
 
-func Register[C Command](name, desc string, flags func(f *flag.FlagSet, cmd *C)) {
+func Register[C Command](name, desc, usage string, flags func(f *flag.FlagSet, cmd *C)) {
 	var command C
 
 	commands[name] = registered{
@@ -90,23 +90,40 @@ func Register[C Command](name, desc string, flags func(f *flag.FlagSet, cmd *C))
 
 				f.VisitAll(func(*flag.Flag) { hasFlags = true })
 
-				if !hasFlags {
-					fmt.Fprintf(f.Output(), "  %s %s\n", os.Args[0], name)
+				fmt.Fprintf(f.Output(), "  %s %s %s\n", os.Args[0], name, usage)
 
-					return
+				if hasFlags {
+					fmt.Fprintln(f.Output(), "\nFlags:")
+					f.PrintDefaults()
 				}
-
-				fmt.Fprintf(f.Output(), "  %s %s [flags]\n\n", os.Args[0], name)
-				fmt.Fprintln(f.Output(), "Flags:")
-
-				f.PrintDefaults()
 			}
 
-			if err := f.Parse(args); err != nil {
+			if err := parseFlagSet(f, args); err != nil {
 				return err
 			}
 
 			return command.Run(f.Args()...)
 		},
 	}
+}
+
+func parseFlagSet(f *flag.FlagSet, args []string) error {
+	positional := make([]string, 0, len(args))
+
+	for {
+		if err := f.Parse(args); err != nil {
+			return err
+		}
+
+		args = args[len(args)-f.NArg():]
+		if len(args) == 0 {
+			break
+		}
+
+		positional = append(positional, args[0])
+
+		args = args[1:]
+	}
+
+	return f.Parse(positional)
 }

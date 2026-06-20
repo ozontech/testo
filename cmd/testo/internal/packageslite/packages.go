@@ -24,10 +24,13 @@ import (
 )
 
 type Package struct {
-	Path   string
-	Name   string
-	Types  *types.Package
-	Syntax []*ast.File
+	Path        string
+	Name        string
+	Types       *types.Package
+	Syntax      []*ast.File
+	Dir         string
+	TestImports []string
+	TestGoFiles []string
 
 	depOnly bool
 }
@@ -171,17 +174,19 @@ func loadFromExport(gp *goPackage, imp types.Importer) (*Package, error) {
 }
 
 type goPackage struct {
-	Dir        string
-	ImportPath string
-	Name       string
-	DepOnly    bool
-	GoFiles    []string
-	CGoFiles   []string
-	Export     string
-	Imports    []string
-	ImportMap  map[string]string
-	Incomplete bool
-	Error      *struct {
+	Dir         string
+	ImportPath  string
+	Name        string
+	DepOnly     bool
+	GoFiles     []string
+	CGoFiles    []string
+	Export      string
+	Imports     []string
+	ImportMap   map[string]string
+	TestImports []string
+	TestGoFiles []string
+	Incomplete  bool
+	Error       *struct {
 		Err string
 	}
 
@@ -211,11 +216,14 @@ func (gp goPackage) Package(fset *token.FileSet) (Package, error) {
 	}
 
 	return Package{
-		Path:    gp.ImportPath,
-		Name:    gp.Name,
-		Types:   types.NewPackage(gp.ImportPath, gp.Name),
-		Syntax:  files,
-		depOnly: gp.DepOnly,
+		Path:        gp.ImportPath,
+		Name:        gp.Name,
+		Types:       types.NewPackage(gp.ImportPath, gp.Name),
+		Syntax:      files,
+		TestImports: gp.TestImports,
+		TestGoFiles: gp.TestGoFiles,
+		Dir:         gp.Dir,
+		depOnly:     gp.DepOnly,
 	}, nil
 }
 

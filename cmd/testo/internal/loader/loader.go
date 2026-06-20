@@ -1,11 +1,16 @@
 package loader
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"go/ast"
+	"go/format"
+	"go/parser"
 	"go/token"
 	"go/types"
 	"io"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -78,6 +83,8 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 		)
 	})
 
+	cfg.fillSuiteRunners(pkgs, suites)
+
 	if len(diagnostics) > 0 {
 		return suites, &LoadError{
 			FSet:        fset,
@@ -86,6 +93,87 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 	}
 
 	return suites, nil
+}
+
+func (c Config) filleSuiteRunnersFile(
+	pkg *packageslite.Package,
+	fset *token.FileSet,
+	file *ast.File,
+	suites []Suite,
+) {
+	var importsTesto bool
+
+	testoName := "testo"
+
+	for _, i := range file.Imports {
+		if unquote(i.Path.Value) == c.Testo {
+			importsTesto = true
+
+			if i.Name != nil {
+				testoName = i.Name.Name
+			}
+
+			break
+		}
+	}
+
+	if !importsTesto {
+		return
+	}
+
+	for _, d := range file.Decls {
+		fd, ok := d.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+
+		if fd.Recv != nil || !parse.IsTest(fd.Name.Name, "Test") {
+			continue
+		}
+
+		var buf bytes.Buffer
+
+		format.Node(&buf, fset, fd)
+
+		bufStr := buf.String()
+
+		runSuite := testoName + ".RunSuite"
+
+		for is, s := range suites {
+			ss := s.Package + "." + s.Name
+
+			if strings.Contains(bufStr, ss) && strings.Contains(bufStr, runSuite) {
+				suites[is].Runners = append(suites[is].Runners, SuiteRunner{
+					Dir:  pkg.Dir,
+					Name: fd.Name.Name,
+				})
+			}
+		}
+	}
+}
+
+func (c Config) fillSuiteRunners(pkgs []*packageslite.Package, suites []Suite) {
+	for _, pkg := range pkgs {
+		if !slices.Contains(pkg.TestImports, c.Testo) {
+			continue
+		}
+
+		fset := token.NewFileSet()
+
+		for _, f := range pkg.TestGoFiles {
+			file, err := parser.ParseFile(
+				fset,
+				filepath.Join(pkg.Dir, f),
+				nil,
+				parser.ParseComments,
+			)
+			if err != nil {
+				continue
+			}
+
+			c.filleSuiteRunnersFile(pkg, fset, file, suites)
+		}
+	}
 }
 
 func (c Config) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
@@ -571,6 +659,12 @@ type Suite struct {
 	Name    string
 	Tests   []SuiteTest
 	T       T
+	Runners []SuiteRunner
+}
+
+type SuiteRunner struct {
+	Dir  string
+	Name string
 }
 
 type T struct {
@@ -601,4 +695,8 @@ func formatNamedType(t *types.Named) string {
 	name := t.Obj().Name()
 
 	return pkg + "." + name
+}
+
+func unquote(s string) string {
+	return strings.Trim(s, `"'`)
 }
