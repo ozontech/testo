@@ -179,14 +179,18 @@ func (cmd RunCmd) Run(patterns ...string) error {
 		return err
 	}
 
+	foundByID := make(map[string]bool)
+
+	for _, id := range ids {
+		foundByID[id.Source] = false
+	}
+
 	suites, err := loader.Load(cmd.Load, "./...")
 	if err != nil {
 		return err
 	}
 
 	matched := make(map[string]runMatched)
-
-	foundByID := make(map[string]bool)
 
 	for _, s := range suites {
 		for _, id := range ids {
@@ -249,7 +253,7 @@ func (cmd RunCmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, 
 	for _, m := range matched {
 		for _, r := range m.Suite.Runners {
 			packages[r.Dir] = struct{}{}
-			suiteCallers[r.Name] = struct{}{}
+			suiteCallers[fmt.Sprintf("^%s$/^%s$", r.Name, m.Suite.Name)] = struct{}{}
 		}
 
 		for t := range m.Tests {
@@ -283,10 +287,7 @@ func (cmd RunCmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, 
 		args = append(
 			args,
 			"-run",
-			fmt.Sprintf(
-				"^(%s)$",
-				strings.Join(slices.Sorted(maps.Keys(suiteCallers)), "|"),
-			),
+			strings.Join(slices.Sorted(maps.Keys(suiteCallers)), "|"),
 		)
 	}
 
