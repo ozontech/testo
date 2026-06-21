@@ -31,18 +31,17 @@ func init() {
 	Register(
 		"run",
 		"Run testo suites",
-		`[flags] pattern... [flags] -- [test flags]
+		`[flags] [pattern] [flags] -- [test flags]
 
 Pattern:
   suite              suite regex
-  package.suite      package and suite regex
   suite.test         suite and test regex
   package.suite.test package, suite and test regex`,
 		// "[flags] [package.]suite[.test]... [flags]",
 		func(f *flag.FlagSet, cmd *RunCmd) {
 			f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 			f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo package")
-			f.StringVar(&cmd.Sep, "s", ".", "identifier delimieter")
+			f.StringVar(&cmd.Sep, "s", ".", "pattern separator")
 			f.BoolVar(&cmd.N, "n", false, "print the commands but do not run them")
 			f.BoolVar(&cmd.Verbose, "v", false, "verbose output")
 			f.BoolVar(&cmd.JSON, "json", false, "log verbose output and test results in JSON")
@@ -174,15 +173,9 @@ type runMatched struct {
 }
 
 func (cmd RunCmd) Run(patterns ...string) error {
-	ids, extraFlags, err := cmd.parsePositional(patterns...)
+	id, extraFlags, err := cmd.parsePositional(patterns...)
 	if err != nil {
 		return err
-	}
-
-	foundByID := make(map[string]bool)
-
-	for _, id := range ids {
-		foundByID[id.Source] = false
 	}
 
 	suites, err := loader.Load(cmd.Load, "./...")
@@ -192,8 +185,8 @@ func (cmd RunCmd) Run(patterns ...string) error {
 
 	matched := make(map[string]runMatched)
 
-	for _, s := range suites {
-		for _, id := range ids {
+	if id != nil {
+		for _, s := range suites {
 			tests, ok := id.match(s)
 
 			if !ok {
@@ -203,32 +196,28 @@ func (cmd RunCmd) Run(patterns ...string) error {
 			key := s.Package + "." + s.Name
 
 			if m, ok := matched[key]; ok {
-				foundByID[id.Source] = true
-
 				maps.Copy(m.Tests, tests)
 			} else {
-				foundByID[id.Source] = true
-
 				matched[key] = runMatched{
 					Suite: s,
 					Tests: tests,
 				}
 			}
 		}
-	}
-
-	for source, found := range foundByID {
-		if !found {
-			return fmt.Errorf("%q did not match any suites", source)
-		}
-	}
-
-	if len(matched) == 0 {
+	} else {
 		for _, s := range suites {
 			key := s.Package + "." + s.Name
 
 			matched[key] = runMatched{Suite: s}
 		}
+	}
+
+	if len(matched) == 0 {
+		if id != nil {
+			return fmt.Errorf("%q did not match any suites", id.Source)
+		}
+
+		return errors.New("testo suites not found")
 	}
 
 	c, err := cmd.buildGoTest(slices.Collect(maps.Values(matched)), extraFlags)
@@ -313,12 +302,7 @@ func (cmd RunCmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, 
 	return c, nil
 }
 
-func (cmd RunCmd) parsePositional(args ...string) ([]runID, []string, error) {
-	var (
-		ids   []runID
-		extra []string
-	)
-
+func (cmd RunCmd) parsePositional(args ...string) (id *runID, extra []string, err error) {
 	for i, p := range args {
 		if strings.HasPrefix(p, "-") {
 			extra = append(extra, args[i:]...)
@@ -326,81 +310,78 @@ func (cmd RunCmd) parsePositional(args ...string) ([]runID, []string, error) {
 			break
 		}
 
+		if id != nil {
+			return nil, nil, fmt.Errorf("unexpected positional argument: %q", p)
+		}
+
 		parsed, err := cmd.id(p)
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse %q: %w", p, err)
 		}
 
-		ids = append(ids, parsed...)
+		id = &parsed
 	}
 
-	return ids, extra, nil
+	return id, extra, nil
 }
 
-func (cmd RunCmd) id(pattern string) ([]runID, error) {
+func (cmd RunCmd) id(pattern string) (runID, error) {
 	fields := strings.Split(pattern, cmd.Sep)
 
 	switch len(fields) {
 	case 1: // suite
 		suite, err := regexp.Compile(fields[0])
 		if err != nil {
-			return nil, err
+			return runID{}, err
 		}
 
-		return []runID{{
+		return runID{
 			Suite:  suite,
 			Source: pattern,
-		}}, nil
+		}, nil
 
-	case 2: // package.suite || suite.test
-		first, err := regexp.Compile(fields[0])
+	case 2: // suite.test
+		suite, err := regexp.Compile(fields[0])
 		if err != nil {
-			return nil, err
+			return runID{}, err
 		}
 
-		second, err := regexp.Compile(fields[1])
+		test, err := regexp.Compile(fields[1])
 		if err != nil {
-			return nil, err
+			return runID{}, err
 		}
 
-		return []runID{
-			{
-				Package: first,
-				Suite:   second,
-				Source:  pattern,
-			},
-			{
-				Suite:  first,
-				Test:   second,
-				Source: pattern,
-			},
+		return runID{
+			Suite:  suite,
+			Test:   test,
+			Source: pattern,
 		}, nil
 
 	case 3: // package.suite.test
 		pkg, err := regexp.Compile(fields[0])
 		if err != nil {
-			return nil, err
+			return runID{}, err
 		}
 
 		suite, err := regexp.Compile(fields[1])
 		if err != nil {
-			return nil, err
+			return runID{}, err
 		}
 
 		test, err := regexp.Compile(fields[2])
 		if err != nil {
-			return nil, err
+			return runID{}, err
 		}
 
-		return []runID{{
+		return runID{
 			Package: pkg,
 			Suite:   suite,
 			Test:    test,
 			Source:  pattern,
-		}}, nil
+		}, nil
 
 	default:
-		return nil, errors.New("invalid syntax")
+		return runID{}, errors.New("invalid syntax")
 	}
 }
 
