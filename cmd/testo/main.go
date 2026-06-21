@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,14 +27,14 @@ func init() {
 	const defaultTags = "example,e2e,integration,functional,smoke"
 	const defaultTesto = "github.com/ozontech/testo"
 
-	cli.Register("lint", func(f *flag.FlagSet, cmd *Lint) {
+	cli.Add("lint", func(f *flag.FlagSet, cmd *Lint) {
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo package")
 		f.BoolVar(&cmd.Load.Strict, "strict", false, "enable strict mode")
 		f.BoolVar(&cmd.JSON, "json", false, "output json")
 	}, cli.WithShort("Run testo linter"))
 
-	cli.Register("run", func(f *flag.FlagSet, cmd *RunCmd) {
+	cli.Add("run", func(f *flag.FlagSet, cmd *Run) {
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo package")
 		f.StringVar(&cmd.Sep, "s", ".", "pattern separator")
@@ -50,12 +51,12 @@ Pattern:
   package.suite.test package, suite and test regex`),
 	)
 
-	cli.Register("suites", func(f *flag.FlagSet, cmd *Suites) {
+	cli.Add("suites", func(f *flag.FlagSet, cmd *Suites) {
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo package")
 	}, cli.WithShort("Show testo suites"))
 
-	cli.Register(
+	cli.Add(
 		"version",
 		func(*flag.FlagSet, *Version) {},
 		cli.WithShort("Show testo version"),
@@ -91,24 +92,22 @@ func (cmd Lint) Run(patterns ...string) error {
 
 	var errLoad *loader.LoadError
 
-	if errors.As(err, &errLoad) {
-		w := bufio.NewWriter(os.Stdout)
-
-		for _, d := range errLoad.Diagnostics {
-			if cmd.JSON {
-				d.FormatJSON(w, errLoad.FSet)
-			} else {
-				w.WriteString(d.Format(errLoad.FSet))
-				w.WriteString("\n")
-			}
-		}
-
-		w.Flush()
-
-		os.Exit(1)
+	if !errors.As(err, &errLoad) {
+		return err
 	}
 
-	return err
+	var buf bytes.Buffer
+
+	for _, d := range errLoad.Diagnostics {
+		if cmd.JSON {
+			d.FormatJSON(&buf, errLoad.FSet)
+		} else {
+			buf.WriteString(d.Format(errLoad.FSet))
+			buf.WriteString("\n")
+		}
+	}
+
+	return cli.Exit(1).Stdout(buf.String())
 }
 
 type Suites struct {
@@ -166,7 +165,7 @@ func (cmd Suites) Run(patterns ...string) error {
 	return nil
 }
 
-type RunCmd struct {
+type Run struct {
 	Load    loader.Config
 	Sep     string
 	N       bool
@@ -179,7 +178,7 @@ type runMatched struct {
 	Tests map[string]struct{}
 }
 
-func (cmd RunCmd) Run(patterns ...string) error {
+func (cmd Run) Run(patterns ...string) error {
 	id, extraFlags, err := cmd.parsePositional(patterns...)
 	if err != nil {
 		return err
@@ -241,7 +240,7 @@ func (cmd RunCmd) Run(patterns ...string) error {
 	return c.Run()
 }
 
-func (cmd RunCmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error) {
+func (cmd Run) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error) {
 	packages := make(map[string]struct{})
 	suiteCallers := make(map[string]struct{})
 	tests := make(map[string]struct{})
@@ -309,7 +308,7 @@ func (cmd RunCmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, 
 	return c, nil
 }
 
-func (cmd RunCmd) parsePositional(args ...string) (id *runID, extra []string, err error) {
+func (cmd Run) parsePositional(args ...string) (id *runID, extra []string, err error) {
 	for i, p := range args {
 		if strings.HasPrefix(p, "-") {
 			extra = append(extra, args[i:]...)
@@ -332,7 +331,7 @@ func (cmd RunCmd) parsePositional(args ...string) (id *runID, extra []string, er
 	return id, extra, nil
 }
 
-func (cmd RunCmd) id(pattern string) (runID, error) {
+func (cmd Run) id(pattern string) (runID, error) {
 	fields := strings.Split(pattern, cmd.Sep)
 
 	switch len(fields) {

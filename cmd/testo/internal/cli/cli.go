@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
 	"maps"
@@ -43,8 +44,15 @@ func Run() {
 	}
 
 	if err := run(os.Args[1], os.Args[2:]...); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		var errExit ExitError
+
+		if !errors.As(err, &errExit) {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+
+		errExit.Print()
+		os.Exit(errExit.Code)
 	}
 }
 
@@ -114,7 +122,7 @@ func WithoutArgs() Option {
 
 type ArgsFunc func(args ...string) error
 
-func Register[C Command](name string, flags func(f *flag.FlagSet, cmd *C), options ...Option) {
+func Add[C Command](name string, flags func(f *flag.FlagSet, cmd *C), options ...Option) {
 	var conf config
 
 	for _, o := range options {
