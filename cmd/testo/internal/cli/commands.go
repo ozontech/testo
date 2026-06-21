@@ -45,7 +45,7 @@ Pattern:
 			f.StringVar(&cmd.Sep, "s", ".", "identifier delimieter")
 			f.BoolVar(&cmd.N, "n", false, "print the commands but do not run them")
 			f.BoolVar(&cmd.Verbose, "v", false, "verbose output")
-			f.BoolVar(&cmd.JSON, "json", false, "verbose output")
+			f.BoolVar(&cmd.JSON, "json", false, "log verbose output and test results in JSON")
 		},
 	)
 

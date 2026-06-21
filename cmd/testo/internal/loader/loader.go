@@ -103,14 +103,16 @@ func (c Config) filleSuiteRunnersFile(
 ) {
 	var importsTesto bool
 
-	testoName := "testo"
+	testoRunSuite := "testo.RunSuite"
+
+	packageName := file.Name.Name
 
 	for _, i := range file.Imports {
 		if unquote(i.Path.Value) == c.Testo {
 			importsTesto = true
 
 			if i.Name != nil {
-				testoName = i.Name.Name
+				testoRunSuite = i.Name.Name + ".RunSuite"
 			}
 
 			break
@@ -120,6 +122,8 @@ func (c Config) filleSuiteRunnersFile(
 	if !importsTesto {
 		return
 	}
+
+	testoRunSuite = strings.Trim(testoRunSuite, ".")
 
 	for _, d := range file.Decls {
 		fd, ok := d.(*ast.FuncDecl)
@@ -137,13 +141,18 @@ func (c Config) filleSuiteRunnersFile(
 
 		bufStr := buf.String()
 
-		runSuite := testoName + ".RunSuite"
+		for i, s := range suites {
+			if !strings.Contains(bufStr, testoRunSuite) {
+				continue
+			}
 
-		for is, s := range suites {
-			ss := s.Package + "." + s.Name
+			id := s.Name
+			if s.Package != packageName {
+				id = s.Package + "." + s.Name
+			}
 
-			if strings.Contains(bufStr, ss) && strings.Contains(bufStr, runSuite) {
-				suites[is].Runners = append(suites[is].Runners, SuiteRunner{
+			if strings.Contains(bufStr, id) {
+				suites[i].Runners = append(suites[i].Runners, SuiteRunner{
 					Dir:  pkg.Dir,
 					Name: fd.Name.Name,
 				})
