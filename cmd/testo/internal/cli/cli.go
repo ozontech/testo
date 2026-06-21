@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	_ "embed"
 	"flag"
 	"fmt"
@@ -22,7 +23,7 @@ func usage(f *flag.FlagSet) {
 	fmt.Fprintln(&buf, "Available Commands:")
 
 	for _, cmd := range slices.Sorted(maps.Keys(commands)) {
-		fmt.Fprintf(&buf, "  %-10s %s\n", cmd, commands[cmd].Desc)
+		fmt.Fprintf(&buf, "  %-10s %s\n", cmd, commands[cmd].Short)
 	}
 
 	f.Output().Write(buf.Bytes())
@@ -50,7 +51,7 @@ func Run() {
 func run(command string, args ...string) error {
 	r, ok := commands[command]
 	if !ok {
-		fmt.Fprintf(flag.CommandLine.Output(), "unknown subcommand %q\n\n", command)
+		fmt.Fprintf(flag.CommandLine.Output(), "unknown subcommand: %q\n\n", command)
 
 		usage(flag.CommandLine)
 		os.Exit(2)
@@ -68,32 +69,91 @@ type Command interface {
 var commands = make(map[string]registered)
 
 type registered struct {
-	Desc string
-	Run  func(args ...string) error
+	Short string
+	Run   func(args ...string) error
 }
 
-func Register[C Command](name, desc, usage string, flags func(f *flag.FlagSet, cmd *C)) {
+type config struct {
+	Short string
+	Usage string
+	Long  string
+	Args  ArgsFunc
+}
+
+type Option func(conf *config)
+
+func WithShort(short string) Option {
+	return func(conf *config) {
+		conf.Short = short
+	}
+}
+
+func WithUsage(u string) Option {
+	return func(conf *config) {
+		conf.Usage = u
+	}
+}
+
+func WithLong(u string) Option {
+	return func(conf *config) {
+		conf.Long = u
+	}
+}
+
+func WithoutArgs() Option {
+	return func(conf *config) {
+		conf.Args = func(args ...string) error {
+			if len(args) == 0 {
+				return nil
+			}
+
+			return fmt.Errorf("unexpected argument: %q", args[0])
+		}
+	}
+}
+
+type ArgsFunc func(args ...string) error
+
+func Register[C Command](name string, flags func(f *flag.FlagSet, cmd *C), options ...Option) {
+	var conf config
+
+	for _, o := range options {
+		o(&conf)
+	}
+
 	var command C
 
 	commands[name] = registered{
-		Desc: desc,
+		Short: conf.Short,
 		Run: func(args ...string) error {
 			f := flag.NewFlagSet(name, flag.ExitOnError)
 
 			flags(f, &command)
 
 			f.Usage = func() {
-				fmt.Fprintf(f.Output(), "%s\n\n", desc)
+				long := cmp.Or(conf.Long, conf.Short)
+
+				if long != "" {
+					fmt.Fprintf(f.Output(), "%s\n\n", long)
+				}
+
 				fmt.Fprintln(f.Output(), "Usage:")
 
 				var hasFlags bool
 
 				f.VisitAll(func(*flag.Flag) { hasFlags = true })
 
-				fmt.Fprintf(f.Output(), "  %s %s %s\n", os.Args[0], name, usage)
+				if conf.Usage != "" {
+					fmt.Fprintf(f.Output(), "  %s %s %s\n", os.Args[0], name, conf.Usage)
+				} else if hasFlags {
+					fmt.Fprintf(f.Output(), "  %s %s [flags]\n", os.Args[0], name)
+				} else {
+					fmt.Fprintf(f.Output(), "  %s %s\n", os.Args[0], name)
+				}
 
 				if hasFlags {
 					fmt.Fprintln(f.Output(), "\nFlags:")
+
 					f.PrintDefaults()
 				}
 			}
@@ -102,7 +162,15 @@ func Register[C Command](name, desc, usage string, flags func(f *flag.FlagSet, c
 				return err
 			}
 
-			return command.Run(f.Args()...)
+			positional := f.Args()
+
+			if conf.Args != nil {
+				if err := conf.Args(positional...); err != nil {
+					return fmt.Errorf("%s %s: %w", os.Args[0], name, err)
+				}
+			}
+
+			return command.Run(positional...)
 		},
 	}
 }
