@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/ozontech/testo/cmd/testo/internal/packageslite"
+	"github.com/ozontech/testo/cmd/testo/internal/typeutil"
 	"github.com/ozontech/testo/internal/parse"
 )
 
@@ -27,7 +28,11 @@ func (l *LoadError) Error() string {
 	msgs := make([]string, 0, len(l.Diagnostics))
 
 	for _, d := range l.Diagnostics {
-		msgs = append(msgs, d.Format(l.FSet))
+		var buf bytes.Buffer
+
+		d.Print(&buf, l.FSet)
+
+		msgs = append(msgs, buf.String())
 	}
 
 	return strings.Join(msgs, "\n")
@@ -267,8 +272,8 @@ func (c Config) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 						fmt.Sprintf(
 							"%s must accept %s, got %s",
 							name,
-							formatType(suite.T.Type),
-							formatType(in.Type()),
+							typeutil.Format(suite.T.Type),
+							typeutil.Format(in.Type()),
 						),
 					),
 				})
@@ -288,8 +293,8 @@ func (c Config) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 						fmt.Sprintf(
 							"%s must accept %s, got %s",
 							name,
-							formatType(suite.T.Type),
-							formatType(first.Type()),
+							typeutil.Format(suite.T.Type),
+							typeutil.Format(first.Type()),
 						),
 					),
 				})
@@ -317,7 +322,7 @@ func (c Config) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 
 			var invalidParams bool
 
-			var paramNames []string
+			var parameters []Parameter
 
 			for f := range params.Fields() {
 				if !f.Exported() {
@@ -366,13 +371,16 @@ func (c Config) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 					continue
 				}
 
-				paramNames = append(paramNames, f.Name())
+				parameters = append(parameters, Parameter{
+					Name: f.Name(),
+					Type: f.Type(),
+				})
 			}
 
 			suite.Tests = append(suite.Tests, SuiteTest{
 				Name:         name,
 				Parametrized: true,
-				Parameters:   paramNames,
+				Parameters:   parameters,
 			})
 
 			if invalidParams {
@@ -563,7 +571,7 @@ type Diagnostic struct {
 	Issue Issue
 }
 
-func (d Diagnostic) FormatJSON(w io.Writer, set *token.FileSet) {
+func (d Diagnostic) JSON(w io.Writer, set *token.FileSet) {
 	type Entry struct {
 		File    string `json:"file"`
 		Line    int    `json:"line"`
@@ -583,11 +591,11 @@ func (d Diagnostic) FormatJSON(w io.Writer, set *token.FileSet) {
 	_ = json.NewEncoder(w).Encode(entry)
 }
 
-func (d Diagnostic) Format(set *token.FileSet) string {
+func (d Diagnostic) Print(w io.Writer, set *token.FileSet) {
 	file := set.File(d.Pos)
 	line := file.Line(d.Pos)
 
-	return fmt.Sprintf("%s:%d: %s", file.Name(), line, d.Issue.String())
+	fmt.Fprintf(w, "%s:%d: %s\n", file.Name(), line, d.Issue.String())
 }
 
 type Issue interface {
@@ -683,27 +691,12 @@ type T struct {
 type SuiteTest struct {
 	Name         string
 	Parametrized bool
-	Parameters   []string
+	Parameters   []Parameter
 }
 
-func formatType(t types.Type) string {
-	switch t := t.(type) {
-	case *types.Named:
-		return formatNamedType(t)
-
-	case *types.Pointer:
-		return "*" + formatType(t.Elem())
-
-	default:
-		return t.String()
-	}
-}
-
-func formatNamedType(t *types.Named) string {
-	pkg := t.Obj().Pkg().Name()
-	name := t.Obj().Name()
-
-	return pkg + "." + name
+type Parameter struct {
+	Name string
+	Type types.Type
 }
 
 func unquote(s string) string {

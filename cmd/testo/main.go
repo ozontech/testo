@@ -17,6 +17,7 @@ import (
 
 	"github.com/ozontech/testo/cmd/testo/internal/cli"
 	"github.com/ozontech/testo/cmd/testo/internal/loader"
+	"github.com/ozontech/testo/cmd/testo/internal/typeutil"
 )
 
 func main() {
@@ -100,10 +101,9 @@ func (cmd Lint) Run(patterns ...string) error {
 
 	for _, d := range errLoad.Diagnostics {
 		if cmd.JSON {
-			d.FormatJSON(&buf, errLoad.FSet)
+			d.JSON(&buf, errLoad.FSet)
 		} else {
-			buf.WriteString(d.Format(errLoad.FSet))
-			buf.WriteString("\n")
+			d.Print(&buf, errLoad.FSet)
 		}
 	}
 
@@ -148,7 +148,7 @@ func (cmd Suites) Run(patterns ...string) error {
 
 					symbol += "──"
 
-					fmt.Fprintf(w, " %s    %s [P] %s\n", fallback, symbol, p)
+					fmt.Fprintf(w, " %s    %s [P] %s (%s)\n", fallback, symbol, p.Name, typeutil.Format(p.Type))
 				}
 			} else {
 				fmt.Fprintf(w, " %s [T] %s\n", symbol, t.Name)

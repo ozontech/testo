@@ -16,8 +16,8 @@ func (e ExitError) Error() string {
 	return fmt.Sprintf("exit code %d", e.Code)
 }
 
-func Exit(code int) *ExitError {
-	return &ExitError{
+func Exit(code int) ExitError {
+	return ExitError{
 		Code: code,
 	}
 }
