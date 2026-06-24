@@ -44,7 +44,7 @@ If for at least one required parameter function `CasesXxx`
 returns zero values Testo will log a warning with similar message:
 
 ```txt
-main_test.go:15: testo: (*main.Suite).CasesName provides zero values, (*main.Suite).TestFoo won't run
+main_test.go:15: testo: (*main.Suite).CasesName returned empty slice, (*main.Suite).TestFoo will not run
 ```
 
 To turn this log into fatal error and do not proceed with further execution
