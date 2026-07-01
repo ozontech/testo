@@ -4,13 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"go/ast"
-	"go/format"
-	"go/parser"
 	"go/token"
 	"go/types"
 	"io"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -70,7 +66,7 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 		for _, name := range scope.Names() {
 			obj := scope.Lookup(name)
 
-			suite, d, ok := cfg.asSuite(obj)
+			suite, d, ok := cfg.asSuite(fset, obj)
 			if !ok {
 				continue
 			}
@@ -88,8 +84,6 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 		)
 	})
 
-	cfg.fillSuiteRunners(pkgs, suites)
-
 	if len(diagnostics) > 0 {
 		return suites, &LoadError{
 			FSet:        fset,
@@ -100,97 +94,7 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 	return suites, nil
 }
 
-func (c Config) filleSuiteRunnersFile(
-	pkg *packageslite.Package,
-	fset *token.FileSet,
-	file *ast.File,
-	suites []Suite,
-) {
-	var importsTesto bool
-
-	testoRunSuite := "testo.RunSuite"
-
-	packageName := file.Name.Name
-
-	for _, i := range file.Imports {
-		if unquote(i.Path.Value) == c.Testo {
-			importsTesto = true
-
-			if i.Name != nil {
-				testoRunSuite = i.Name.Name + ".RunSuite"
-			}
-
-			break
-		}
-	}
-
-	if !importsTesto {
-		return
-	}
-
-	testoRunSuite = strings.Trim(testoRunSuite, ".")
-
-	for _, d := range file.Decls {
-		fd, ok := d.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
-
-		if fd.Recv != nil || !parse.IsTest(fd.Name.Name, "Test") {
-			continue
-		}
-
-		var buf bytes.Buffer
-
-		format.Node(&buf, fset, fd)
-
-		bufStr := buf.String()
-
-		for i, s := range suites {
-			if !strings.Contains(bufStr, testoRunSuite) {
-				continue
-			}
-
-			id := s.Name
-			if s.Package != packageName {
-				id = s.Package + "." + s.Name
-			}
-
-			if strings.Contains(bufStr, id) {
-				suites[i].Runners = append(suites[i].Runners, SuiteRunner{
-					Dir:  pkg.Dir,
-					Name: fd.Name.Name,
-				})
-			}
-		}
-	}
-}
-
-func (c Config) fillSuiteRunners(pkgs []*packageslite.Package, suites []Suite) {
-	for _, pkg := range pkgs {
-		if !slices.Contains(pkg.TestImports, c.Testo) {
-			continue
-		}
-
-		fset := token.NewFileSet()
-
-		for _, f := range pkg.TestGoFiles {
-			file, err := parser.ParseFile(
-				fset,
-				filepath.Join(pkg.Dir, f),
-				nil,
-				parser.ParseComments,
-			)
-			if err != nil {
-				continue
-			}
-
-			c.filleSuiteRunnersFile(pkg, fset, file, suites)
-		}
-	}
-}
-
-func (c Config) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
+func (c Config) asSuite(fset *token.FileSet, obj types.Object) (Suite, []Diagnostic, bool) {
 	named, ok := obj.Type().(*types.Named)
 	if !ok {
 		return Suite{}, nil, false
@@ -218,6 +122,8 @@ func (c Config) asSuite(obj types.Object) (Suite, []Diagnostic, bool) {
 	}
 
 	suite := Suite{
+		FSet:    fset,
+		Pos:     obj.Pos(),
 		Package: obj.Pkg().Name(),
 		Name:    named.Obj().Name(),
 		T:       t,
@@ -672,11 +578,12 @@ func (tm TestsMissing) String() string {
 func (TestsMissing) issue() {}
 
 type Suite struct {
+	FSet    *token.FileSet
+	Pos     token.Pos
 	Package string
 	Name    string
 	Tests   []SuiteTest
 	T       T
-	Runners []SuiteRunner
 }
 
 type SuiteRunner struct {

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -179,7 +180,7 @@ type runMatched struct {
 }
 
 func (cmd Run) Run(patterns ...string) error {
-	id, extraFlags, err := cmd.parsePositional(patterns...)
+	id, extraFlags, err := cmd.parse(patterns...)
 	if err != nil {
 		return err
 	}
@@ -246,7 +247,12 @@ func (cmd Run) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, err
 	tests := make(map[string]struct{})
 
 	for _, m := range matched {
-		for _, r := range m.Suite.Runners {
+		runners, err := loader.Runners(context.Background(), cmd.Load.Tags, m.Suite)
+		if err != nil {
+			return nil, fmt.Errorf("find runners for suite %q: %w", m.Suite.Name, err)
+		}
+
+		for _, r := range runners {
 			packages[r.Dir] = struct{}{}
 			suiteCallers[fmt.Sprintf("^%s$/^%s$", r.Name, m.Suite.Name)] = struct{}{}
 		}
@@ -308,7 +314,7 @@ func (cmd Run) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, err
 	return c, nil
 }
 
-func (cmd Run) parsePositional(args ...string) (id *runID, extra []string, err error) {
+func (cmd Run) parse(args ...string) (id *runID, extra []string, err error) {
 	for i, p := range args {
 		if strings.HasPrefix(p, "-") {
 			extra = append(extra, args[i:]...)
