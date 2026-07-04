@@ -3,6 +3,7 @@ package loader
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"go/token"
@@ -67,7 +68,7 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 		for _, name := range scope.Names() {
 			obj := scope.Lookup(name)
 
-			suite, d, ok := cfg.asSuite(fset, pkg, obj)
+			suite, d, ok := cfg.asSuite(fset, pkg, pkgs, obj)
 			if !ok {
 				continue
 			}
@@ -99,7 +100,12 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 	return suites, nil
 }
 
-func (c Config) asSuite(fset *token.FileSet, pkg *packageslite.Package, obj types.Object) (Suite, []Diagnostic, bool) {
+func (c Config) asSuite(
+	fset *token.FileSet,
+	pkg *packageslite.Package,
+	pkgs []*packageslite.Package,
+	obj types.Object,
+) (Suite, []Diagnostic, bool) {
 	named, ok := obj.Type().(*types.Named)
 	if !ok {
 		return Suite{}, nil, false
@@ -132,6 +138,11 @@ func (c Config) asSuite(fset *token.FileSet, pkg *packageslite.Package, obj type
 		Package: pkg,
 		Name:    named.Obj().Name(),
 		T:       t,
+		Type:    obj.Type(),
+	}
+
+	suite.Runners = func(ctx context.Context) ([]SuiteRunner, error) {
+		return c.loadRunners(ctx, fset, suite, pkgs)
 	}
 
 	cases, diagnostics, fatal := c.collectCases(named)
@@ -589,6 +600,8 @@ type Suite struct {
 	Name    string
 	Tests   []SuiteTest
 	T       T
+	Runners func(ctx context.Context) ([]SuiteRunner, error)
+	Type    types.Type
 }
 
 type SuiteRunner struct {
@@ -609,8 +622,4 @@ type SuiteTest struct {
 type Parameter struct {
 	Name string
 	Type types.Type
-}
-
-func unquote(s string) string {
-	return strings.Trim(s, `"'`)
 }

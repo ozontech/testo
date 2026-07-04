@@ -260,7 +260,7 @@ func (cmd Run) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, err
 	tests := make(map[string]struct{})
 
 	for _, m := range matched {
-		runners, err := loader.Runners(context.Background(), cmd.Load.Tags, m.Suite)
+		runners, err := m.Suite.Runners(context.Background())
 		if err != nil {
 			return nil, fmt.Errorf("find runners for suite %q: %w", m.Suite.Name, err)
 		}

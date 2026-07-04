@@ -1,97 +1,112 @@
 package loader
 
 import (
-	"bufio"
 	"context"
-	"fmt"
-	"os"
+	"go/ast"
+	"go/token"
+	"go/types"
 	"path/filepath"
 	"strings"
 
-	"github.com/ozontech/testo/cmd/testo/internal/gopls"
+	"github.com/ozontech/testo/cmd/testo/internal/packageslite"
+	"github.com/ozontech/testo/internal/parse"
 )
 
-func Runners(ctx context.Context, tags string, suite Suite) ([]SuiteRunner, error) {
-	f := suite.FSet.File(suite.Pos)
-	if f == nil {
-		return nil, fmt.Errorf("suite not found in file set")
-	}
-
-	pos := f.Position(suite.Pos)
-
-	refs, err := gopls.References(ctx, gopls.ReferencesOpts{
-		Tags: tags,
-		Position: gopls.Position{
-			File:   f.Name(),
-			Line:   pos.Line,
-			Column: pos.Column,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("gopls references: %w", err)
-	}
-
+func (c *Config) loadRunners(
+	ctx context.Context,
+	fset *token.FileSet,
+	suite Suite,
+	pkgs []*packageslite.Package,
+) ([]SuiteRunner, error) {
 	var runners []SuiteRunner
 
-	for _, r := range refs {
-		runner, ok := asRunner(r, suite)
-		if !ok {
-			continue
-		}
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Syntax {
+			tokenFile := fset.File(file.Pos())
 
-		runners = append(runners, runner)
+			if !strings.HasSuffix(tokenFile.Name(), "_test.go") {
+				continue
+			}
+
+			var testName string
+
+			ast.Inspect(file, func(n ast.Node) bool {
+				if f, ok := n.(*ast.FuncDecl); ok {
+					if parse.IsTest(f.Name.Name, "Test") {
+						testName = f.Name.Name
+					}
+
+					return true
+				}
+
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+
+				fun := pkg.Info.Uses[funcIdent(call)]
+				if fun == nil {
+					sel, ok := call.Fun.(*ast.SelectorExpr)
+					if ok {
+						fun = pkg.Info.Uses[sel.Sel]
+					}
+				}
+
+				if fun == nil {
+					return true
+				}
+
+				fn, ok := fun.(*types.Func)
+				if !ok {
+					return true
+				}
+
+				if fn.Pkg() == nil || fn.Pkg().Path() != c.Testo || fn.Name() != "RunSuite" {
+					return true
+				}
+
+				sig := pkg.Info.Types[call.Fun].Type.(*types.Signature)
+
+				params := sig.Params()
+
+				if params.Len() == 0 {
+					return true
+				}
+
+				identical := types.Identical(elem(params.At(1).Type()), elem(suite.Type))
+
+				if identical {
+					runners = append(runners, SuiteRunner{
+						Name: testName,
+						Dir:  filepath.Dir(tokenFile.Name()),
+					})
+				}
+
+				return true
+			})
+		}
 	}
 
 	return runners, nil
 }
 
-func asRunner(ref gopls.Position, suite Suite) (SuiteRunner, bool) {
-	if !strings.HasSuffix(ref.File, "_test.go") {
-		return SuiteRunner{}, false
+func funcIdent(call *ast.CallExpr) *ast.Ident {
+	switch f := call.Fun.(type) {
+	case *ast.Ident:
+		return f
+
+	case *ast.SelectorExpr:
+		return f.Sel
+
+	default:
+		return nil
+	}
+}
+
+func elem(a types.Type) types.Type {
+	if ptr, ok := a.(*types.Pointer); ok {
+		return elem(ptr.Elem())
 	}
 
-	file, err := os.Open(ref.File)
-	if err != nil {
-		return SuiteRunner{}, false
-	}
-	defer file.Close()
-
-	s := bufio.NewScanner(file)
-
-	var (
-		i    int
-		test string
-	)
-
-	for s.Scan() {
-		i++
-
-		line := s.Text()
-
-		if strings.HasPrefix(line, "func Test") {
-			before, _, _ := strings.Cut(line, "(")
-
-			test = strings.Fields(before)[1]
-		}
-
-		if i != ref.Line {
-			continue
-		}
-
-		if strings.Contains(line, "testo.RunSuite") {
-			return SuiteRunner{
-				Dir:  filepath.Dir(ref.File),
-				Name: test,
-			}, true
-		}
-	}
-
-	err = s.Err()
-	if err != nil {
-		return SuiteRunner{}, false
-	}
-
-	// TODO
-
-	return SuiteRunner{}, false
+	return a
 }

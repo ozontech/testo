@@ -37,7 +37,10 @@ type Package struct {
 }
 
 func (p *Package) Init(fset *token.FileSet, conf *types.Config) error {
-	var info types.Info
+	info := types.Info{
+		Uses:  make(map[*ast.Ident]types.Object),
+		Types: make(map[ast.Expr]types.TypeAndValue),
+	}
 
 	checked, err := conf.Check(p.Path, fset, p.Syntax, &info)
 	if err != nil {
@@ -73,7 +76,7 @@ func Load(config Config, patterns ...string) ([]*Package, error) {
 	var importMap map[string]string
 
 	conf := types.Config{
-		IgnoreFuncBodies:         true,
+		// IgnoreFuncBodies:         true,
 		DisableUnusedImportCheck: true,
 		FakeImportC:              true,
 		Importer: importerFunc(func(path string) (*types.Package, error) {
