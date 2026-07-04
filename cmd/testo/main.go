@@ -129,33 +129,58 @@ func (cmd Suites) Run(patterns ...string) error {
 	seen := make(map[string]bool)
 
 	for _, s := range suites {
-		for _, t := range s.Tests {
-			var data struct {
-				Suite string
-				Test  struct {
-					Name string
-				}
-			}
+		lines, err := cmd.showSuite(s, seen)
+		if err != nil {
+			return err
+		}
 
-			data.Suite = s.Name
-			data.Test.Name = t.Name
-
-			line, err := cmd.Format.Execute(data)
-			if err != nil {
-				return err
-			}
-
-			if seen[line] {
-				continue
-			}
-
-			seen[line] = true
-
-			fmt.Println(line)
+		for _, l := range lines {
+			fmt.Println(l)
 		}
 	}
 
 	return nil
+}
+
+func (cmd Suites) showSuite(suite loader.Suite, seen map[string]bool) ([]string, error) {
+	type Test struct {
+		Name string
+	}
+
+	type Data struct {
+		Suite string
+		Test  string
+		Tests []string
+	}
+
+	data := Data{
+		Suite: suite.Name,
+	}
+
+	for _, t := range suite.Tests {
+		data.Tests = append(data.Tests, t.Name)
+	}
+
+	var lines []string
+
+	for _, t := range suite.Tests {
+		data.Test = t.Name
+
+		line, err := cmd.Format.Execute(data)
+		if err != nil {
+			return nil, err
+		}
+
+		if seen[line] {
+			continue
+		}
+
+		seen[line] = true
+
+		lines = append(lines, line)
+	}
+
+	return lines, nil
 }
 
 type Run struct {
