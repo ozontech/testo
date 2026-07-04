@@ -56,6 +56,7 @@ Pattern:
 	cli.Add("suites", func(f *flag.FlagSet, cmd *Suites) {
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo package")
+		f.BoolVar(&cmd.One, "1", false, "show one suite per line")
 	}, cli.WithShort("Show testo suites"))
 
 	cli.Add(
@@ -113,12 +114,21 @@ func (cmd Lint) Run(patterns ...string) error {
 
 type Suites struct {
 	Load loader.Config
+	One  bool
 }
 
 func (cmd Suites) Run(patterns ...string) error {
 	suites, err := loader.Load(cmd.Load, patterns...)
 	if err != nil {
 		return err
+	}
+
+	if cmd.One {
+		for _, s := range suites {
+			fmt.Println(s.Name)
+		}
+
+		return nil
 	}
 
 	for i, s := range suites {

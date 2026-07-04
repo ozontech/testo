@@ -2,6 +2,7 @@ package loader
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"go/token"
@@ -82,6 +83,10 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 			fset.File(a.Pos).Name(),
 			fset.File(b.Pos).Name(),
 		)
+	})
+
+	slices.SortFunc(suites, func(a, b Suite) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 
 	if len(diagnostics) > 0 {

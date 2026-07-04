@@ -91,7 +91,6 @@ func asRunner(ref gopls.Position, suite Suite) (SuiteRunner, bool) {
 		return SuiteRunner{}, false
 	}
 
-	fmt.Printf("ref: %#+v\n", ref)
 	// TODO
 
 	return SuiteRunner{}, false
