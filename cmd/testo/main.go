@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/ozontech/testo/cmd/testo/internal/cli"
 	"github.com/ozontech/testo/cmd/testo/internal/loader"
-	"github.com/ozontech/testo/cmd/testo/internal/typeutil"
 )
 
 func main() {
@@ -54,9 +52,11 @@ Pattern:
 	)
 
 	cli.Add("suites", func(f *flag.FlagSet, cmd *Suites) {
+		cmd.Format.Set("{{ .Suite }}")
+
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo package")
-		f.BoolVar(&cmd.One, "1", false, "show one suite per line")
+		f.Var(&cmd.Format, "f", "output format")
 	},
 		cli.WithShort("Show testo suites"),
 		cli.WithUsage(`[flags] [pattern...] [flags]`),
@@ -116,8 +116,8 @@ func (cmd Lint) Run(patterns ...string) error {
 }
 
 type Suites struct {
-	Load loader.Config
-	One  bool
+	Load   loader.Config
+	Format cli.FlagTemplate
 }
 
 func (cmd Suites) Run(patterns ...string) error {
@@ -126,61 +126,33 @@ func (cmd Suites) Run(patterns ...string) error {
 		return err
 	}
 
-	if cmd.One {
-		for _, s := range suites {
-			fmt.Println(s.Name)
-		}
+	seen := make(map[string]bool)
 
-		return nil
-	}
-
-	for i, s := range suites {
-		w := bufio.NewWriter(os.Stdout)
-
-		fmt.Fprintln(w, "[S] "+s.Name)
-
-		for i, t := range s.Tests {
-			symbol := "└"
-			fallback := " "
-
-			if i != len(s.Tests)-1 {
-				symbol = "├"
-				fallback = "│"
-			}
-
-			symbol += "──"
-
-			if t.Parametrized {
-				fmt.Fprintf(w, " %s [T] %s\n", symbol, t.Name)
-
-				for j, p := range t.Parameters {
-					symbol := "└"
-
-					if j != len(t.Parameters)-1 {
-						symbol = "├"
-					}
-
-					symbol += "──"
-
-					fmt.Fprintf(
-						w,
-						" %s    %s [P] %s (%s)\n",
-						fallback,
-						symbol,
-						p.Name,
-						typeutil.Format(p.Type),
-					)
+	for _, s := range suites {
+		for _, t := range s.Tests {
+			var data struct {
+				Suite string
+				Test  struct {
+					Name string
 				}
-			} else {
-				fmt.Fprintf(w, " %s [T] %s\n", symbol, t.Name)
 			}
-		}
 
-		if i != len(suites)-1 {
-			fmt.Fprintln(w)
-		}
+			data.Suite = s.Name
+			data.Test.Name = t.Name
 
-		w.Flush()
+			line, err := cmd.Format.Execute(data)
+			if err != nil {
+				return err
+			}
+
+			if seen[line] {
+				continue
+			}
+
+			seen[line] = true
+
+			fmt.Println(line)
+		}
 	}
 
 	return nil
