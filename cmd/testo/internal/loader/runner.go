@@ -5,7 +5,9 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"maps"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/ozontech/testo/cmd/testo/internal/packageslite"
@@ -18,6 +20,14 @@ func (c *Config) loadRunners(
 	suite Suite,
 	pkgs []*packageslite.Package,
 ) ([]SuiteRunner, error) {
+	if c.runners == nil {
+		c.runners = make(map[types.Type]map[SuiteRunner]struct{})
+	}
+
+	if runners, ok := c.runners[suite.Type]; ok {
+		return slices.Collect(maps.Keys(runners)), nil
+	}
+
 	var runners []SuiteRunner
 
 	for _, pkg := range pkgs {
@@ -73,13 +83,22 @@ func (c *Config) loadRunners(
 					return true
 				}
 
-				identical := types.Identical(elem(params.At(1).Type()), elem(suite.Type))
+				suiteType := elem(params.At(1).Type())
+
+				identical := types.Identical(
+					suiteType,
+					elem(suite.Type),
+				)
+
+				r := SuiteRunner{
+					Name: testName,
+					Dir:  filepath.Dir(tokenFile.Name()),
+				}
 
 				if identical {
-					runners = append(runners, SuiteRunner{
-						Name: testName,
-						Dir:  filepath.Dir(tokenFile.Name()),
-					})
+					runners = append(runners, r)
+				} else {
+					c.addRunner(suiteType, r)
 				}
 
 				return true
@@ -88,6 +107,18 @@ func (c *Config) loadRunners(
 	}
 
 	return runners, nil
+}
+
+func (c *Config) addRunner(suite types.Type, runner SuiteRunner) {
+	if _, ok := c.runners[suite]; ok {
+		c.runners[suite][runner] = struct{}{}
+
+		return
+	}
+
+	c.runners[suite] = map[SuiteRunner]struct{}{
+		runner: {},
+	}
 }
 
 func funcIdent(call *ast.CallExpr) *ast.Ident {

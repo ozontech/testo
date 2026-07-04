@@ -40,6 +40,8 @@ type Config struct {
 	Tags   string
 	Testo  string
 	Strict bool
+
+	runners map[types.Type]map[SuiteRunner]struct{}
 }
 
 func Load(cfg Config, patterns ...string) ([]Suite, error) {
@@ -100,7 +102,7 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 	return suites, nil
 }
 
-func (c Config) asSuite(
+func (c *Config) asSuite(
 	fset *token.FileSet,
 	pkg *packageslite.Package,
 	pkgs []*packageslite.Package,
@@ -333,7 +335,7 @@ func (c Config) asSuite(
 	return suite, diagnostics, true
 }
 
-func (c Config) asT(f *types.Var) (T, bool) {
+func (c *Config) asT(f *types.Var) (T, bool) {
 	if !f.Embedded() {
 		return T{}, false
 	}
@@ -368,7 +370,7 @@ type Case struct {
 	Type types.Type
 }
 
-func (c Config) collectCases(
+func (c *Config) collectCases(
 	suite *types.Named,
 ) (cases Cases, diagnostics []Diagnostic, fatal bool) {
 	cases = make(Cases)

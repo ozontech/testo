@@ -162,7 +162,14 @@ func (cmd Suites) Run(patterns ...string) error {
 
 					symbol += "──"
 
-					fmt.Fprintf(w, " %s    %s [P] %s (%s)\n", fallback, symbol, p.Name, typeutil.Format(p.Type))
+					fmt.Fprintf(
+						w,
+						" %s    %s [P] %s (%s)\n",
+						fallback,
+						symbol,
+						p.Name,
+						typeutil.Format(p.Type),
+					)
 				}
 			} else {
 				fmt.Fprintf(w, " %s [T] %s\n", symbol, t.Name)
