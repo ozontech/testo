@@ -31,17 +31,21 @@ type Package struct {
 	Dir         string
 	TestImports []string
 	TestGoFiles []string
+	Info        types.Info
 
 	depOnly bool
 }
 
 func (p *Package) Init(fset *token.FileSet, conf *types.Config) error {
-	checked, err := conf.Check(p.Path, fset, p.Syntax, nil)
+	var info types.Info
+
+	checked, err := conf.Check(p.Path, fset, p.Syntax, &info)
 	if err != nil {
 		return err
 	}
 
 	p.Types = checked
+	p.Info = info
 
 	return nil
 }

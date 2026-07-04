@@ -57,7 +57,10 @@ Pattern:
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo package")
 		f.BoolVar(&cmd.One, "1", false, "show one suite per line")
-	}, cli.WithShort("Show testo suites"))
+	},
+		cli.WithShort("Show testo suites"),
+		cli.WithUsage(`[flags] [pattern...] [flags]`),
+	)
 
 	cli.Add(
 		"version",
@@ -210,7 +213,7 @@ func (cmd Run) Run(patterns ...string) error {
 				continue
 			}
 
-			key := s.Package + "." + s.Name
+			key := s.Package.Name + "." + s.Name
 
 			if m, ok := matched[key]; ok {
 				maps.Copy(m.Tests, tests)
@@ -223,7 +226,7 @@ func (cmd Run) Run(patterns ...string) error {
 		}
 	} else {
 		for _, s := range suites {
-			key := s.Package + "." + s.Name
+			key := s.Package.Name + "." + s.Name
 
 			matched[key] = runMatched{Suite: s}
 		}
@@ -416,7 +419,7 @@ type runID struct {
 }
 
 func (id runID) match(suite loader.Suite) (tests map[string]struct{}, ok bool) {
-	if id.Package != nil && !id.Package.MatchString(suite.Package) {
+	if id.Package != nil && !id.Package.MatchString(suite.Package.Name) {
 		return nil, false
 	}
 

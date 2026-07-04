@@ -67,7 +67,7 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 		for _, name := range scope.Names() {
 			obj := scope.Lookup(name)
 
-			suite, d, ok := cfg.asSuite(fset, obj)
+			suite, d, ok := cfg.asSuite(fset, pkg, obj)
 			if !ok {
 				continue
 			}
@@ -99,7 +99,7 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 	return suites, nil
 }
 
-func (c Config) asSuite(fset *token.FileSet, obj types.Object) (Suite, []Diagnostic, bool) {
+func (c Config) asSuite(fset *token.FileSet, pkg *packageslite.Package, obj types.Object) (Suite, []Diagnostic, bool) {
 	named, ok := obj.Type().(*types.Named)
 	if !ok {
 		return Suite{}, nil, false
@@ -129,7 +129,7 @@ func (c Config) asSuite(fset *token.FileSet, obj types.Object) (Suite, []Diagnos
 	suite := Suite{
 		FSet:    fset,
 		Pos:     obj.Pos(),
-		Package: obj.Pkg().Name(),
+		Package: pkg,
 		Name:    named.Obj().Name(),
 		T:       t,
 	}
@@ -585,7 +585,7 @@ func (TestsMissing) issue() {}
 type Suite struct {
 	FSet    *token.FileSet
 	Pos     token.Pos
-	Package string
+	Package *packageslite.Package
 	Name    string
 	Tests   []SuiteTest
 	T       T
