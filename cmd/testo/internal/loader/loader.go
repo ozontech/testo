@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"bufio"
 	"bytes"
 	"cmp"
 	"context"
@@ -521,7 +522,15 @@ func (d Diagnostic) Print(w io.Writer, set *token.FileSet) {
 	file := set.File(d.Pos)
 	line := file.Line(d.Pos)
 
-	fmt.Fprintf(w, "%s:%d: %s\n", file.Name(), line, d.Issue.String())
+	fmt.Fprintf(w, "%s:%d: %s", file.Name(), line, d.Issue.String())
+}
+
+func (d Diagnostic) Println(w io.Writer, set *token.FileSet) {
+	b := bufio.NewWriter(w)
+	defer b.Flush()
+
+	d.Print(b, set)
+	fmt.Fprintln(b)
 }
 
 type Issue interface {

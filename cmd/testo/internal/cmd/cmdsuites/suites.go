@@ -78,27 +78,6 @@ func (c Cmd) Run(patterns ...string) error {
 	return nil
 }
 
-type Pos struct {
-	Dir      string
-	Filename string
-	Path     string
-	Line     int
-	Column   int
-}
-
-func (p Pos) String() string {
-	return fmt.Sprintf("%s:%d:%d", p.Path, p.Line, p.Column)
-}
-
-type Entity struct {
-	Name string
-	Pos  Pos
-}
-
-func (e Entity) String() string {
-	return e.Name
-}
-
 func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
 	newPos := func(p token.Position) Pos {
 		return Pos{
@@ -108,13 +87,6 @@ func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
 			Line:     p.Line,
 			Column:   p.Column,
 		}
-	}
-
-	type Data struct {
-		Package string
-		Suite   Entity
-		Test    Entity
-		Tests   []Entity
 	}
 
 	data := Data{

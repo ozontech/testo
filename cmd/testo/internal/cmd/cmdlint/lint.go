@@ -42,7 +42,7 @@ func (c Cmd) Run(patterns ...string) error {
 		if c.JSON {
 			d.JSON(&buf, errLoad.FSet)
 		} else {
-			d.Print(&buf, errLoad.FSet)
+			d.Println(&buf, errLoad.FSet)
 		}
 	}
 
