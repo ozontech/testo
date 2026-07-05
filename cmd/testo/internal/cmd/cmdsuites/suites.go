@@ -26,30 +26,12 @@ func init() {
 Format:
   flag -f accepts Go text/template string with the following data as input:
 
-	type Data struct {
-		Package string
-		Suite   Entity
-		Test    Entity
-		Tests   []Entity
-	}
-
-	type Entity struct {
-		Name string
-		Pos  Pos
-	}
-
-	type Pos struct {
-		Dir      string
-		Filename string
-		Path     string
-		Line     int
-		Column   int
-	}
+`+templateTypes("\t")+`
 
 Examples:
   pick suite test with fzf and bat preview
 
-  	testo suites ./... -0 -f '{{ .Package }}.{{ .Suite.Name }}.{{ .Test.Name }} {{ .Test.Pos.Path }} {{ .Test.Pos.Line }}' | fzf --read0 --delimiter " " --with-nth 1 --preview 'bat -Ss --color always --plain --tabs 4 --line-range {3}:+$FZF_PREVIEW_LINES {2}' --accept-nth 1 --preview-window up
+  	testo suites ./... -0 -f '{{ .Package }}.{{ .Suite }}.{{ .Test }} {{ .Test.Pos.Path }} {{ .Test.Pos.Line }}' | fzf --read0 --delimiter " " --with-nth 1 --preview 'bat -Ss --color always --plain --tabs 4 --line-range {3}:+$FZF_PREVIEW_LINES {2}' --accept-nth 1 --preview-window up
 `),
 	)
 }
