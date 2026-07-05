@@ -28,6 +28,12 @@ func (e ExitError) Stdout(s string) ExitError {
 	return e
 }
 
+func (e ExitError) Stderr(s string) ExitError {
+	e.stderr = s
+
+	return e
+}
+
 func (e ExitError) Print() {
 	if e.stdout != "" {
 		fmt.Fprint(os.Stdout, e.stdout)
