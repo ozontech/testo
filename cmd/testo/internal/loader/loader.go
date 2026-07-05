@@ -205,6 +205,7 @@ func (c *Config) asSuite(
 
 			suite.Tests = append(suite.Tests, SuiteTest{
 				Name: name,
+				Pos:  m.Pos(),
 			})
 
 		case 2:
@@ -302,6 +303,7 @@ func (c *Config) asSuite(
 			}
 
 			suite.Tests = append(suite.Tests, SuiteTest{
+				Pos:          m.Pos(),
 				Name:         name,
 				Parametrized: true,
 				Parameters:   parameters,
@@ -619,6 +621,7 @@ type SuiteTest struct {
 	Name         string
 	Parametrized bool
 	Parameters   []Parameter
+	Pos          token.Pos
 }
 
 type Parameter struct {

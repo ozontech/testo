@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"go/token"
 	"maps"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/debug"
@@ -52,14 +55,44 @@ Pattern:
 	)
 
 	cli.Add("suites", func(f *flag.FlagSet, cmd *Suites) {
-		cmd.Format.Set("{{ .Suite }}")
+		cmd.Format.Set("{{ .Suite.Name }}")
 
 		f.StringVar(&cmd.Load.Tags, "tags", defaultTags, "build tags separated by comma")
 		f.StringVar(&cmd.Load.Testo, "testo", defaultTesto, "testo package")
 		f.Var(&cmd.Format, "f", "output format")
+		f.BoolVar(&cmd.Nul, "0", false, "output each line delimited by NUL byte")
 	},
 		cli.WithShort("Show testo suites"),
-		cli.WithUsage(`[flags] [pattern...] [flags]`),
+		cli.WithUsage(`[flags] [pattern...] [flags]
+
+Format:
+  flag -f accepts Go text/template string with the following data as input:
+
+	type Data struct {
+		Package string
+		Suite   Entity
+		Test    Entity
+		Tests   []Entity
+	}
+
+	type Entity struct {
+		Name string
+		Pos  Pos
+	}
+
+	type Pos struct {
+		Dir      string
+		Filename string
+		Path     string
+		Line     int
+		Column   int
+	}
+
+Examples:
+  pick suite test with fzf and bat preview
+
+  	testo suites ./... -0 -f '{{ .Package }}.{{ .Suite.Name }}.{{ .Test.Name }} {{ .Test.Pos.Path }} {{ .Test.Pos.Line }}' | fzf --read0 --delimiter " " --with-nth 1 --preview 'bat -Ss --color always --plain --tabs 4 --line-range {3}:+$FZF_PREVIEW_LINES {2}' --accept-nth 1 --preview-window up
+`),
 	)
 
 	cli.Add(
@@ -118,6 +151,7 @@ func (cmd Lint) Run(patterns ...string) error {
 type Suites struct {
 	Load   loader.Config
 	Format cli.FlagTemplate
+	Nul    bool
 }
 
 func (cmd Suites) Run(patterns ...string) error {
@@ -129,46 +163,73 @@ func (cmd Suites) Run(patterns ...string) error {
 	seen := make(map[string]bool)
 
 	for _, s := range suites {
-		lines, err := cmd.showSuite(s, seen)
+		err := cmd.printSuite(s, seen)
 		if err != nil {
 			return err
-		}
-
-		for _, l := range lines {
-			fmt.Println(l)
 		}
 	}
 
 	return nil
 }
 
-func (cmd Suites) showSuite(suite loader.Suite, seen map[string]bool) ([]string, error) {
-	type Test struct {
+func (cmd Suites) printSuite(suite loader.Suite, seen map[string]bool) error {
+	type Pos struct {
+		Dir      string
+		Filename string
+		Path     string
+		Line     int
+		Column   int
+	}
+
+	newPos := func(p token.Position) Pos {
+		return Pos{
+			Dir:      filepath.Dir(p.Filename),
+			Filename: filepath.Base(p.Filename),
+			Path:     p.Filename,
+			Line:     p.Line,
+			Column:   p.Column,
+		}
+	}
+
+	type Entity struct {
 		Name string
+		Pos  Pos
 	}
 
 	type Data struct {
-		Suite string
-		Test  string
-		Tests []string
+		Package string
+		Suite   Entity
+		Test    Entity
+		Tests   []Entity
 	}
 
 	data := Data{
-		Suite: suite.Name,
+		Package: suite.Package.Name,
+		Suite: Entity{
+			Name: suite.Name,
+			Pos:  newPos(suite.FSet.Position(suite.Pos)),
+		},
 	}
 
 	for _, t := range suite.Tests {
-		data.Tests = append(data.Tests, t.Name)
+		data.Tests = append(data.Tests, Entity{
+			Name: t.Name,
+			Pos:  newPos(suite.FSet.Position(t.Pos)),
+		})
 	}
 
-	var lines []string
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
 
 	for _, t := range suite.Tests {
-		data.Test = t.Name
+		data.Test = Entity{
+			Name: t.Name,
+			Pos:  newPos(suite.FSet.Position(t.Pos)),
+		}
 
 		line, err := cmd.Format.Execute(data)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if seen[line] {
@@ -177,10 +238,14 @@ func (cmd Suites) showSuite(suite loader.Suite, seen map[string]bool) ([]string,
 
 		seen[line] = true
 
-		lines = append(lines, line)
+		if cmd.Nul {
+			fmt.Fprint(w, line, "\x00")
+		} else {
+			fmt.Fprintln(w, line)
+		}
 	}
 
-	return lines, nil
+	return nil
 }
 
 type Run struct {
