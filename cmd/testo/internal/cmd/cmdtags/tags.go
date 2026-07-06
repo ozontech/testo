@@ -16,13 +16,28 @@ import (
 func init() {
 	cli.Add("tags", func(f *flag.FlagSet, cmd *Cmd) {
 		f.BoolVar(&cmd.Tests, "tests", false, "only show build tags used in *_test.go files")
+		f.BoolVar(&cmd.All, "a", false, "include build tags cancelled by negations, e.g. //go:build !tag")
 	},
 		cli.WithShort("Show project build tags"),
+		cli.WithLong(`Show project build tags.
+
+It traverses all go files and parses //go:build directives.
+Use -tests flag to traverse only *_test.go files.
+
+If same tag is both required and cancelled by different expressions it will be omitted.
+Pass -a flag to change that.
+
+	//go:build mytag
+	//go:build !mytag
+
+This command must be executed from the same directory as go module (project).
+`),
 		cli.WithoutArgs(),
 	)
 }
 
 type Cmd struct {
+	All   bool
 	Tests bool
 }
 
@@ -32,14 +47,10 @@ func (c Cmd) Run(...string) error {
 		return err
 	}
 
-	conflicting := intersection(add, remove)
-
-	if len(conflicting) > 0 {
-		return cli.Exit(2).Stderr("conflicting tags: " + join(keys(conflicting)))
-	}
-
-	for r := range remove {
-		delete(add, r)
+	if !c.All {
+		for k := range remove {
+			delete(add, k)
+		}
 	}
 
 	if len(add) > 0 {
@@ -59,22 +70,4 @@ func keys[M ~map[K]V, K cmp.Ordered, V any](m M) []K {
 	slices.Sort(s)
 
 	return s
-}
-
-func intersection[M ~map[K]struct{}, K comparable](a, b M) M {
-	m := make(M)
-
-	for k := range a {
-		if _, ok := b[k]; ok {
-			m[k] = struct{}{}
-		}
-	}
-
-	for k := range b {
-		if _, ok := a[k]; ok {
-			m[k] = struct{}{}
-		}
-	}
-
-	return m
 }

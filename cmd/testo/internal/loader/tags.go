@@ -21,7 +21,7 @@ func BuildTags(ctx context.Context, testOnly bool) (add, remove map[string]struc
 
 	files, err := listGoFiles(ctx, testOnly)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list test files: %w", err)
+		return nil, nil, err
 	}
 
 	for _, f := range files {
