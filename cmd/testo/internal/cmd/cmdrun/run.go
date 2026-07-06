@@ -116,6 +116,9 @@ func (c Cmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error
 	suiteCallers := make(map[string]struct{})
 	tests := make(map[string]struct{})
 
+	seenTags := make(map[string]bool)
+	var tags []string
+
 	for _, m := range matched {
 		runners, err := m.Suite.Runners(context.Background())
 		if err != nil {
@@ -125,6 +128,15 @@ func (c Cmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error
 		for _, r := range runners {
 			packages[r.Dir] = struct{}{}
 			suiteCallers[fmt.Sprintf("^%s$/^%s$", r.Name, m.Suite.Name)] = struct{}{}
+
+			for _, t := range strings.Split(r.Tags, ",") {
+				if seenTags[t] {
+					continue
+				}
+
+				seenTags[t] = true
+				tags = append(tags, t)
+			}
 		}
 
 		for t := range m.Tests {
@@ -136,7 +148,7 @@ func (c Cmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error
 		return nil, errors.New("suite callers not found")
 	}
 
-	args := []string{"test", "-tags", c.Load.Tags}
+	args := []string{"test", "-tags", strings.Join(tags, ",")}
 
 	if c.Verbose {
 		args = append(args, "-v")

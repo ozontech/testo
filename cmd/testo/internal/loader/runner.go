@@ -93,6 +93,7 @@ func (c *Config) loadRunners(
 				r := SuiteRunner{
 					Name: testName,
 					Dir:  filepath.Dir(tokenFile.Name()),
+					Tags: c.Tags,
 				}
 
 				if identical {

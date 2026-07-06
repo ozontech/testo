@@ -637,6 +637,7 @@ type Suite struct {
 type SuiteRunner struct {
 	Dir  string
 	Name string
+	Tags string
 }
 
 type T struct {
