@@ -2,7 +2,6 @@ package cmdtags
 
 import (
 	"cmp"
-	"context"
 	"flag"
 	"fmt"
 	"maps"
@@ -42,7 +41,7 @@ type Cmd struct {
 }
 
 func (c Cmd) Run(...string) error {
-	add, remove, err := loader.BuildTags(context.Background(), c.Tests)
+	add, remove, err := loader.BuildTags(c.Tests)
 	if err != nil {
 		return err
 	}

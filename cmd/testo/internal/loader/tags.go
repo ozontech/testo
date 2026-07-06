@@ -15,11 +15,11 @@ import (
 	"strings"
 )
 
-func BuildTags(ctx context.Context, testOnly bool) (add, remove map[string]struct{}, err error) {
+func BuildTags(testOnly bool) (add, remove map[string]struct{}, err error) {
 	add = make(map[string]struct{})
 	remove = make(map[string]struct{})
 
-	files, err := listGoFiles(ctx, testOnly)
+	files, err := listGoFiles(context.Background(), testOnly)
 	if err != nil {
 		return nil, nil, err
 	}

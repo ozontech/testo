@@ -15,7 +15,7 @@ func init() {
 	cli.Add("suites", func(f *flag.FlagSet, c *Cmd) {
 		c.Format.Set("{{ .Suite }}")
 
-		f.StringVar(&c.Load.Tags, "tags", cmd.DefaultTags, "build tags separated by comma")
+		f.StringVar(&c.Load.Tags, "tags", "", "build tags separated by comma, derived from source if empty")
 		f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
 		f.Var(&c.Format, "f", "output format")
 		f.BoolVar(&c.Nul, "0", false, "output each line delimited by NUL byte")

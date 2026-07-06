@@ -46,6 +46,23 @@ type Config struct {
 }
 
 func Load(cfg Config, patterns ...string) ([]Suite, error) {
+	if cfg.Tags == "" {
+		add, remove, err := BuildTags(false)
+		if err == nil {
+			tags := make([]string, 0, len(add))
+
+			for k := range add {
+				if _, ok := remove[k]; !ok {
+					tags = append(tags, k)
+				}
+			}
+
+			slices.Sort(tags)
+
+			cfg.Tags = strings.Join(tags, ",")
+		}
+	}
+
 	fset := token.NewFileSet()
 
 	pkgs, err := packageslite.Load(packageslite.Config{

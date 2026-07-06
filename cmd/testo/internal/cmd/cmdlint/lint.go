@@ -12,7 +12,7 @@ import (
 
 func init() {
 	cli.Add("lint", func(f *flag.FlagSet, c *Cmd) {
-		f.StringVar(&c.Load.Tags, "tags", cmd.DefaultTags, "build tags separated by comma")
+		f.StringVar(&c.Load.Tags, "tags", "", "build tags separated by comma, derived from source if empty")
 		f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
 		f.BoolVar(&c.Load.Strict, "strict", false, "enable strict mode")
 		f.BoolVar(&c.JSON, "json", false, "output json")
