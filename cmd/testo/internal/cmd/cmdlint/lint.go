@@ -16,7 +16,9 @@ func init() {
 		f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
 		f.BoolVar(&c.Load.Strict, "strict", false, "enable strict mode")
 		f.BoolVar(&c.JSON, "json", false, "output json")
-	}, cli.WithShort("Run testo linter"))
+	},
+		cli.WithUsage("[flags] [pattern...] [flags]"),
+		cli.WithShort("Run testo linter"))
 }
 
 type Cmd struct {
