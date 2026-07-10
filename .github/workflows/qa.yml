@@ -80,6 +80,24 @@ jobs:
           version: v2.11.4
           args: --tests=false --timeout=5m
 
+  goland-extension:
+    name: GoLand Extension
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Build and test plugin
+        working-directory: goland-extension
+        run: ./gradlew test buildPlugin verifyPlugin --no-daemon --no-configuration-cache
+
   update-coverage:
     name: Update coverage report
     needs: test
