@@ -7,6 +7,9 @@ It provides gutter actions to run (and debug) either specific suite test or whol
 It automatically determines a suite caller (a regular test which calls `testo.RunSuite`)
 and runs it using GoLand's native Go Test run configuration.
 
+Whole-suite actions are shown on `testo.RunSuite(...)` calls. Individual suite test actions are
+shown on suite test methods like `func (s *Suite) TestSomething(...)`.
+
 The extension supports suite callers with default, aliased and dot imports of `github.com/ozontech/testo`.
 It also detects direct suite arguments like `Suite{}`, `&Suite{}` and `new(Suite)`.
 

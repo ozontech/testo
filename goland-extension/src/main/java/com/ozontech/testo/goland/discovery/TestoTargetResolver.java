@@ -4,6 +4,7 @@ import com.goide.psi.GoCallExpr;
 import com.goide.psi.GoFile;
 import com.goide.psi.GoFunctionDeclaration;
 import com.goide.psi.GoMethodDeclaration;
+import com.goide.psi.GoReferenceExpression;
 import com.goide.psi.GoTypeSpec;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
@@ -29,14 +30,14 @@ public final class TestoTargetResolver {
             return null;
         }
 
+        TestoTarget runSuiteTarget = runSuiteCallTarget(element, packageIndex);
+        if (runSuiteTarget != null) {
+            return runSuiteTarget;
+        }
+
         GoMethodDeclaration method = PsiTreeUtil.getParentOfType(element, GoMethodDeclaration.class, false);
         if (method != null && isDeclarationIdentifier(element, method.getIdentifier())) {
             return methodTarget(method, packageIndex);
-        }
-
-        GoFunctionDeclaration function = PsiTreeUtil.getParentOfType(element, GoFunctionDeclaration.class, false);
-        if (function != null && isDeclarationIdentifier(element, function.getIdentifier())) {
-            return suiteCallerTarget(function, packageIndex);
         }
 
         return null;
@@ -63,8 +64,19 @@ public final class TestoTargetResolver {
     }
 
     @Nullable
-    private static TestoTarget suiteCallerTarget(GoFunctionDeclaration function, TestoPackageIndex packageIndex) {
-        if (!GoTestNames.isGoTestCaller(function.getName())) {
+    private static TestoTarget runSuiteCallTarget(PsiElement element, TestoPackageIndex packageIndex) {
+        GoReferenceExpression reference = PsiTreeUtil.getParentOfType(element, GoReferenceExpression.class, false);
+        if (reference == null || !isDeclarationIdentifier(element, reference.getIdentifier())) {
+            return null;
+        }
+
+        GoCallExpr call = PsiTreeUtil.getParentOfType(reference, GoCallExpr.class, false);
+        if (call == null || call.getExpression() != reference) {
+            return null;
+        }
+
+        GoFunctionDeclaration function = PsiTreeUtil.getParentOfType(call, GoFunctionDeclaration.class);
+        if (function == null || !GoTestNames.isGoTestCaller(function.getName())) {
             return null;
         }
 
@@ -73,16 +85,13 @@ public final class TestoTargetResolver {
             return null;
         }
 
-        Collection<GoCallExpr> calls = PsiTreeUtil.findChildrenOfType(function.getBlock(), GoCallExpr.class);
-        for (GoCallExpr call : calls) {
-            GoTypeSpec suite = TestoRunSuiteCallMatcher.suiteFromRunSuiteCall(call, goFile, packageIndex);
-            if (suite != null && suite.getName() != null && packageIndex.hasSuiteTest(suite)) {
-                SuiteCaller caller = suiteCaller(function, goFile);
-                return caller == null ? null : targetFor(caller, suite, null);
-            }
+        GoTypeSpec suite = TestoRunSuiteCallMatcher.suiteFromRunSuiteCall(call, goFile, packageIndex);
+        if (suite == null || suite.getName() == null || !packageIndex.hasSuiteTest(suite)) {
+            return null;
         }
 
-        return null;
+        SuiteCaller caller = suiteCaller(function, goFile);
+        return caller == null ? null : targetFor(caller, suite, null);
     }
 
     @Nullable

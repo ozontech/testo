@@ -33,7 +33,7 @@ public final class TestoPsiUtilTest extends BasePlatformTestCase {
         assertEquals("example", target.getBuildFlags());
     }
 
-    public void testFindsSuiteCallerWithDotTestoImport() {
+    public void testFindsSuiteRunSuiteCallWithDotTestoImport() {
         myFixture.configureByText("suite_test.go", """
                 package sample
 
@@ -44,8 +44,8 @@ public final class TestoPsiUtilTest extends BasePlatformTestCase {
 
                 type PaymentSuite struct{}
 
-                func <caret>TestPaymentSuite(t *testing.T) {
-                    RunSuite(t, new(PaymentSuite))
+                func TestPaymentSuite(t *testing.T) {
+                    Run<caret>Suite(t, new(PaymentSuite))
                 }
 
                 func (s *PaymentSuite) TestChargesCard() {}
@@ -59,7 +59,7 @@ public final class TestoPsiUtilTest extends BasePlatformTestCase {
         assertNull(target.getTestName());
     }
 
-    public void testFindsSuiteCallerWhenSuiteDeclarationIsOutsideTestFile() {
+    public void testFindsRunSuiteCallWhenSuiteDeclarationIsOutsideTestFile() {
         myFixture.addFileToProject("suite.go", """
                 package sample
 
@@ -74,8 +74,8 @@ public final class TestoPsiUtilTest extends BasePlatformTestCase {
                     "github.com/ozontech/testo"
                 )
 
-                func <caret>TestInventorySuite(t *testing.T) {
-                    testo.RunSuite(t, InventorySuite{})
+                func TestInventorySuite(t *testing.T) {
+                    testo.Run<caret>Suite(t, InventorySuite{})
                 }
 
                 func (s *InventorySuite) TestListsItems() {}
@@ -87,6 +87,27 @@ public final class TestoPsiUtilTest extends BasePlatformTestCase {
         assertEquals("TestInventorySuite", target.getSuiteCallerTest());
         assertEquals("InventorySuite", target.getSuiteName());
         assertNull(target.getTestName());
+    }
+
+    public void testIgnoresSuiteCallerFunctionToAvoidGoLandGutterConflicts() {
+        myFixture.configureByText("suite_test.go", """
+                package sample
+
+                import (
+                    "testing"
+                    "github.com/ozontech/testo"
+                )
+
+                type InventorySuite struct{}
+
+                func <caret>TestInventorySuite(t *testing.T) {
+                    testo.RunSuite(t, InventorySuite{})
+                }
+
+                func (s *InventorySuite) TestListsItems() {}
+                """);
+
+        assertNull(targetAtCaret());
     }
 
     public void testIgnoresSuiteDeclarationToAvoidGoLandGutterConflicts() {
