@@ -57,6 +57,13 @@ func Run() {
 }
 
 func run(command string, args ...string) error {
+	switch command {
+	case "-h", "-help", "--help":
+		usage(flag.CommandLine)
+
+		return nil
+	}
+
 	r, ok := commands[command]
 	if !ok {
 		fmt.Fprintf(flag.CommandLine.Output(), "unknown subcommand: %q\n\n", command)
