@@ -1,16 +1,10 @@
 # Testo CTL
 
-Command line tool for Testo.
+Auxiliary command line tool for Testo featuring linter, suites explorer and runner.
 
 > [!WARNING]
 > This tool is experimental, handle with care;
 > may change without warning
-
-## Features
-
-- Linter for common mistakes with Testo (wrong `T` type, mismatched params and more)
-- Suites runner
-- Suites explorer
 
 ## Install
 

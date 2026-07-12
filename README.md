@@ -28,7 +28,7 @@ Add some flavor to your tests with
 - Test reflection - deeply inspect test's meta-information.
 - Caching - key-value storage persistent between test runs.
 - [Zero dependencies](./go.mod).
-- [Builtin linter and suites explorer](./cmd/testo) - `testo lint` your tests.
+- [Auxiliary command line tool](./cmd/testo) - linter, suites explorer and runner.
 
 ## Why Testo
 
