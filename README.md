@@ -39,6 +39,8 @@ without leaving the Go ecosystem - just a layer over `testing.T`.
 
 If your needs are outgrowing standard `testing` package, Testo is a great choice.
 
+See [comparison with other frameworks](./COMPARISON.md).
+
 ## Quick Start
 
 ```bash
