@@ -31,7 +31,7 @@ doc:
 
 # get test coverage
 coverage:
-	go test -coverprofile=coverage.out -coverpkg=./... ./...
+	go test -coverprofile=coverage.out -coverpkg=.,./testo...,./internal/... ./...
 	go tool cover -func coverage.out
 
 # visualize test coverage
