@@ -75,11 +75,14 @@ func (c *Config) loadRunners(
 					return true
 				}
 
-				sig := pkg.Info.Types[call.Fun].Type.(*types.Signature)
+				sig, ok := pkg.Info.Types[call.Fun].Type.(*types.Signature)
+				if !ok {
+					return true
+				}
 
 				params := sig.Params()
 
-				if params.Len() == 0 {
+				if params.Len() < 2 {
 					return true
 				}
 

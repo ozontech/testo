@@ -21,7 +21,6 @@ func init() {
 	cli.Add("run", func(f *flag.FlagSet, c *Cmd) {
 		f.StringVar(&c.Load.Tags, "tags", "", "build tags separated by comma, derived from source if empty")
 		f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
-		f.StringVar(&c.Sep, "s", ".", "pattern separator")
 		f.BoolVar(&c.N, "n", false, "print the commands but do not run them")
 		f.BoolVar(&c.Verbose, "v", false, "verbose output")
 		f.BoolVar(&c.JSON, "json", false, "log verbose output and test results in JSON")
@@ -29,16 +28,18 @@ func init() {
 		cli.WithShort("Run testo suites"),
 		cli.WithUsage(`[flags] [pattern] [flags] -- [test flags]
 
-Pattern:
+Patterns:
   suite              suite regex
   suite.test         suite and test regex
-  package.suite.test package, suite and test regex`),
+  .test              test regex
+  package/suite      package and suite
+  package/suite.test package, suite and test regex
+  package/           package regex`),
 	)
 }
 
 type Cmd struct {
 	Load    loader.Config
-	Sep     string
 	N       bool
 	Verbose bool
 	JSON    bool
@@ -70,12 +71,12 @@ func (c Cmd) Run(patterns ...string) error {
 				continue
 			}
 
-			key := s.Package.Name + "." + s.Name
+			id := s.ID()
 
-			if m, ok := matched[key]; ok {
+			if m, ok := matched[id]; ok {
 				maps.Copy(m.Tests, tests)
 			} else {
-				matched[key] = runMatched{
+				matched[id] = runMatched{
 					Suite: s,
 					Tests: tests,
 				}
@@ -83,9 +84,7 @@ func (c Cmd) Run(patterns ...string) error {
 		}
 	} else {
 		for _, s := range suites {
-			key := s.Package.Name + "." + s.Name
-
-			matched[key] = runMatched{Suite: s}
+			matched[s.ID()] = runMatched{Suite: s}
 		}
 	}
 
@@ -129,7 +128,7 @@ func (c Cmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error
 			packages[r.Dir] = struct{}{}
 			suiteCallers[fmt.Sprintf("^%s$/^%s$", r.Name, m.Suite.Name)] = struct{}{}
 
-			for _, t := range strings.Split(r.Tags, ",") {
+			for t := range strings.SplitSeq(r.Tags, ",") {
 				if seenTags[t] {
 					continue
 				}
@@ -220,63 +219,43 @@ func (c Cmd) parse(args ...string) (id *runID, extra []string, err error) {
 }
 
 func (c Cmd) id(pattern string) (runID, error) {
-	fields := strings.Split(pattern, c.Sep)
+	id := runID{Source: pattern}
 
-	switch len(fields) {
-	case 1: // suite
-		suite, err := regexp.Compile(fields[0])
-		if err != nil {
-			return runID{}, err
-		}
+	var pkg, suite, test string
 
-		return runID{
-			Suite:  suite,
-			Source: pattern,
-		}, nil
+	pattern, rest, ok := strings.Cut(pattern, "/")
+	if ok {
+		pkg = pattern
 
-	case 2: // suite.test
-		suite, err := regexp.Compile(fields[0])
-		if err != nil {
-			return runID{}, err
-		}
-
-		test, err := regexp.Compile(fields[1])
-		if err != nil {
-			return runID{}, err
-		}
-
-		return runID{
-			Suite:  suite,
-			Test:   test,
-			Source: pattern,
-		}, nil
-
-	case 3: // package.suite.test
-		pkg, err := regexp.Compile(fields[0])
-		if err != nil {
-			return runID{}, err
-		}
-
-		suite, err := regexp.Compile(fields[1])
-		if err != nil {
-			return runID{}, err
-		}
-
-		test, err := regexp.Compile(fields[2])
-		if err != nil {
-			return runID{}, err
-		}
-
-		return runID{
-			Package: pkg,
-			Suite:   suite,
-			Test:    test,
-			Source:  pattern,
-		}, nil
-
-	default:
-		return runID{}, errors.New("invalid syntax")
+		pattern = rest
 	}
+
+	suite, test, _ = strings.Cut(pattern, ".")
+
+	var err error
+
+	if pkg != "" {
+		id.Package, err = regexp.Compile(pkg)
+		if err != nil {
+			return runID{}, fmt.Errorf("parse package %q: %w", pkg, err)
+		}
+	}
+
+	if suite != "" {
+		id.Suite, err = regexp.Compile(suite)
+		if err != nil {
+			return runID{}, fmt.Errorf("parse suite %q: %w", suite, err)
+		}
+	}
+
+	if test != "" {
+		id.Test, err = regexp.Compile(test)
+		if err != nil {
+			return runID{}, fmt.Errorf("parse test %q: %w", test, err)
+		}
+	}
+
+	return id, nil
 }
 
 type runID struct {
@@ -288,7 +267,7 @@ type runID struct {
 }
 
 func (id runID) match(suite loader.Suite) (tests map[string]struct{}, ok bool) {
-	if id.Package != nil && !id.Package.MatchString(suite.Package.Name) {
+	if id.Package != nil && !id.Package.MatchString(suite.Package.Path) {
 		return nil, false
 	}
 

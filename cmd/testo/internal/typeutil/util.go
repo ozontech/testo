@@ -5,7 +5,7 @@ import "go/types"
 func Format(t types.Type) string {
 	switch t := t.(type) {
 	case *types.Named:
-		return formatNamedType(t)
+		return formatNamed(t)
 
 	case *types.Pointer:
 		return "*" + Format(t.Elem())
@@ -15,9 +15,12 @@ func Format(t types.Type) string {
 	}
 }
 
-func formatNamedType(t *types.Named) string {
-	pkg := t.Obj().Pkg().Name()
-	name := t.Obj().Name()
+func formatNamed(t *types.Named) string {
+	obj := t.Obj()
 
-	return pkg + "." + name
+	if pkg := obj.Pkg(); pkg != nil {
+		return pkg.Name() + "." + obj.Name()
+	}
+
+	return obj.Name()
 }

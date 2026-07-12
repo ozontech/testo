@@ -13,7 +13,7 @@ import (
 
 func init() {
 	cli.Add("suites", func(f *flag.FlagSet, c *Cmd) {
-		c.Format.Set("{{ .Suite }}")
+		c.Format.Set("{{ .Package }}/{{ .Suite }}")
 
 		f.StringVar(&c.Load.Tags, "tags", "", "build tags separated by comma, derived from source if empty")
 		f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
@@ -31,7 +31,7 @@ Format:
 Examples:
   pick suite test with fzf and bat preview
 
-  	testo suites ./... -0 -f '{{ .Package }}.{{ .Suite }}.{{ .Test }} {{ .Test.Pos.Path }} {{ .Test.Pos.Line }}' | fzf --read0 --delimiter " " --with-nth 1 --preview 'bat -Ss --color always --plain --tabs 4 --line-range {3}:+$FZF_PREVIEW_LINES {2}' --accept-nth 1 --preview-window up
+  	testo suites ./... -0 -f '{{ .Package }}/{{ .Suite }}.{{ .Test }} {{ .Test.Pos.Path }} {{ .Test.Pos.Line }}' | fzf --read0 --delimiter " " --with-nth 1 --preview 'bat -Ss --color always --plain --tabs 4 --line-range {3}:+$FZF_PREVIEW_LINES {2}' --accept-nth 1 --preview-window up
 `),
 	)
 }
@@ -72,7 +72,11 @@ func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
 	}
 
 	data := Data{
-		Package: suite.Package.Name,
+		Package: Package{
+			Name: suite.Package.Name,
+			Path: suite.Package.Path,
+			Dir:  suite.Package.Dir,
+		},
 		Suite: Entity{
 			Name: suite.Name,
 			Pos:  newPos(suite.FSet.Position(suite.Pos)),

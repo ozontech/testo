@@ -90,28 +90,39 @@ func listGoFiles(ctx context.Context, testOnly bool) ([]*ast.File, error) {
 
 	files := make(map[string]struct{})
 
-	fs.WalkDir(os.DirFS(mod.Dir), ".", func(path string, d fs.DirEntry, err error) error {
-		if path == "testdata" && d.IsDir() {
-			return fs.SkipDir
-		}
+	walkErr := fs.WalkDir(
+		os.DirFS(mod.Dir),
+		".",
+		func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
 
-		if d.IsDir() {
+			if d.IsDir() {
+				if filepath.Base(path) == "testdata" {
+					return fs.SkipDir
+				}
+
+				return nil
+			}
+
+			suffix := ".go"
+			if testOnly {
+				suffix = "_test.go"
+			}
+
+			if !strings.HasSuffix(d.Name(), suffix) {
+				return nil
+			}
+
+			files[filepath.Join(mod.Dir, path)] = struct{}{}
+
 			return nil
-		}
-
-		suffix := ".go"
-		if testOnly {
-			suffix = "_test.go"
-		}
-
-		if !strings.HasSuffix(d.Name(), suffix) {
-			return nil
-		}
-
-		files[filepath.Join(mod.Dir, path)] = struct{}{}
-
-		return nil
-	})
+		},
+	)
+	if walkErr != nil {
+		return nil, walkErr
+	}
 
 	s := make([]*ast.File, 0, len(files))
 

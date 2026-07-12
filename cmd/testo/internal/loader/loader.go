@@ -634,6 +634,10 @@ type Suite struct {
 	Type    types.Type
 }
 
+func (s Suite) ID() string {
+	return s.Package.Path + "." + s.Name
+}
+
 type SuiteRunner struct {
 	Dir  string
 	Name string
