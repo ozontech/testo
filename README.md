@@ -113,6 +113,25 @@ Makes it easier to run and debug individual suite tests and adds helpful snippet
 
 ![VSCode extension screenshot showing codelens buttons for running and debugging a test](./vscode-extension/example.png)
 
+## Testo command line tool
+
+Testo has an auxiliary command line tool featuring linter, suites explorer and runner.
+
+[See more here](./cmd/testo).
+
+Example:
+
+```bash
+go install github.com/ozontech/testo/cmd/testo
+
+testo lint ./...
+testo run mypkg/Functional.TestFoo
+testo suites -f "{{ .Package }}/{{ .Suite }}" | fzf
+```
+
+> [!NOTE]
+> This command line tool is _completely optional_ and _is not required_ to run tests.
+
 ## Minimum supported Go version
 
 Testo guarantees to support at least **3 latest major** [Go releases](https://go.dev/doc/devel/release).
