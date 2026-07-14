@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"text/template"
 )
@@ -24,7 +25,18 @@ func (f *FlagTemplate) Execute(v any) (string, error) {
 }
 
 func (f *FlagTemplate) Set(s string) error {
-	parsed, err := template.New("flag").Parse(s)
+	funcs := template.FuncMap{
+		"json": func(v any) string {
+			m, err := json.Marshal(v)
+			if err != nil {
+				return err.Error()
+			}
+
+			return string(m)
+		},
+	}
+
+	parsed, err := template.New("flag").Funcs(funcs).Parse(s)
 	if err != nil {
 		return err
 	}

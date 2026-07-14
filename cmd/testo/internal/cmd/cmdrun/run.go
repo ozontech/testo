@@ -19,7 +19,12 @@ import (
 
 func init() {
 	cli.Add("run", func(f *flag.FlagSet, c *Cmd) {
-		f.StringVar(&c.Load.Tags, "tags", "", "build tags separated by comma, derived from source if empty")
+		f.StringVar(
+			&c.Load.Tags,
+			"tags",
+			"",
+			"build tags separated by comma, derived from source if empty",
+		)
 		f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
 		f.BoolVar(&c.N, "n", false, "print the commands but do not run them")
 		f.BoolVar(&c.Verbose, "v", false, "verbose output")

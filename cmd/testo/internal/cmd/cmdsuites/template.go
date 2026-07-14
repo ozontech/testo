@@ -13,10 +13,10 @@ var currentFile string
 
 //types:start
 type Data struct {
-	Package Package  // suite package
-	Suite   Entity   // current suite
-	Test    Entity   // current test for this suite
-	Tests   []Entity // all tests
+	Package Package // suite package
+	Suite   Suite   // current suite
+	Test    Test    // current test for this suite
+	Tests   []Test  // all tests
 }
 
 type Package struct {
@@ -25,9 +25,20 @@ type Package struct {
 	Dir  string
 }
 
-type Entity struct {
+type Suite struct {
 	Name string
 	Pos  Pos
+}
+
+type Test struct {
+	Name         string
+	Pos          Pos
+	Parametrized bool
+	Parameters   []Parameter
+}
+
+type Parameter struct {
+	Name string
 }
 
 type Pos struct {
@@ -40,12 +51,20 @@ type Pos struct {
 
 //types:end
 
+func (p Parameter) String() string {
+	return p.Name
+}
+
 func (p Package) String() string {
 	return p.Name
 }
 
-func (e Entity) String() string {
-	return e.Name
+func (s Suite) String() string {
+	return s.Name
+}
+
+func (t Test) String() string {
+	return t.Name
 }
 
 func (p Pos) String() string {

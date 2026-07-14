@@ -15,7 +15,12 @@ func init() {
 	cli.Add("suites", func(f *flag.FlagSet, c *Cmd) {
 		c.Format.Set("{{ .Package }}/{{ .Suite }}")
 
-		f.StringVar(&c.Load.Tags, "tags", "", "build tags separated by comma, derived from source if empty")
+		f.StringVar(
+			&c.Load.Tags,
+			"tags",
+			"",
+			"build tags separated by comma, derived from source if empty",
+		)
 		f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
 		f.Var(&c.Format, "f", "output format")
 		f.BoolVar(&c.Nul, "0", false, "output each line delimited by NUL byte")
@@ -32,6 +37,10 @@ Examples:
   pick suite test with fzf and bat preview
 
   	testo suites ./... -0 -f '{{ .Package }}/{{ .Suite }}.{{ .Test }} {{ .Test.Pos.Path }} {{ .Test.Pos.Line }}' | fzf --read0 --delimiter " " --with-nth 1 --preview 'bat -Ss --color always --plain --tabs 4 --line-range {3}:+$FZF_PREVIEW_LINES {2}' --accept-nth 1 --preview-window up
+
+  output as json and filter with jq
+
+  	testo suites ./... -f '{{ json .Test }}' | jq '. | select(.Parametrized)'
 `),
 	)
 }
@@ -71,29 +80,43 @@ func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
 		}
 	}
 
+	newParams := func(ps []loader.Parameter) []Parameter {
+		s := make([]Parameter, 0, len(ps))
+
+		for _, p := range ps {
+			s = append(s, Parameter{Name: p.Name})
+		}
+
+		return s
+	}
+
 	data := Data{
 		Package: Package{
 			Name: suite.Package.Name,
 			Path: suite.Package.Path,
 			Dir:  suite.Package.Dir,
 		},
-		Suite: Entity{
+		Suite: Suite{
 			Name: suite.Name,
 			Pos:  newPos(suite.FSet.Position(suite.Pos)),
 		},
 	}
 
 	for _, t := range suite.Tests {
-		data.Tests = append(data.Tests, Entity{
-			Name: t.Name,
-			Pos:  newPos(suite.FSet.Position(t.Pos)),
+		data.Tests = append(data.Tests, Test{
+			Name:         t.Name,
+			Pos:          newPos(suite.FSet.Position(t.Pos)),
+			Parametrized: t.Parametrized,
+			Parameters:   newParams(t.Parameters),
 		})
 	}
 
 	for _, t := range suite.Tests {
-		data.Test = Entity{
-			Name: t.Name,
-			Pos:  newPos(suite.FSet.Position(t.Pos)),
+		data.Test = Test{
+			Name:         t.Name,
+			Pos:          newPos(suite.FSet.Position(t.Pos)),
+			Parametrized: t.Parametrized,
+			Parameters:   newParams(t.Parameters),
 		}
 
 		line, err := c.Format.Execute(data)

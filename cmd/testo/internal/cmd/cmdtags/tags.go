@@ -15,7 +15,12 @@ import (
 func init() {
 	cli.Add("tags", func(f *flag.FlagSet, cmd *Cmd) {
 		f.BoolVar(&cmd.Tests, "tests", false, "only show build tags used in *_test.go files")
-		f.BoolVar(&cmd.All, "a", false, "include build tags cancelled by negations, e.g. //go:build !tag")
+		f.BoolVar(
+			&cmd.All,
+			"a",
+			false,
+			"include build tags cancelled by negations, e.g. //go:build !tag",
+		)
 	},
 		cli.WithShort("Show project build tags"),
 		cli.WithLong(`Show project build tags.
