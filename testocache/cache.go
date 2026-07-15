@@ -1,20 +1,23 @@
-// Package testocache provides caching primitives to be used by
-// external plugins.
+// Package testocache provides persistent caching primitives for plugins.
 //
-// By default, it stores cache in a directory "$TWD/.testo_cache",
-// where "$TWD" refers to the "test working directory" (not necessary a project root).
-// Usually, this is a directory where "_test.go" file, which calls this package, is located.
+// The cache directory defaults to ".testo_cache" in the test working directory.
+// It can be changed with -cache.dir or TESTO_CACHE_DIR.
+// Caching can be disabled with -cache.disable or TESTO_CACHE_DISABLE.
 //
-// Can be overridden passing "-cache.dir ~/My/Dir" flag to the "go test"
-// command OR (with lesser priority) with environment variable "TESTO_CACHE_DIR".
+// Package-level functions use the default keyspace. Use [Namespace] to create
+// an isolated keyspace.
 //
-// Caching can also be disabled with flag "-cache.disable" or environtment
-// variable "TESTO_CACHE_DISABLE" (e.g. "=true").
+// The on-disk format is internal. Writes use a temporary file and [os.Rename].
+// Malformed entries are treated as missing. Operations are synchronized within
+// one process; cross-process locking is not provided.
 package testocache
 
 import (
+	"bufio"
 	"bytes"
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"hash/fnv"
@@ -56,8 +59,9 @@ var (
 )
 
 const (
-	permFile os.FileMode = 0o600
-	permDir  os.FileMode = 0o750
+	permFile         os.FileMode = 0o600
+	permDir          os.FileMode = 0o750
+	namespaceDirName             = ".namespaces"
 )
 
 // Disabled returns true if caching is disabled.
@@ -69,42 +73,46 @@ func Disabled() bool {
 
 var kvMu sync.RWMutex
 
-// Keys returns all glob-matched keys by the given pattern.
+// Cache is a scoped key-value cache.
 //
-// The pattern syntax is:
+// The zero value uses the package-level cache keyspace.
+// Use [Namespace] to create one when several plugins or helpers need to share
+// the same cache directory without sharing the same keyspace.
+type Cache struct {
+	namespace string
+	scoped    bool
+}
+
+// Namespace returns a scoped cache for name.
 //
-//	pattern:
-//		{ term }
-//	term:
-//		'*'         matches any sequence of non-/ characters
-//		'?'         matches any single non-/ character
-//		'[' [ '^' ] { character-range } ']'
-//		            character class (must be non-empty)
-//		c           matches character c (c != '*', '?', '\\', '[')
-//		'\\' c      matches character c
-//
-//	character-range:
-//		c           matches character c (c != '\\', '-', ']')
-//		'\\' c      matches character c
-//		lo '-' hi   matches character c for lo <= c <= hi
-//
-// Keys requires pattern to match all of name, not just a substring.
-//
+// Namespaces are isolated from each other and from the package-level cache
+// functions. Namespace names must follow the same validity rules as cache keys.
+func Namespace(name string) Cache {
+	return Cache{namespace: name, scoped: true}
+}
+
+// Keys returns keys matching pattern using [path.Match] syntax.
+// Non-cache files in the cache directory are ignored.
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Keys(pattern string) (keys []string, err error) {
-	if err := validate(pattern); err != nil {
+	return Cache{}.Keys(pattern)
+}
+
+// Keys is like [Keys] but uses c's keyspace.
+func (c Cache) Keys(pattern string) (keys []string, err error) {
+	if err := validatePattern(pattern); err != nil {
 		return nil, err
 	}
 
-	if _, err := path.Match(pattern, ""); err != nil {
-		return nil, err
-	}
-
-	dir, err := cacheDir()
+	dir, err := c.dir()
 	if err != nil {
 		return nil, err
 	}
 
+	return keysIn(dir, pattern)
+}
+
+func keysIn(dir, pattern string) (keys []string, err error) {
 	kvMu.RLock()
 	defer kvMu.RUnlock()
 
@@ -113,12 +121,24 @@ func Keys(pattern string) (keys []string, err error) {
 		return nil, err
 	}
 
-	keys = make([]string, 0, len(keys))
+	keys = make([]string, 0, len(entries))
 
 	for _, e := range entries {
-		key, err := extractKey(filepath.Join(dir, e.Name()))
+		if !e.Type().IsRegular() || !isCacheFilename(e.Name()) {
+			continue
+		}
+
+		key, ok, err := extractKey(filepath.Join(dir, e.Name()))
 		if err != nil {
 			return nil, err
+		}
+
+		if !ok {
+			continue
+		}
+
+		if e.Name() != hash(key) {
+			continue
 		}
 
 		if ok, _ := path.Match(pattern, key); ok {
@@ -129,106 +149,86 @@ func Keys(pattern string) (keys []string, err error) {
 	return keys, nil
 }
 
-func extractKey(p string) (string, error) {
+func extractKey(p string) (key string, ok bool, err error) {
 	f, err := os.Open(p)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	defer f.Close()
 
-	var collected []byte
-
-	// heuristic
-	chunk := make([]byte, 32)
-
-	for {
-		n, err := io.ReadAtLeast(f, chunk, 1)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return "", nil
-			}
-
-			return "", err
-		}
-
-		before, _, ok := bytes.Cut(chunk[:n], []byte{0})
-		if ok {
-			if len(collected) == 0 {
-				return string(before), nil
-			}
-
-			return string(append(collected, before...)), nil
-		}
-
-		collected = append(collected, before...)
+	key, err = bufio.NewReader(f).ReadString(0)
+	if errors.Is(err, io.EOF) {
+		return "", false, nil
 	}
+
+	if err != nil {
+		return "", false, err
+	}
+
+	return key[:len(key)-1], true, nil
 }
 
 // Get cached object by the given key.
 // Key must not contain a NUL-byte.
+// Malformed cache entries or entries with mismatched stored keys are treated
+// as missing.
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Get(key string) ([]byte, error) {
+	return Cache{}.Get(key)
+}
+
+// Get is like [Get] but uses c's keyspace.
+func (c Cache) Get(key string) ([]byte, error) {
 	if err := validate(key); err != nil {
 		return nil, err
 	}
 
-	dir, err := cacheDir()
+	dir, err := c.dir()
 	if err != nil {
 		return nil, err
 	}
 
+	return getFrom(dir, key)
+}
+
+func getFrom(dir, key string) ([]byte, error) {
 	kvMu.RLock()
 	defer kvMu.RUnlock()
 
-	h, err := hash(key)
-	if err != nil {
-		return nil, err
-	}
+	p := filepath.Join(dir, hash(key))
 
-	p := filepath.Join(dir, h)
-
-	_, err = os.Stat(p)
-	if err != nil {
-		return nil, ErrNotFound
-	}
-
-	value, err := os.ReadFile(p)
-	if err != nil {
-		return nil, err
-	}
-
-	_, after, ok := bytes.Cut(value, []byte{0})
-	if !ok {
-		return value, nil
-	}
-
-	return after, nil
+	return readEntry(p, key)
 }
 
 // Set saves value to cache with the given key.
 // Key must not contain a NUL-byte.
+// Existing values for the same key are replaced.
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Set(key string, value []byte) error {
+	return Cache{}.Set(key, value)
+}
+
+// Set is like [Set] but uses c's keyspace.
+func (c Cache) Set(key string, value []byte) error {
 	if err := validate(key); err != nil {
 		return err
 	}
 
-	dir, err := cacheDir()
+	dir, err := c.dir()
 	if err != nil {
 		return err
 	}
 
+	return setIn(dir, key, value)
+}
+
+func setIn(dir, key string, value []byte) error {
 	kvMu.Lock()
 	defer kvMu.Unlock()
 
-	h, err := hash(key)
-	if err != nil {
-		return err
-	}
-
-	p := filepath.Join(dir, h)
+	p := filepath.Join(dir, hash(key))
 
 	buf := bytes.NewBufferString(key)
 
@@ -237,34 +237,115 @@ func Set(key string, value []byte) error {
 	buf.WriteByte(0)
 	buf.Write(value)
 
-	return os.WriteFile(p, buf.Bytes(), permFile)
+	return writeFileAtomic(p, buf.Bytes())
 }
 
 // Remove object from cache by the given key.
 // Key must not contain a NUL-byte.
+// If the key is not present, this function returns [ErrNotFound].
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
 func Remove(key string) error {
+	return Cache{}.Remove(key)
+}
+
+// Remove is like [Remove] but uses c's keyspace.
+func (c Cache) Remove(key string) error {
 	if err := validate(key); err != nil {
 		return err
 	}
 
-	dir, err := cacheDir()
+	dir, err := c.dir()
 	if err != nil {
 		return err
 	}
 
+	return removeFrom(dir, key)
+}
+
+func removeFrom(dir, key string) error {
 	kvMu.Lock()
 	defer kvMu.Unlock()
 
-	h, err := hash(key)
-	if err != nil {
+	p := filepath.Join(dir, hash(key))
+
+	if _, err := readEntry(p, key); err != nil {
 		return err
 	}
 
-	p := filepath.Join(dir, h)
+	if err := os.Remove(p); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return ErrNotFound
+		}
 
-	return os.Remove(p)
+		return err
+	}
+
+	return nil
+}
+
+func (c Cache) dir() (string, error) {
+	if c.scoped {
+		if err := validate(c.namespace); err != nil {
+			return "", err
+		}
+	}
+
+	dir, err := cacheDir()
+	if err != nil {
+		return "", err
+	}
+
+	if !c.scoped {
+		return dir, nil
+	}
+
+	dir = filepath.Join(dir, namespaceDirName, hashNamespace(c.namespace))
+
+	if err := os.MkdirAll(dir, permDir); err != nil {
+		return "", err
+	}
+
+	return dir, nil
+}
+
+func readEntry(p, key string) ([]byte, error) {
+	info, err := os.Lstat(p)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, ErrNotFound
+		}
+
+		return nil, err
+	}
+
+	if !info.Mode().IsRegular() {
+		return nil, ErrNotFound
+	}
+
+	value, err := os.ReadFile(p)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, ErrNotFound
+		}
+
+		return nil, err
+	}
+
+	storedKey, value, ok := bytes.Cut(value, []byte{0})
+	if !ok || string(storedKey) != key {
+		return nil, ErrNotFound
+	}
+
+	return value, nil
+}
+
+// hashNamespace produces a fixed-length path component, so namespace names are
+// not constrained by the filesystem's maximum filename length.
+func hashNamespace(name string) string {
+	sum := sha256.Sum256([]byte(name))
+
+	return hex.EncodeToString(sum[:])
 }
 
 func cacheDir() (string, error) {
@@ -278,11 +359,59 @@ func cacheDir() (string, error) {
 		return "", err
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("/*"), permFile); err != nil {
+	if err := ensureGitignore(dir); err != nil {
 		return "", err
 	}
 
 	return dir, nil
+}
+
+func ensureGitignore(dir string) error {
+	p := filepath.Join(dir, ".gitignore")
+
+	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, permFile)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil
+		}
+
+		return err
+	}
+
+	_, err = f.WriteString("/*\n")
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+
+	if err != nil {
+		if removeErr := os.Remove(p); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			return errors.Join(err, removeErr)
+		}
+	}
+
+	return err
+}
+
+func writeFileAtomic(p string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(p), ".tmp-*")
+	if err != nil {
+		return err
+	}
+
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+
+		return err
+	}
+
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmpName, p)
 }
 
 func validate(key string) error {
@@ -293,13 +422,33 @@ func validate(key string) error {
 	return nil
 }
 
-func hash(key string) (string, error) {
-	h := fnv.New64a()
-
-	_, err := h.Write([]byte(key))
-	if err != nil {
-		return "", err
+func validatePattern(pattern string) error {
+	if err := validate(pattern); err != nil {
+		return err
 	}
 
-	return strconv.FormatUint(h.Sum64(), 36), nil
+	if _, err := path.Match(pattern, ""); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isCacheFilename(name string) bool {
+	h, err := strconv.ParseUint(name, 36, 64)
+	if err != nil {
+		return false
+	}
+
+	return strconv.FormatUint(h, 36) == name
+}
+
+func hash(key string) string {
+	h := fnv.New64a()
+
+	if _, err := h.Write([]byte(key)); err != nil {
+		panic(err)
+	}
+
+	return strconv.FormatUint(h.Sum64(), 36)
 }
