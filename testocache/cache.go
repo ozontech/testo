@@ -399,6 +399,7 @@ func writeFileAtomic(p string, data []byte) error {
 	}
 
 	tmpName := tmp.Name()
+
 	defer func() { _ = os.Remove(tmpName) }()
 
 	if _, err := tmp.Write(data); err != nil {
