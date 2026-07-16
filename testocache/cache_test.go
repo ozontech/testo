@@ -158,6 +158,7 @@ func TestFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get empty key: %v", err)
 	}
+	// Set("", nil) above creates one cache entry whose key is the empty string.
 	if !slices.Equal(emptyKeys, []string{""}) {
 		t.Fatalf("empty keys: want [\"\"], got %q", emptyKeys)
 	}
@@ -185,15 +186,27 @@ func TestKeysIgnoresNonCacheEntries(t *testing.T) {
 		t.Fatalf("set cache: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "foreign-file"), []byte("not a cache entry"), permFile); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(dir, "foreign-file"),
+		[]byte("not a cache entry"),
+		permFile,
+	); err != nil {
 		t.Fatalf("write foreign file: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, hash("requested-key")), []byte("other-key\x00value"), permFile); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(dir, hash("requested-key")),
+		[]byte("other-key\x00value"),
+		permFile,
+	); err != nil {
 		t.Fatalf("write mismatched cache entry: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, hash("malformed-key")), []byte("missing separator"), permFile); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(dir, hash("malformed-key")),
+		[]byte("missing separator"),
+		permFile,
+	); err != nil {
 		t.Fatalf("write malformed cache entry: %v", err)
 	}
 
@@ -217,7 +230,11 @@ func TestGetRejectsInvalidEntries(t *testing.T) {
 		{key: "mismatched", data: "other-key\x00value"},
 		{key: "malformed", data: "missing separator"},
 	} {
-		if err := os.WriteFile(filepath.Join(dir, hash(tt.key)), []byte(tt.data), permFile); err != nil {
+		if err := os.WriteFile(
+			filepath.Join(dir, hash(tt.key)),
+			[]byte(tt.data),
+			permFile,
+		); err != nil {
 			t.Fatalf("write %s entry: %v", tt.key, err)
 		}
 		if _, err := Get(tt.key); !errors.Is(err, ErrNotFound) {
@@ -305,7 +322,6 @@ func TestNamespaceCache(t *testing.T) {
 		{name: "default", cache: Cache{}},
 		{name: "first", cache: Namespace("plugin/first")},
 		{name: "second", cache: Namespace("plugin/second")},
-		{name: "empty", cache: Namespace("")},
 	}
 
 	for _, tt := range caches {
@@ -326,6 +342,11 @@ func TestNamespaceCache(t *testing.T) {
 	value, err := Get("key")
 	if err != nil || string(value) != "default" {
 		t.Fatalf("package cache value: want %q, got %q, err %v", "default", value, err)
+	}
+
+	value, err = Namespace("").Get("key")
+	if err != nil || string(value) != "default" {
+		t.Fatalf("empty namespace value: want %q, got %q, err %v", "default", value, err)
 	}
 }
 

@@ -80,15 +80,15 @@ var kvMu sync.RWMutex
 // the same cache directory without sharing the same keyspace.
 type Cache struct {
 	namespace string
-	scoped    bool
 }
 
 // Namespace returns a scoped cache for name.
 //
 // Namespaces are isolated from each other and from the package-level cache
-// functions. Namespace names must follow the same validity rules as cache keys.
+// functions. An empty name selects the package-level cache keyspace.
+// Namespace names must follow the same validity rules as cache keys.
 func Namespace(name string) Cache {
-	return Cache{namespace: name, scoped: true}
+	return Cache{namespace: name}
 }
 
 // Keys returns keys matching pattern using [path.Match] syntax.
@@ -180,7 +180,7 @@ func Get(key string) ([]byte, error) {
 
 // Get is like [Get] but uses c's keyspace.
 func (c Cache) Get(key string) ([]byte, error) {
-	if err := validate(key); err != nil {
+	if err := validateKey(key); err != nil {
 		return nil, err
 	}
 
@@ -212,7 +212,7 @@ func Set(key string, value []byte) error {
 
 // Set is like [Set] but uses c's keyspace.
 func (c Cache) Set(key string, value []byte) error {
-	if err := validate(key); err != nil {
+	if err := validateKey(key); err != nil {
 		return err
 	}
 
@@ -251,7 +251,7 @@ func Remove(key string) error {
 
 // Remove is like [Remove] but uses c's keyspace.
 func (c Cache) Remove(key string) error {
-	if err := validate(key); err != nil {
+	if err := validateKey(key); err != nil {
 		return err
 	}
 
@@ -261,6 +261,10 @@ func (c Cache) Remove(key string) error {
 	}
 
 	return removeFrom(dir, key)
+}
+
+func (c Cache) scoped() bool {
+	return c.namespace != ""
 }
 
 func removeFrom(dir, key string) error {
@@ -285,8 +289,8 @@ func removeFrom(dir, key string) error {
 }
 
 func (c Cache) dir() (string, error) {
-	if c.scoped {
-		if err := validate(c.namespace); err != nil {
+	if c.scoped() {
+		if err := validateKey(c.namespace); err != nil {
 			return "", err
 		}
 	}
@@ -296,7 +300,7 @@ func (c Cache) dir() (string, error) {
 		return "", err
 	}
 
-	if !c.scoped {
+	if !c.scoped() {
 		return dir, nil
 	}
 
@@ -393,6 +397,7 @@ func ensureGitignore(dir string) error {
 }
 
 func writeFileAtomic(p string, data []byte) error {
+	// TODO: clean up
 	tmp, err := os.CreateTemp(filepath.Dir(p), ".tmp-*")
 	if err != nil {
 		return err
@@ -415,7 +420,7 @@ func writeFileAtomic(p string, data []byte) error {
 	return os.Rename(tmpName, p)
 }
 
-func validate(key string) error {
+func validateKey(key string) error {
 	if slices.Contains([]byte(key), 0) {
 		return ErrInvalidKey
 	}
@@ -424,7 +429,7 @@ func validate(key string) error {
 }
 
 func validatePattern(pattern string) error {
-	if err := validate(pattern); err != nil {
+	if err := validateKey(pattern); err != nil {
 		return err
 	}
 
