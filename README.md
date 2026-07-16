@@ -3,9 +3,9 @@
 # Testo
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ozontech/testo.svg)](https://pkg.go.dev/github.com/ozontech/testo)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ozontech/testo)](https://goreportcard.com/report/github.com/ozontech/testo)
 [![Code Coverage](https://github.com/ozontech/testo/raw/gh-pages/coverage.svg?raw=true)](https://ozontech.github.io/testo/coverage.html)
 [![Quality Assurance](https://github.com/ozontech/testo/actions/workflows/qa.yml/badge.svg)](https://github.com/ozontech/testo/actions/workflows/qa.yml)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 Testo is a modular testing framework for Go built on top of `testing.T`
 with an extensive plugin system.
@@ -37,6 +37,8 @@ With plugins, it is flexible enough to adapt to diverse requirements,
 without leaving the Go ecosystem - just a layer over `testing.T`.
 
 If your needs are outgrowing standard `testing` package, Testo is a great choice.
+
+See [comparison with other frameworks](./COMPARISON.md).
 
 ## Quick Start
 
