@@ -396,28 +396,34 @@ func ensureGitignore(dir string) error {
 	return err
 }
 
-func writeFileAtomic(p string, data []byte) error {
-	// TODO: clean up
+func writeFileAtomic(p string, data []byte) (err error) {
 	tmp, err := os.CreateTemp(filepath.Dir(p), ".tmp-*")
 	if err != nil {
 		return err
 	}
 
-	tmpName := tmp.Name()
+	defer func() {
+		if err == nil {
+			return
+		}
 
-	defer func() { _ = os.Remove(tmpName) }()
-
-	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+	}()
 
+	if _, err = tmp.Write(data); err != nil {
 		return err
 	}
 
-	if err := tmp.Close(); err != nil {
+	if err = tmp.Sync(); err != nil {
 		return err
 	}
 
-	return os.Rename(tmpName, p)
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmp.Name(), p)
 }
 
 func validateKey(key string) error {
