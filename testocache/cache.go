@@ -411,15 +411,18 @@ func writeFileAtomic(p string, data []byte) (err error) {
 		_ = os.Remove(tmp.Name())
 	}()
 
-	if _, err = tmp.Write(data); err != nil {
+	_, err = tmp.Write(data)
+	if err != nil {
 		return err
 	}
 
-	if err = tmp.Sync(); err != nil {
+	err = tmp.Sync()
+	if err != nil {
 		return err
 	}
 
-	if err = tmp.Close(); err != nil {
+	err = tmp.Close()
+	if err != nil {
 		return err
 	}
 
