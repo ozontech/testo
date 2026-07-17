@@ -16,8 +16,6 @@ import (
 	"bufio"
 	"bytes"
 	"cmp"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"hash/fnv"
@@ -304,7 +302,7 @@ func (c Cache) dir() (string, error) {
 		return dir, nil
 	}
 
-	dir = filepath.Join(dir, namespaceDirName, hashNamespace(c.namespace))
+	dir = filepath.Join(dir, namespaceDirName, hash(c.namespace))
 
 	if err := os.MkdirAll(dir, permDir); err != nil {
 		return "", err
@@ -342,14 +340,6 @@ func readEntry(p, key string) ([]byte, error) {
 	}
 
 	return value, nil
-}
-
-// hashNamespace produces a fixed-length path component, so namespace names are
-// not constrained by the filesystem's maximum filename length.
-func hashNamespace(name string) string {
-	sum := sha256.Sum256([]byte(name))
-
-	return hex.EncodeToString(sum[:])
 }
 
 func cacheDir() (string, error) {
