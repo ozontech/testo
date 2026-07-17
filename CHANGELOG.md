@@ -5,11 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Unreleased
 
 ### Added
 
 - Added a GoLand extension for running and debugging individual Testo suite tests from editor gutter actions.
+
+## [1.6.0] - 2026-07-17
+
+### Added
+
+- Added isolated persistent cache namespaces through `testocache.Namespace`.
+
+### Changed
+
+- Hardened persistent cache writes, entry validation, and missing-key handling.
 
 ## [1.5.1] - 2026-06-17
 
@@ -95,7 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial stable version.
 
-[Unreleased]: https://github.com/ozontech/testo/compare/v1.5.1...HEAD
+[1.6.0]: https://github.com/ozontech/testo/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/ozontech/testo/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/ozontech/testo/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ozontech/testo/compare/v1.3.2...v1.4.0
