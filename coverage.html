@@ -85,7 +85,7 @@
 				
 				<option value="file14">github.com/ozontech/testo/t.go (56.2%)</option>
 				
-				<option value="file15">github.com/ozontech/testo/testocache/cache.go (80.8%)</option>
+				<option value="file15">github.com/ozontech/testo/testocache/cache.go (84.2%)</option>
 				
 				<option value="file16">github.com/ozontech/testo/testoplugin/overrides.go (100.0%)</option>
 				
@@ -2846,21 +2846,22 @@ func warn(tb testing.TB, args ...any) <span class="cov0" title="0">{
 }
 </pre>
 		
-		<pre class="file" id="file15" style="display: none">// Package testocache provides caching primitives to be used by
-// external plugins.
+		<pre class="file" id="file15" style="display: none">// Package testocache provides persistent caching primitives for plugins.
 //
-// By default, it stores cache in a directory "$TWD/.testo_cache",
-// where "$TWD" refers to the "test working directory" (not necessary a project root).
-// Usually, this is a directory where "_test.go" file, which calls this package, is located.
+// The cache directory defaults to ".testo_cache" in the test working directory.
+// It can be changed with -cache.dir or TESTO_CACHE_DIR.
+// Caching can be disabled with -cache.disable or TESTO_CACHE_DISABLE.
 //
-// Can be overridden passing "-cache.dir ~/My/Dir" flag to the "go test"
-// command OR (with lesser priority) with environment variable "TESTO_CACHE_DIR".
+// Package-level functions use the default keyspace. Use [Namespace] to create
+// an isolated keyspace.
 //
-// Caching can also be disabled with flag "-cache.disable" or environtment
-// variable "TESTO_CACHE_DISABLE" (e.g. "=true").
+// The on-disk format is internal. Writes use a temporary file and [os.Rename].
+// Malformed entries are treated as missing. Operations are synchronized within
+// one process; cross-process locking is not provided.
 package testocache
 
 import (
+        "bufio"
         "bytes"
         "cmp"
         "errors"
@@ -2904,56 +2905,61 @@ var (
 )
 
 const (
-        permFile os.FileMode = 0o600
-        permDir  os.FileMode = 0o750
+        permFile         os.FileMode = 0o600
+        permDir          os.FileMode = 0o750
+        namespaceDirName             = ".namespaces"
 )
 
 // Disabled returns true if caching is disabled.
 // It's up to the package user to handle disabled state,
 // e.g. do not save objects in cache when this function returns true.
-func Disabled() bool <span class="cov8" title="8">{
+func Disabled() bool <span class="cov8" title="42">{
         return *flagDisable
 }</span>
 
 var kvMu sync.RWMutex
 
-// Keys returns all glob-matched keys by the given pattern.
+// Cache is a scoped key-value cache.
 //
-// The pattern syntax is:
+// The zero value uses the package-level cache keyspace.
+// Use [Namespace] to create one when several plugins or helpers need to share
+// the same cache directory without sharing the same keyspace.
+type Cache struct {
+        namespace string
+}
+
+// Namespace returns a scoped cache for name.
 //
-//        pattern:
-//                { term }
-//        term:
-//                '*'         matches any sequence of non-/ characters
-//                '?'         matches any single non-/ character
-//                '[' [ '^' ] { character-range } ']'
-//                            character class (must be non-empty)
-//                c           matches character c (c != '*', '?', '\\', '[')
-//                '\\' c      matches character c
-//
-//        character-range:
-//                c           matches character c (c != '\\', '-', ']')
-//                '\\' c      matches character c
-//                lo '-' hi   matches character c for lo &lt;= c &lt;= hi
-//
-// Keys requires pattern to match all of name, not just a substring.
-//
+// Namespaces are isolated from each other and from the package-level cache
+// functions. An empty name selects the package-level cache keyspace.
+// Namespace names must follow the same validity rules as cache keys.
+func Namespace(name string) Cache <span class="cov4" title="6">{
+        return Cache{namespace: name}
+}</span>
+
+// Keys returns keys matching pattern using [path.Match] syntax.
+// Non-cache files in the cache directory are ignored.
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
-func Keys(pattern string) (keys []string, err error) <span class="cov1" title="1">{
-        if err := validate(pattern); err != nil </span><span class="cov0" title="0">{
+func Keys(pattern string) (keys []string, err error) <span class="cov3" title="4">{
+        return Cache{}.Keys(pattern)
+}</span>
+
+// Keys is like [Keys] but uses c's keyspace.
+func (c Cache) Keys(pattern string) (keys []string, err error) <span class="cov3" title="4">{
+        if err := validatePattern(pattern); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov1" title="1">if _, err := path.Match(pattern, ""); err != nil </span><span class="cov0" title="0">{
-                return nil, err
-        }</span>
-
-        <span class="cov1" title="1">dir, err := cacheDir()
+        <span class="cov3" title="3">dir, err := c.dir()
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov1" title="1">kvMu.RLock()
+        <span class="cov3" title="3">return keysIn(dir, pattern)</span>
+}
+
+func keysIn(dir, pattern string) (keys []string, err error) <span class="cov3" title="3">{
+        kvMu.RLock()
         defer kvMu.RUnlock()
 
         entries, err := os.ReadDir(dir)
@@ -2961,122 +2967,114 @@ func Keys(pattern string) (keys []string, err error) <span class="cov1" title="1
                 return nil, err
         }</span>
 
-        <span class="cov1" title="1">keys = make([]string, 0, len(keys))
+        <span class="cov3" title="3">keys = make([]string, 0, len(entries))
 
-        for _, e := range entries </span><span class="cov5" title="3">{
-                key, err := extractKey(filepath.Join(dir, e.Name()))
+        for _, e := range entries </span><span class="cov6" title="17">{
+                if !e.Type().IsRegular() || !isCacheFilename(e.Name()) </span><span class="cov3" title="4">{
+                        continue</span>
+                }
+
+                <span class="cov6" title="13">key, ok, err := extractKey(filepath.Join(dir, e.Name()))
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, err
                 }</span>
 
-                <span class="cov5" title="3">if ok, _ := path.Match(pattern, key); ok </span><span class="cov3" title="2">{
+                <span class="cov6" title="13">if !ok </span><span class="cov1" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov6" title="12">if e.Name() != hash(key) </span><span class="cov1" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov5" title="11">if ok, _ := path.Match(pattern, key); ok </span><span class="cov3" title="4">{
                         keys = append(keys, key)
                 }</span>
         }
 
-        <span class="cov1" title="1">return keys, nil</span>
+        <span class="cov3" title="3">return keys, nil</span>
 }
 
-func extractKey(p string) (string, error) <span class="cov5" title="3">{
+func extractKey(p string) (key string, ok bool, err error) <span class="cov6" title="13">{
         f, err := os.Open(p)
         if err != nil </span><span class="cov0" title="0">{
-                return "", err
+                return "", false, err
         }</span>
-        <span class="cov5" title="3">defer f.Close()
+        <span class="cov6" title="13">defer f.Close()
 
-        var collected []byte
+        key, err = bufio.NewReader(f).ReadString(0)
+        if errors.Is(err, io.EOF) </span><span class="cov1" title="1">{
+                return "", false, nil
+        }</span>
 
-        // heuristic
-        chunk := make([]byte, 32)
+        <span class="cov6" title="12">if err != nil </span><span class="cov0" title="0">{
+                return "", false, err
+        }</span>
 
-        for </span><span class="cov6" title="4">{
-                n, err := io.ReadAtLeast(f, chunk, 1)
-                if err != nil </span><span class="cov1" title="1">{
-                        if errors.Is(err, io.EOF) </span><span class="cov1" title="1">{
-                                return "", nil
-                        }</span>
-
-                        <span class="cov0" title="0">return "", err</span>
-                }
-
-                <span class="cov5" title="3">before, _, ok := bytes.Cut(chunk[:n], []byte{0})
-                if ok </span><span class="cov3" title="2">{
-                        if len(collected) == 0 </span><span class="cov3" title="2">{
-                                return string(before), nil
-                        }</span>
-
-                        <span class="cov0" title="0">return string(append(collected, before...)), nil</span>
-                }
-
-                <span class="cov1" title="1">collected = append(collected, before...)</span>
-        }
+        <span class="cov6" title="12">return key[:len(key)-1], true, nil</span>
 }
 
 // Get cached object by the given key.
 // Key must not contain a NUL-byte.
+// Malformed cache entries or entries with mismatched stored keys are treated
+// as missing.
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
-func Get(key string) ([]byte, error) <span class="cov6" title="4">{
-        if err := validate(key); err != nil </span><span class="cov1" title="1">{
+func Get(key string) ([]byte, error) <span class="cov6" title="12">{
+        return Cache{}.Get(key)
+}</span>
+
+// Get is like [Get] but uses c's keyspace.
+func (c Cache) Get(key string) ([]byte, error) <span class="cov6" title="17">{
+        if err := validateKey(key); err != nil </span><span class="cov1" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov5" title="3">dir, err := cacheDir()
+        <span class="cov6" title="16">dir, err := c.dir()
         if err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov5" title="3">kvMu.RLock()
+        <span class="cov6" title="16">return getFrom(dir, key)</span>
+}
+
+func getFrom(dir, key string) ([]byte, error) <span class="cov6" title="16">{
+        kvMu.RLock()
         defer kvMu.RUnlock()
 
-        h, err := hash(key)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, err
-        }</span>
+        p := filepath.Join(dir, hash(key))
 
-        <span class="cov5" title="3">p := filepath.Join(dir, h)
-
-        _, err = os.Stat(p)
-        if err != nil </span><span class="cov1" title="1">{
-                return nil, ErrNotFound
-        }</span>
-
-        <span class="cov3" title="2">value, err := os.ReadFile(p)
-        if err != nil </span><span class="cov0" title="0">{
-                return nil, err
-        }</span>
-
-        <span class="cov3" title="2">_, after, ok := bytes.Cut(value, []byte{0})
-        if !ok </span><span class="cov0" title="0">{
-                return value, nil
-        }</span>
-
-        <span class="cov3" title="2">return after, nil</span>
-}
+        return readEntry(p, key)
+}</span>
 
 // Set saves value to cache with the given key.
 // Key must not contain a NUL-byte.
+// Existing values for the same key are replaced.
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
-func Set(key string, value []byte) error <span class="cov5" title="3">{
-        if err := validate(key); err != nil </span><span class="cov1" title="1">{
+func Set(key string, value []byte) error <span class="cov6" title="12">{
+        return Cache{}.Set(key, value)
+}</span>
+
+// Set is like [Set] but uses c's keyspace.
+func (c Cache) Set(key string, value []byte) error <span class="cov6" title="18">{
+        if err := validateKey(key); err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
 
-        <span class="cov3" title="2">dir, err := cacheDir()
-        if err != nil </span><span class="cov0" title="0">{
+        <span class="cov6" title="17">dir, err := c.dir()
+        if err != nil </span><span class="cov3" title="3">{
                 return err
         }</span>
 
-        <span class="cov3" title="2">kvMu.Lock()
+        <span class="cov6" title="14">return setIn(dir, key, value)</span>
+}
+
+func setIn(dir, key string, value []byte) error <span class="cov6" title="14">{
+        kvMu.Lock()
         defer kvMu.Unlock()
 
-        h, err := hash(key)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-
-        <span class="cov3" title="2">p := filepath.Join(dir, h)
+        p := filepath.Join(dir, hash(key))
 
         buf := bytes.NewBufferString(key)
 
@@ -3085,71 +3083,227 @@ func Set(key string, value []byte) error <span class="cov5" title="3">{
         buf.WriteByte(0)
         buf.Write(value)
 
-        return os.WriteFile(p, buf.Bytes(), permFile)</span>
-}
+        return writeFileAtomic(p, buf.Bytes())
+}</span>
 
 // Remove object from cache by the given key.
 // Key must not contain a NUL-byte.
+// If the key is not present, this function returns [ErrNotFound].
 //
 // If cache is disabled (see [Disabled]), this function returns [ErrDisabled].
-func Remove(key string) error <span class="cov5" title="3">{
-        if err := validate(key); err != nil </span><span class="cov1" title="1">{
+func Remove(key string) error <span class="cov4" title="7">{
+        return Cache{}.Remove(key)
+}</span>
+
+// Remove is like [Remove] but uses c's keyspace.
+func (c Cache) Remove(key string) error <span class="cov4" title="7">{
+        if err := validateKey(key); err != nil </span><span class="cov1" title="1">{
                 return err
         }</span>
 
-        <span class="cov3" title="2">dir, err := cacheDir()
+        <span class="cov4" title="6">dir, err := c.dir()
         if err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov3" title="2">kvMu.Lock()
-        defer kvMu.Unlock()
-
-        h, err := hash(key)
-        if err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-
-        <span class="cov3" title="2">p := filepath.Join(dir, h)
-
-        return os.Remove(p)</span>
+        <span class="cov4" title="6">return removeFrom(dir, key)</span>
 }
 
-func cacheDir() (string, error) <span class="cov8" title="8">{
-        if Disabled() </span><span class="cov0" title="0">{
-                return "", ErrDisabled
+func (c Cache) scoped() bool <span class="cov10" title="81">{
+        return c.namespace != ""
+}</span>
+
+func removeFrom(dir, key string) error <span class="cov4" title="6">{
+        kvMu.Lock()
+        defer kvMu.Unlock()
+
+        p := filepath.Join(dir, hash(key))
+
+        if _, err := readEntry(p, key); err != nil </span><span class="cov3" title="3">{
+                return err
         }</span>
 
-        <span class="cov8" title="8">dir := *flagDir
+        <span class="cov3" title="3">if err := os.Remove(p); err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, os.ErrNotExist) </span><span class="cov0" title="0">{
+                        return ErrNotFound
+                }</span>
+
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov3" title="3">return nil</span>
+}
+
+func (c Cache) dir() (string, error) <span class="cov8" title="42">{
+        if c.scoped() </span><span class="cov5" title="8">{
+                if err := validateKey(c.namespace); err != nil </span><span class="cov1" title="1">{
+                        return "", err
+                }</span>
+        }
+
+        <span class="cov8" title="41">dir, err := cacheDir()
+        if err != nil </span><span class="cov2" title="2">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="39">if !c.scoped() </span><span class="cov8" title="33">{
+                return dir, nil
+        }</span>
+
+        <span class="cov4" title="6">dir = filepath.Join(dir, namespaceDirName, hash(c.namespace))
 
         if err := os.MkdirAll(dir, permDir); err != nil </span><span class="cov0" title="0">{
                 return "", err
         }</span>
 
-        <span class="cov8" title="8">if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("/*"), permFile); err != nil </span><span class="cov0" title="0">{
+        <span class="cov4" title="6">return dir, nil</span>
+}
+
+func readEntry(p, key string) ([]byte, error) <span class="cov7" title="22">{
+        info, err := os.Lstat(p)
+        if err != nil </span><span class="cov2" title="2">{
+                if errors.Is(err, os.ErrNotExist) </span><span class="cov2" title="2">{
+                        return nil, ErrNotFound
+                }</span>
+
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov7" title="20">if !info.Mode().IsRegular() </span><span class="cov2" title="2">{
+                return nil, ErrNotFound
+        }</span>
+
+        <span class="cov6" title="18">value, err := os.ReadFile(p)
+        if err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, os.ErrNotExist) </span><span class="cov0" title="0">{
+                        return nil, ErrNotFound
+                }</span>
+
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        <span class="cov6" title="18">storedKey, value, ok := bytes.Cut(value, []byte{0})
+        if !ok || string(storedKey) != key </span><span class="cov3" title="3">{
+                return nil, ErrNotFound
+        }</span>
+
+        <span class="cov6" title="15">return value, nil</span>
+}
+
+func cacheDir() (string, error) <span class="cov8" title="41">{
+        if Disabled() </span><span class="cov2" title="2">{
+                return "", ErrDisabled
+        }</span>
+
+        <span class="cov8" title="39">dir := *flagDir
+
+        if err := os.MkdirAll(dir, permDir); err != nil </span><span class="cov0" title="0">{
                 return "", err
         }</span>
 
-        <span class="cov8" title="8">return dir, nil</span>
+        <span class="cov8" title="39">if err := ensureGitignore(dir); err != nil </span><span class="cov0" title="0">{
+                return "", err
+        }</span>
+
+        <span class="cov8" title="39">return dir, nil</span>
 }
 
-func validate(key string) error <span class="cov10" title="11">{
-        if slices.Contains([]byte(key), 0) </span><span class="cov5" title="3">{
+func ensureGitignore(dir string) error <span class="cov8" title="39">{
+        p := filepath.Join(dir, ".gitignore")
+
+        f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, permFile)
+        if err != nil </span><span class="cov7" title="30">{
+                if errors.Is(err, os.ErrExist) </span><span class="cov7" title="30">{
+                        return nil
+                }</span>
+
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov5" title="9">_, err = f.WriteString("/*\n")
+        if closeErr := f.Close(); err == nil </span><span class="cov5" title="9">{
+                err = closeErr
+        }</span>
+
+        <span class="cov5" title="9">if err != nil </span><span class="cov0" title="0">{
+                if removeErr := os.Remove(p); removeErr != nil &amp;&amp; !errors.Is(removeErr, os.ErrNotExist) </span><span class="cov0" title="0">{
+                        return errors.Join(err, removeErr)
+                }</span>
+        }
+
+        <span class="cov5" title="9">return err</span>
+}
+
+func writeFileAtomic(p string, data []byte) (err error) <span class="cov6" title="15">{
+        tmp, err := os.CreateTemp(filepath.Dir(p), ".tmp-*")
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov6" title="15">defer func() </span><span class="cov6" title="15">{
+                if err == nil </span><span class="cov6" title="14">{
+                        return
+                }</span>
+
+                <span class="cov1" title="1">_ = tmp.Close()
+                _ = os.Remove(tmp.Name())</span>
+        }()
+
+        <span class="cov6" title="15">_, err = tmp.Write(data)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov6" title="15">err = tmp.Sync()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov6" title="15">err = tmp.Close()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov6" title="15">return os.Rename(tmp.Name(), p)</span>
+}
+
+func validateKey(key string) error <span class="cov9" title="54">{
+        if slices.Contains([]byte(key), 0) </span><span class="cov4" title="5">{
                 return ErrInvalidKey
         }</span>
 
-        <span class="cov8" title="8">return nil</span>
+        <span class="cov8" title="49">return nil</span>
 }
 
-func hash(key string) (string, error) <span class="cov8" title="7">{
-        h := fnv.New64a()
-
-        _, err := h.Write([]byte(key))
-        if err != nil </span><span class="cov0" title="0">{
-                return "", err
+func validatePattern(pattern string) error <span class="cov3" title="4">{
+        if err := validateKey(pattern); err != nil </span><span class="cov1" title="1">{
+                return err
         }</span>
 
-        <span class="cov8" title="7">return strconv.FormatUint(h.Sum64(), 36), nil</span>
+        <span class="cov3" title="3">if _, err := path.Match(pattern, ""); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov3" title="3">return nil</span>
+}
+
+func isCacheFilename(name string) bool <span class="cov6" title="17">{
+        h, err := strconv.ParseUint(name, 36, 64)
+        if err != nil </span><span class="cov3" title="4">{
+                return false
+        }</span>
+
+        <span class="cov6" title="13">return strconv.FormatUint(h, 36) == name</span>
+}
+
+func hash(key string) string <span class="cov9" title="61">{
+        h := fnv.New64a()
+
+        if _, err := h.Write([]byte(key)); err != nil </span><span class="cov0" title="0">{
+                panic(err)</span>
+        }
+
+        <span class="cov9" title="61">return strconv.FormatUint(h.Sum64(), 36)</span>
 }
 </pre>
 		
