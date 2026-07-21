@@ -47,7 +47,9 @@ func (c Cmd) Run(patterns ...string) error {
 
 	for _, d := range errLoad.Diagnostics {
 		if c.JSON {
-			d.JSON(&buf, errLoad.FSet)
+			if err := d.JSON(&buf, errLoad.FSet); err != nil {
+				return err
+			}
 		} else {
 			d.Println(&buf, errLoad.FSet)
 		}

@@ -1,3 +1,5 @@
+// Testo is an auxiliary command line tool for the testo framework
+// featuring a linter, suites explorer and runner.
 package main
 
 import (

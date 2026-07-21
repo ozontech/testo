@@ -1,9 +1,11 @@
 package cmdsuites
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"go/token"
+	"os"
 	"path/filepath"
 
 	"github.com/ozontech/testo/cmd/testo/internal/cli"
@@ -13,7 +15,8 @@ import (
 
 func init() {
 	cli.Add("suites", func(f *flag.FlagSet, c *Cmd) {
-		c.Format.Set("{{ .Package }}/{{ .Suite }}")
+		// the default template is a valid constant
+		_ = c.Format.Set("{{ .Package }}/{{ .Suite }}")
 
 		f.StringVar(
 			&c.Load.Tags,
@@ -36,7 +39,11 @@ Format:
 Examples:
   pick suite test with fzf and bat preview
 
-  	testo suites ./... -0 -f '{{ .Package }}/{{ .Suite }}.{{ .Test }} {{ .Test.Pos.Path }} {{ .Test.Pos.Line }}' | fzf --read0 --delimiter " " --with-nth 1 --preview 'bat -Ss --color always --plain --tabs 4 --line-range {3}:+$FZF_PREVIEW_LINES {2}' --accept-nth 1 --preview-window up
+  	testo suites ./... -0 `+
+			`-f '{{ .Package }}/{{ .Suite }}.{{ .Test }} {{ .Test.Pos.Path }} {{ .Test.Pos.Line }}' | `+
+			`fzf --read0 --delimiter " " --with-nth 1 `+
+			`--preview 'bat -Ss --color always --plain --tabs 4 `+
+			`--line-range {3}:+$FZF_PREVIEW_LINES {2}' --accept-nth 1 --preview-window up
 
   output as json and filter with jq
 
@@ -54,7 +61,17 @@ type Cmd struct {
 func (c Cmd) Run(patterns ...string) error {
 	suites, err := loader.Load(c.Load, patterns...)
 	if err != nil {
-		return err
+		var errLoad *loader.LoadError
+
+		if !errors.As(err, &errLoad) {
+			return err
+		}
+
+		// diagnostics are warnings here: show the suites that did load,
+		// reporting problems is the job of "testo lint"
+		for _, d := range errLoad.Diagnostics {
+			d.Println(os.Stderr, errLoad.FSet)
+		}
 	}
 
 	seen := make(map[string]bool)
@@ -69,27 +86,36 @@ func (c Cmd) Run(patterns ...string) error {
 	return nil
 }
 
+func newPos(p token.Position) Pos {
+	return Pos{
+		Dir:      filepath.Dir(p.Filename),
+		Filename: filepath.Base(p.Filename),
+		Path:     p.Filename,
+		Line:     p.Line,
+		Column:   p.Column,
+	}
+}
+
+func newParams(ps []loader.Parameter) []Parameter {
+	s := make([]Parameter, 0, len(ps))
+
+	for _, p := range ps {
+		s = append(s, Parameter{Name: p.Name})
+	}
+
+	return s
+}
+
+func newTest(fset *token.FileSet, t loader.SuiteTest) Test {
+	return Test{
+		Name:         t.Name,
+		Pos:          newPos(fset.Position(t.Pos)),
+		Parametrized: t.Parametrized,
+		Parameters:   newParams(t.Parameters),
+	}
+}
+
 func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
-	newPos := func(p token.Position) Pos {
-		return Pos{
-			Dir:      filepath.Dir(p.Filename),
-			Filename: filepath.Base(p.Filename),
-			Path:     p.Filename,
-			Line:     p.Line,
-			Column:   p.Column,
-		}
-	}
-
-	newParams := func(ps []loader.Parameter) []Parameter {
-		s := make([]Parameter, 0, len(ps))
-
-		for _, p := range ps {
-			s = append(s, Parameter{Name: p.Name})
-		}
-
-		return s
-	}
-
 	data := Data{
 		Package: Package{
 			Name: suite.Package.Name,
@@ -103,21 +129,11 @@ func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
 	}
 
 	for _, t := range suite.Tests {
-		data.Tests = append(data.Tests, Test{
-			Name:         t.Name,
-			Pos:          newPos(suite.FSet.Position(t.Pos)),
-			Parametrized: t.Parametrized,
-			Parameters:   newParams(t.Parameters),
-		})
+		data.Tests = append(data.Tests, newTest(suite.FSet, t))
 	}
 
-	for _, t := range suite.Tests {
-		data.Test = Test{
-			Name:         t.Name,
-			Pos:          newPos(suite.FSet.Position(t.Pos)),
-			Parametrized: t.Parametrized,
-			Parameters:   newParams(t.Parameters),
-		}
+	emit := func(t Test) error {
+		data.Test = t
 
 		line, err := c.Format.Execute(data)
 		if err != nil {
@@ -125,7 +141,7 @@ func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
 		}
 
 		if seen[line] {
-			continue
+			return nil
 		}
 
 		seen[line] = true
@@ -134,6 +150,19 @@ func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
 			fmt.Print(line, "\x00")
 		} else {
 			fmt.Println(line)
+		}
+
+		return nil
+	}
+
+	// a suite without tests is still worth showing
+	if len(suite.Tests) == 0 {
+		return emit(Test{})
+	}
+
+	for _, t := range suite.Tests {
+		if err := emit(newTest(suite.FSet, t)); err != nil {
+			return err
 		}
 	}
 

@@ -7,6 +7,7 @@ package packageslite
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,82 +70,130 @@ func Load(config Config, patterns ...string) ([]*Package, error) {
 		goPkgMap[listed[i].ImportPath] = &listed[i]
 	}
 
-	archiveImp := archiveImporter(config.FSet, goPkgMap)
-
-	pkgs := make(map[string]*Package)
-
-	var importMap map[string]string
+	state := &loadState{
+		pkgs:    make(map[string]*Package),
+		archive: archiveImporter(config.FSet, goPkgMap),
+	}
 
 	conf := types.Config{
 		// IgnoreFuncBodies:         true,
 		DisableUnusedImportCheck: true,
 		FakeImportC:              true,
-		Importer: importerFunc(func(path string) (*types.Package, error) {
-			if path == "unsafe" {
-				return types.Unsafe, nil
-			}
-
-			if importMap != nil {
-				// Taken from https://github.com/tinygo-org/tinygo/pull/1588/files
-				if to, ok := importMap[path]; ok && !strings.HasSuffix(to, ".test]") {
-					path = to
-				}
-			}
-
-			if pkg, ok := pkgs[path]; ok {
-				return pkg.Types, nil
-			}
-
-			return archiveImp.Import(path)
-		}),
+		Importer:                 state,
 	}
 
-	for _, l := range listed {
-		importMap = l.ImportMap
-
-		if l.DepOnly {
-			pkg, err := loadFromExport(&l, archiveImp)
-			if err != nil {
-				return nil, err
-			}
-
-			pkgs[pkg.Path] = pkg
-
-			continue
-		}
-
-		pkg, err := l.Package(config.FSet)
-		if err != nil {
+	for i := range listed {
+		if err := state.load(&listed[i], config.FSet, &conf); err != nil {
 			return nil, err
 		}
+	}
 
-		err = pkg.Init(config.FSet, &conf)
+	return directPackages(state.pkgs), nil
+}
+
+// loadState is the shared state of a single Load call:
+// it resolves imports from already type-checked packages
+// falling back to compiled export data.
+type loadState struct {
+	pkgs      map[string]*Package
+	archive   types.Importer
+	importMap map[string]string
+}
+
+var _ types.Importer = (*loadState)(nil)
+
+func (s *loadState) Import(path string) (*types.Package, error) {
+	if path == "unsafe" {
+		return types.Unsafe, nil
+	}
+
+	// Taken from https://github.com/tinygo-org/tinygo/pull/1588/files
+	if to, ok := s.importMap[path]; ok && !strings.HasSuffix(to, ".test]") {
+		path = to
+	}
+
+	if pkg, ok := s.pkgs[path]; ok {
+		return pkg.Types, nil
+	}
+
+	return s.archive.Import(path)
+}
+
+func (s *loadState) load(l *goPackage, fset *token.FileSet, conf *types.Config) error {
+	s.importMap = l.ImportMap
+
+	if l.DepOnly {
+		pkg, err := loadFromExport(l, s.archive)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		pkgs[pkg.Path] = &pkg
+		s.pkgs[pkg.Path] = pkg
+
+		return nil
+	}
+
+	if l.Error != nil {
+		// e.g. build constraints exclude all Go files: nothing to analyze
+		if len(l.GoFiles) == 0 {
+			return nil
+		}
+
+		return fmt.Errorf("%s: %s", l.ImportPath, l.Error.Err)
+	}
+
+	pkg, err := l.Package(fset)
+	if err != nil {
+		return err
+	}
+
+	if err := pkg.Init(fset, conf); err != nil {
+		return err
+	}
+
+	s.pkgs[pkg.Path] = &pkg
+
+	return nil
+}
+
+// directPackages returns the non-dependency packages,
+// dropping base packages superseded by their "pkg [pkg.test]" variant,
+// which go list -test emits as a strict superset of the base package.
+func directPackages(pkgs map[string]*Package) []*Package {
+	variants := make(map[string]bool)
+
+	for path := range pkgs {
+		// only "foo [foo.test]" supersedes "foo"; an external test
+		// package "foo_test [foo.test]" supersedes nothing
+		if base, ok := testVariantBase(path); ok && path == base+" ["+base+".test]" {
+			variants[base] = true
+		}
 	}
 
 	var direct []*Package
 
 	for _, pkg := range pkgs {
-		if pkg.depOnly {
+		if pkg.depOnly || variants[pkg.Path] {
 			continue
+		}
+
+		// normalize the variant path after type checking, purely cosmetic
+		if base, ok := testVariantBase(pkg.Path); ok {
+			pkg.Path = base
 		}
 
 		direct = append(direct, pkg)
 	}
 
-	return direct, nil
+	return direct
 }
 
-var _ types.Importer = (*importerFunc)(nil)
+// testVariantBase extracts "pkg" from a go list -test
+// variant import path like "pkg [pkg.test]".
+func testVariantBase(path string) (string, bool) {
+	base, _, ok := strings.Cut(path, " [")
 
-type importerFunc func(path string) (*types.Package, error)
-
-func (i importerFunc) Import(path string) (*types.Package, error) {
-	return i(path)
+	return base, ok
 }
 
 func archiveImporter(fset *token.FileSet, goPkgs map[string]*goPackage) types.Importer {
@@ -180,22 +229,23 @@ func loadFromExport(gp *goPackage, imp types.Importer) (*Package, error) {
 	}, nil
 }
 
+//nolint:tagliatelle // decodes go list -json output, which is PascalCase
 type goPackage struct {
-	Dir         string
-	ImportPath  string
-	Name        string
-	DepOnly     bool
-	GoFiles     []string
-	CGoFiles    []string
-	Export      string
-	Imports     []string
-	ImportMap   map[string]string
-	TestImports []string
-	TestGoFiles []string
-	Incomplete  bool
+	Dir         string            `json:"Dir"`
+	ImportPath  string            `json:"ImportPath"`
+	Name        string            `json:"Name"`
+	DepOnly     bool              `json:"DepOnly"`
+	GoFiles     []string          `json:"GoFiles"`
+	CGoFiles    []string          `json:"CGoFiles"`
+	Export      string            `json:"Export"`
+	Imports     []string          `json:"Imports"`
+	ImportMap   map[string]string `json:"ImportMap"`
+	TestImports []string          `json:"TestImports"`
+	TestGoFiles []string          `json:"TestGoFiles"`
+	Incomplete  bool              `json:"Incomplete"`
 	Error       *struct {
-		Err string
-	}
+		Err string `json:"Err"`
+	} `json:"Error"`
 
 	order int
 }
@@ -235,7 +285,7 @@ func (gp goPackage) Package(fset *token.FileSet) (Package, error) {
 }
 
 func goList(tags string, patterns ...string) ([]goPackage, error) {
-	args := []string{
+	args := slices.Concat([]string{
 		"list",
 		"-e",
 		"-deps",
@@ -248,12 +298,10 @@ func goList(tags string, patterns ...string) ([]goPackage, error) {
 		// "-json=Dir,ImportPath,Name,DepOnly,GoFiles,CGoFiles,Imports,ImportMap,Incomplete,Error",
 		"-json",
 		"--",
-	}
-
-	args = append(args, patterns...)
+	}, patterns)
 
 	//nolint:gosec // variable only affects patterns, safe to use
-	cmd := exec.Command("go", args...)
+	cmd := exec.CommandContext(context.Background(), "go", args...)
 
 	cmd.Env = os.Environ()
 

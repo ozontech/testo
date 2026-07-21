@@ -3,7 +3,7 @@ package loader
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"go/ast"
 	"go/build/constraint"
 	"go/parser"
@@ -12,8 +12,32 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
+
+// implicitTags are build tags satisfied by the toolchain or environment
+// (GOOS, GOARCH, compiler, sanitizers) rather than by -tags.
+var implicitTags = []string{
+	// GOOS
+	"aix", "android", "darwin", "dragonfly", "freebsd", "hurd", "illumos",
+	"ios", "js", "linux", "nacl", "netbsd", "openbsd", "plan9", "solaris",
+	"wasip1", "windows", "zos", "unix",
+	// GOARCH
+	"386", "amd64", "amd64p32", "arm", "arm64", "arm64be", "armbe",
+	"loong64", "mips", "mips64", "mips64le", "mips64p32", "mips64p32le",
+	"mipsle", "ppc", "ppc64", "ppc64le", "riscv", "riscv64", "s390",
+	"s390x", "sparc", "sparc64", "wasm",
+	// compiler & instrumentation
+	"cgo", "gc", "gccgo", "race", "msan", "asan",
+}
+
+// isImplicitTag states whether the tag is satisfied implicitly
+// by the toolchain and must not be passed via -tags.
+func isImplicitTag(tag string) bool {
+	// go1.1 ... go1.N release tags
+	return strings.HasPrefix(tag, "go1.") || slices.Contains(implicitTags, tag)
+}
 
 func BuildTags(testOnly bool) (add, remove map[string]struct{}, err error) {
 	add = make(map[string]struct{})
@@ -44,7 +68,6 @@ func buildTags(file *ast.File, add, remove map[string]struct{}) {
 			}
 
 			addConstraintExpr(expr, add, remove)
-
 		}
 	}
 }
@@ -75,8 +98,9 @@ func listGoFiles(ctx context.Context, testOnly bool) ([]*ast.File, error) {
 		return nil, err
 	}
 
+	//nolint:tagliatelle // decodes go list -m -json output, which is PascalCase
 	var mod struct {
-		Dir string
+		Dir string `json:"Dir"`
 	}
 
 	err = json.Unmarshal(out, &mod)
@@ -85,7 +109,7 @@ func listGoFiles(ctx context.Context, testOnly bool) ([]*ast.File, error) {
 	}
 
 	if mod.Dir == "" {
-		return nil, fmt.Errorf("outside of go module")
+		return nil, errors.New("outside of go module")
 	}
 
 	files := make(map[string]struct{})

@@ -1,7 +1,6 @@
 package loader
 
 import (
-	"bufio"
 	"bytes"
 	"cmp"
 	"context"
@@ -42,25 +41,47 @@ type Config struct {
 	Testo  string
 	Strict bool
 
-	runners map[types.Type]map[SuiteRunner]struct{}
+	runners map[string]map[SuiteRunner]struct{}
+}
+
+// deriveTags collects build tags from module sources,
+// excluding tags satisfied by the toolchain itself.
+func deriveTags() (string, error) {
+	add, remove, err := BuildTags(false)
+	if err != nil {
+		return "", fmt.Errorf("derive build tags: %w", err)
+	}
+
+	tags := make([]string, 0, len(add))
+
+	for k := range add {
+		if _, ok := remove[k]; ok {
+			continue
+		}
+
+		// tags satisfied by the toolchain itself (GOOS, GOARCH, go1.x, ...)
+		// must not be passed to -tags: enabling e.g. both linux and windows
+		// would pull mutually exclusive files into type checking
+		if isImplicitTag(k) {
+			continue
+		}
+
+		tags = append(tags, k)
+	}
+
+	slices.Sort(tags)
+
+	return strings.Join(tags, ","), nil
 }
 
 func Load(cfg Config, patterns ...string) ([]Suite, error) {
 	if cfg.Tags == "" {
-		add, remove, err := BuildTags(false)
-		if err == nil {
-			tags := make([]string, 0, len(add))
-
-			for k := range add {
-				if _, ok := remove[k]; !ok {
-					tags = append(tags, k)
-				}
-			}
-
-			slices.Sort(tags)
-
-			cfg.Tags = strings.Join(tags, ",")
+		tags, err := deriveTags()
+		if err != nil {
+			return nil, err
 		}
+
+		cfg.Tags = tags
 	}
 
 	fset := token.NewFileSet()
@@ -100,9 +121,12 @@ func Load(cfg Config, patterns ...string) ([]Suite, error) {
 	}
 
 	slices.SortFunc(diagnostics, func(a, b Diagnostic) int {
-		return strings.Compare(
-			fset.File(a.Pos).Name(),
-			fset.File(b.Pos).Name(),
+		return cmp.Or(
+			strings.Compare(
+				fset.File(a.Pos).Name(),
+				fset.File(b.Pos).Name(),
+			),
+			cmp.Compare(a.Pos, b.Pos),
 		)
 	})
 
@@ -171,177 +195,12 @@ func (c *Config) asSuite(
 	}
 
 	for m := range named.Methods() {
-		name := m.Name()
+		test, d, ok := c.asSuiteTest(m, suite.T.Type, cases)
 
-		const prefix = "Test"
+		diagnostics = append(diagnostics, d...)
 
-		if !strings.HasPrefix(name, prefix) {
-			continue
-		}
-
-		if !parse.IsTest(name, prefix) {
-			diagnostics = append(diagnostics, Diagnostic{
-				Pos: m.Pos(),
-				Issue: MalformedName(
-					fmt.Sprintf("first letter after %q in %q must not be lowercase", prefix, name),
-				),
-			})
-
-			continue
-		}
-
-		sig := m.Signature()
-
-		if sig.Results().Len() > 0 {
-			diagnostics = append(diagnostics, Diagnostic{
-				Pos:   m.Pos(),
-				Issue: InvalidSignature(name + " must not return values"),
-			})
-
-			continue
-		}
-
-		params := sig.Params()
-
-		switch params.Len() {
-		case 1:
-			in := params.At(0)
-
-			if !types.Identical(in.Type(), suite.T.Type) {
-				diagnostics = append(diagnostics, Diagnostic{
-					Pos: m.Pos(),
-					Issue: InvalidSignature(
-						fmt.Sprintf(
-							"%s must accept %s, got %s",
-							name,
-							typeutil.Format(suite.T.Type),
-							typeutil.Format(in.Type()),
-						),
-					),
-				})
-			}
-
-			suite.Tests = append(suite.Tests, SuiteTest{
-				Name: name,
-				Pos:  m.Pos(),
-			})
-
-		case 2:
-			first := params.At(0)
-
-			if !types.Identical(first.Type(), suite.T.Type) {
-				diagnostics = append(diagnostics, Diagnostic{
-					Pos: m.Pos(),
-					Issue: InvalidSignature(
-						fmt.Sprintf(
-							"%s must accept %s, got %s",
-							name,
-							typeutil.Format(suite.T.Type),
-							typeutil.Format(first.Type()),
-						),
-					),
-				})
-
-				continue
-			}
-
-			second := params.At(1)
-
-			params, ok := second.Type().Underlying().(*types.Struct)
-			if !ok {
-				diagnostics = append(diagnostics, Diagnostic{
-					Pos: m.Pos(),
-					Issue: InvalidSignature(
-						fmt.Sprintf(
-							"%s must accept struct as second parameter, got %s",
-							name,
-							second.Type(),
-						),
-					),
-				})
-
-				continue
-			}
-
-			var invalidParams bool
-
-			var parameters []Parameter
-
-			for f := range params.Fields() {
-				if !f.Exported() {
-					diagnostics = append(diagnostics, Diagnostic{
-						Pos: m.Pos(),
-						Issue: InvalidSignature(
-							fmt.Sprintf("%s parameters must be exported, got %s", name, f.Name()),
-						),
-					})
-
-					invalidParams = true
-
-					continue
-				}
-
-				forParam, ok := cases[f.Name()]
-				if !ok {
-					diagnostics = append(diagnostics, Diagnostic{
-						Pos: m.Pos(),
-						Issue: InvalidSignature(
-							fmt.Sprintf("%s requires unknown parameter %s", name, f.Name()),
-						),
-					})
-
-					invalidParams = true
-
-					continue
-				}
-
-				if !types.AssignableTo(forParam.Type, f.Type()) {
-					diagnostics = append(diagnostics, Diagnostic{
-						Pos: m.Pos(),
-						Issue: InvalidSignature(
-							fmt.Sprintf(
-								"%s requires param %s to be of type %s, have %s",
-								name,
-								f.Name(),
-								f.Type(),
-								forParam.Type,
-							),
-						),
-					})
-
-					invalidParams = true
-
-					continue
-				}
-
-				parameters = append(parameters, Parameter{
-					Name: f.Name(),
-					Type: f.Type(),
-				})
-			}
-
-			suite.Tests = append(suite.Tests, SuiteTest{
-				Pos:          m.Pos(),
-				Name:         name,
-				Parametrized: true,
-				Parameters:   parameters,
-			})
-
-			if invalidParams {
-				continue
-			}
-
-		default:
-			diagnostics = append(diagnostics, Diagnostic{
-				Pos: m.Pos(),
-				Issue: InvalidSignature(
-					fmt.Sprintf(
-						"%s must accept either 1 or 2 parameters, got %d",
-						name,
-						params.Len(),
-					),
-				),
-			})
+		if ok {
+			suite.Tests = append(suite.Tests, test)
 		}
 	}
 
@@ -353,6 +212,160 @@ func (c *Config) asSuite(
 	}
 
 	return suite, diagnostics, true
+}
+
+// asSuiteTest validates a TestXxx suite method and describes it as a SuiteTest.
+func (c *Config) asSuiteTest(
+	m *types.Func,
+	tType types.Type,
+	cases Cases,
+) (SuiteTest, []Diagnostic, bool) {
+	name := m.Name()
+
+	const prefix = "Test"
+
+	if !strings.HasPrefix(name, prefix) {
+		return SuiteTest{}, nil, false
+	}
+
+	if !parse.IsTest(name, prefix) {
+		return SuiteTest{}, []Diagnostic{{
+			Pos: m.Pos(),
+			Issue: MalformedName(
+				fmt.Sprintf("first letter after %q in %q must not be lowercase", prefix, name),
+			),
+		}}, false
+	}
+
+	sig := m.Signature()
+
+	if sig.Results().Len() > 0 {
+		return SuiteTest{}, []Diagnostic{{
+			Pos:   m.Pos(),
+			Issue: InvalidSignature(name + " must not return values"),
+		}}, false
+	}
+
+	params := sig.Params()
+
+	if params.Len() < 1 || params.Len() > 2 {
+		return SuiteTest{}, []Diagnostic{{
+			Pos: m.Pos(),
+			Issue: InvalidSignature(
+				fmt.Sprintf(
+					"%s must accept either 1 or 2 parameters, got %d",
+					name,
+					params.Len(),
+				),
+			),
+		}}, false
+	}
+
+	if in := params.At(0); !types.Identical(in.Type(), tType) {
+		return SuiteTest{}, []Diagnostic{{
+			Pos: m.Pos(),
+			Issue: InvalidSignature(
+				fmt.Sprintf(
+					"%s must accept %s, got %s",
+					name,
+					typeutil.Format(tType),
+					typeutil.Format(in.Type()),
+				),
+			),
+		}}, false
+	}
+
+	if params.Len() == 1 {
+		return SuiteTest{
+			Name: name,
+			Pos:  m.Pos(),
+		}, nil, true
+	}
+
+	return asParametrizedTest(m, cases)
+}
+
+// asParametrizedTest validates the second (parameters struct)
+// argument of a TestXxx suite method against collected cases.
+func asParametrizedTest(m *types.Func, cases Cases) (SuiteTest, []Diagnostic, bool) {
+	name := m.Name()
+	second := m.Signature().Params().At(1)
+
+	params, ok := second.Type().Underlying().(*types.Struct)
+	if !ok {
+		return SuiteTest{}, []Diagnostic{{
+			Pos: m.Pos(),
+			Issue: InvalidSignature(
+				fmt.Sprintf(
+					"%s must accept struct as second parameter, got %s",
+					name,
+					second.Type(),
+				),
+			),
+		}}, false
+	}
+
+	var diagnostics []Diagnostic
+
+	var parameters []Parameter
+
+	for f := range params.Fields() {
+		if !f.Exported() {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos: m.Pos(),
+				Issue: InvalidSignature(
+					fmt.Sprintf("%s parameters must be exported, got %s", name, f.Name()),
+				),
+			})
+
+			continue
+		}
+
+		forParam, ok := cases[f.Name()]
+		if !ok {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos: m.Pos(),
+				Issue: InvalidSignature(
+					fmt.Sprintf("%s requires unknown parameter %s", name, f.Name()),
+				),
+			})
+
+			continue
+		}
+
+		if !types.AssignableTo(forParam.Type, f.Type()) {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos: m.Pos(),
+				Issue: InvalidSignature(
+					fmt.Sprintf(
+						"%s requires param %s to be of type %s, have %s",
+						name,
+						f.Name(),
+						f.Type(),
+						forParam.Type,
+					),
+				),
+			})
+
+			continue
+		}
+
+		parameters = append(parameters, Parameter{
+			Name: f.Name(),
+			Type: f.Type(),
+		})
+	}
+
+	if len(diagnostics) > 0 {
+		return SuiteTest{}, diagnostics, false
+	}
+
+	return SuiteTest{
+		Pos:          m.Pos(),
+		Name:         name,
+		Parametrized: true,
+		Parameters:   parameters,
+	}, nil, true
 }
 
 func (c *Config) asT(f *types.Var) (T, bool) {
@@ -369,18 +382,28 @@ func (c *Config) asT(f *types.Var) (T, bool) {
 		return T{}, false
 	}
 
-	if suite.Obj().Pkg().Path() != c.Testo {
+	if pkg := suite.Obj().Pkg(); pkg == nil || pkg.Path() != c.Testo {
 		return T{}, false
 	}
 
-	aStruct := suite.Underlying().(*types.Struct)
-	field := aStruct.Field(0)
-	array := field.Type().Underlying().(*types.Array)
-	pointer := array.Elem().Underlying().(*types.Pointer)
+	// testo.Suite[T] is struct{ _ [0]*T }; extract T without
+	// panicking if the layout differs (e.g. CLI/testo version skew)
+	aStruct, ok := suite.Underlying().(*types.Struct)
+	if !ok || aStruct.NumFields() == 0 {
+		return T{}, false
+	}
 
-	elem := pointer.Elem()
+	array, ok := aStruct.Field(0).Type().Underlying().(*types.Array)
+	if !ok {
+		return T{}, false
+	}
 
-	return T{Type: elem}, true
+	pointer, ok := array.Elem().Underlying().(*types.Pointer)
+	if !ok {
+		return T{}, false
+	}
+
+	return T{Type: pointer.Elem()}, true
 }
 
 type Cases map[string]Case
@@ -402,104 +425,108 @@ func (c *Config) collectCases(
 			continue
 		}
 
-		if !parse.IsTest(m.Name(), prefix) {
-			diagnostics = append(diagnostics, Diagnostic{
-				Pos: m.Pos(),
-				Issue: MalformedName(
-					fmt.Sprintf(
-						"first letter after %q in %q must not be lowercase",
-						prefix,
-						m.Name(),
-					),
-				),
-			})
+		aCase, d, ok := c.asCase(m)
 
-			fatal = true
+		diagnostics = append(diagnostics, d...)
 
-			continue
-		}
-
-		sig := m.Signature()
-
-		if sig.Params().Len() != 0 {
-			diagnostics = append(diagnostics, Diagnostic{
-				Pos:   m.Pos(),
-				Issue: InvalidSignature(m.Name() + " must not accept parameters"),
-			})
-
-			fatal = true
-
-			continue
-		}
-
-		results := sig.Results()
-
-		if results.Len() != 1 {
-			diagnostics = append(diagnostics, Diagnostic{
-				Pos:   m.Pos(),
-				Issue: InvalidSignature(m.Name() + " must return exactly one result"),
-			})
-
-			fatal = true
-
-			continue
-		}
-
-		out := results.At(0).Type().Underlying()
-
-		s, ok := out.(*types.Slice)
 		if !ok {
-			diagnostics = append(diagnostics, Diagnostic{
-				Pos: m.Pos(),
-				Issue: InvalidSignature(
-					fmt.Sprintf("%s must return a slice, got %s", m.Name(), out),
-				),
-			})
-
 			fatal = true
 
 			continue
 		}
 
-		name := strings.TrimPrefix(m.Name(), prefix)
-		elem := s.Elem()
-
-		if private, numFields := findPrivateFields(elem); len(private) > 0 {
-			if len(private) == numFields {
-				diagnostics = append(diagnostics, Diagnostic{
-					Pos: private[0].Pos(),
-					Issue: PrivateField(fmt.Sprintf(
-						"type returned by %s%s contains only private fields",
-						prefix, name,
-					)),
-				})
-			} else if c.Strict {
-				diagnostics = append(diagnostics, Diagnostic{
-					Pos: private[0].Pos(),
-					Issue: PrivateField(fmt.Sprintf(
-						"type returned by %s%s contains private field %q",
-						prefix, name, private[0].Name(),
-					)),
-				})
-			}
-		}
-
-		cases[name] = Case{
-			Name: name,
-			Type: elem,
-		}
+		cases[aCase.Name] = aCase
 	}
 
 	return cases, diagnostics, fatal
 }
 
-func findPrivateFields(t types.Type) ([]*types.Var, int) {
+// asCase validates a CasesXxx suite method and describes it as a Case.
+// Non-ok diagnostics are fatal; an ok Case may still carry warnings.
+func (c *Config) asCase(m *types.Func) (Case, []Diagnostic, bool) {
+	const prefix = "Cases"
+
+	if !parse.IsTest(m.Name(), prefix) {
+		return Case{}, []Diagnostic{{
+			Pos: m.Pos(),
+			Issue: MalformedName(
+				fmt.Sprintf(
+					"first letter after %q in %q must not be lowercase",
+					prefix,
+					m.Name(),
+				),
+			),
+		}}, false
+	}
+
+	sig := m.Signature()
+
+	if sig.Params().Len() != 0 {
+		return Case{}, []Diagnostic{{
+			Pos:   m.Pos(),
+			Issue: InvalidSignature(m.Name() + " must not accept parameters"),
+		}}, false
+	}
+
+	results := sig.Results()
+
+	if results.Len() != 1 {
+		return Case{}, []Diagnostic{{
+			Pos:   m.Pos(),
+			Issue: InvalidSignature(m.Name() + " must return exactly one result"),
+		}}, false
+	}
+
+	out := results.At(0).Type().Underlying()
+
+	s, ok := out.(*types.Slice)
+	if !ok {
+		return Case{}, []Diagnostic{{
+			Pos: m.Pos(),
+			Issue: InvalidSignature(
+				fmt.Sprintf("%s must return a slice, got %s", m.Name(), out),
+			),
+		}}, false
+	}
+
+	name := strings.TrimPrefix(m.Name(), prefix)
+	elemType := s.Elem()
+
+	var diagnostics []Diagnostic
+
+	if private, numFields := findPrivateFields(elemType); len(private) > 0 {
+		if len(private) == numFields {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos: private[0].Pos(),
+				Issue: PrivateField(fmt.Sprintf(
+					"type returned by %s%s contains only private fields",
+					prefix, name,
+				)),
+			})
+		} else if c.Strict {
+			diagnostics = append(diagnostics, Diagnostic{
+				Pos: private[0].Pos(),
+				Issue: PrivateField(fmt.Sprintf(
+					"type returned by %s%s contains private field %q",
+					prefix, name, private[0].Name(),
+				)),
+			})
+		}
+	}
+
+	return Case{
+		Name: name,
+		Type: elemType,
+	}, diagnostics, true
+}
+
+func findPrivateFields(t types.Type) (private []*types.Var, numFields int) {
 	s, ok := t.Underlying().(*types.Struct)
 	if !ok {
 		return nil, 0
 	}
 
-	private := make([]*types.Var, 0, s.NumFields())
+	private = make([]*types.Var, 0, s.NumFields())
 
 	for f := range s.Fields() {
 		if !f.Exported() {
@@ -515,7 +542,7 @@ type Diagnostic struct {
 	Issue Issue
 }
 
-func (d Diagnostic) JSON(w io.Writer, set *token.FileSet) {
+func (d Diagnostic) JSON(w io.Writer, set *token.FileSet) error {
 	type Entry struct {
 		File    string `json:"file"`
 		Line    int    `json:"line"`
@@ -532,7 +559,7 @@ func (d Diagnostic) JSON(w io.Writer, set *token.FileSet) {
 		Message: d.Issue.Message(),
 	}
 
-	_ = json.NewEncoder(w).Encode(entry)
+	return json.NewEncoder(w).Encode(entry)
 }
 
 func (d Diagnostic) Print(w io.Writer, set *token.FileSet) {
@@ -543,11 +570,8 @@ func (d Diagnostic) Print(w io.Writer, set *token.FileSet) {
 }
 
 func (d Diagnostic) Println(w io.Writer, set *token.FileSet) {
-	b := bufio.NewWriter(w)
-	defer b.Flush()
-
-	d.Print(b, set)
-	fmt.Fprintln(b)
+	d.Print(w, set)
+	fmt.Fprintln(w)
 }
 
 type Issue interface {

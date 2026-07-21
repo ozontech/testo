@@ -63,7 +63,17 @@ func (c Cmd) Run(patterns ...string) error {
 
 	suites, err := loader.Load(c.Load, "./...")
 	if err != nil {
-		return err
+		var errLoad *loader.LoadError
+
+		if !errors.As(err, &errLoad) {
+			return err
+		}
+
+		// diagnostics are warnings here: run the suites that did load,
+		// reporting problems is the job of "testo lint"
+		for _, d := range errLoad.Diagnostics {
+			d.Println(os.Stderr, errLoad.FSet)
+		}
 	}
 
 	matched := make(map[string]runMatched)
@@ -115,44 +125,75 @@ func (c Cmd) Run(patterns ...string) error {
 	return res.Run()
 }
 
-func (c Cmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error) {
-	packages := make(map[string]struct{})
-	suiteCallers := make(map[string]struct{})
-	tests := make(map[string]struct{})
+type goTestTarget struct {
+	packages     map[string]struct{}
+	suiteCallers map[string]struct{}
+	tests        map[string]struct{}
+	tags         []string
+}
+
+func collectTarget(matched []runMatched) (goTestTarget, error) {
+	target := goTestTarget{
+		packages:     make(map[string]struct{}),
+		suiteCallers: make(map[string]struct{}),
+		tests:        make(map[string]struct{}),
+	}
 
 	seenTags := make(map[string]bool)
-	var tags []string
 
 	for _, m := range matched {
 		runners, err := m.Suite.Runners(context.Background())
 		if err != nil {
-			return nil, fmt.Errorf("find runners for suite %q: %w", m.Suite.Name, err)
+			return target, fmt.Errorf("find runners for suite %q: %w", m.Suite.Name, err)
+		}
+
+		if len(runners) == 0 {
+			fmt.Fprintf(
+				os.Stderr,
+				"warning: no test function calling testo.RunSuite found for suite %s, skipping\n",
+				m.Suite.ID(),
+			)
+
+			continue
 		}
 
 		for _, r := range runners {
-			packages[r.Dir] = struct{}{}
-			suiteCallers[fmt.Sprintf("^%s$/^%s$", r.Name, m.Suite.Name)] = struct{}{}
+			target.packages[r.Dir] = struct{}{}
+			target.suiteCallers[fmt.Sprintf("^%s$/^%s$", r.Name, m.Suite.Name)] = struct{}{}
 
 			for t := range strings.SplitSeq(r.Tags, ",") {
-				if seenTags[t] {
+				if t == "" || seenTags[t] {
 					continue
 				}
 
 				seenTags[t] = true
-				tags = append(tags, t)
+				target.tags = append(target.tags, t)
 			}
 		}
 
 		for t := range m.Tests {
-			tests[t] = struct{}{}
+			target.tests[t] = struct{}{}
 		}
 	}
 
-	if len(matched) > 0 && len(packages) == 0 {
+	return target, nil
+}
+
+func (c Cmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error) {
+	target, err := collectTarget(matched)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(target.packages) == 0 {
 		return nil, errors.New("suite callers not found")
 	}
 
-	args := []string{"test", "-tags", strings.Join(tags, ",")}
+	args := []string{"test"}
+
+	if len(target.tags) > 0 {
+		args = append(args, "-tags", strings.Join(target.tags, ","))
+	}
 
 	if c.Verbose {
 		args = append(args, "-v")
@@ -162,36 +203,30 @@ func (c Cmd) buildGoTest(matched []runMatched, extra []string) (*exec.Cmd, error
 		args = append(args, "-json")
 	}
 
-	for p := range packages {
-		args = append(args, p)
-	}
+	args = append(args, slices.Sorted(maps.Keys(target.packages))...)
 
-	if len(packages) == 0 {
-		args = append(args, ".")
-	}
-
-	if len(suiteCallers) > 0 {
+	if len(target.suiteCallers) > 0 {
 		args = append(
 			args,
 			"-run",
-			strings.Join(slices.Sorted(maps.Keys(suiteCallers)), "|"),
+			strings.Join(slices.Sorted(maps.Keys(target.suiteCallers)), "|"),
 		)
 	}
 
-	if len(tests) > 0 {
+	if len(target.tests) > 0 {
 		args = append(
 			args,
 			"-testo.m",
 			fmt.Sprintf(
 				"^(%s)$",
-				strings.Join(slices.Sorted(maps.Keys(tests)), "|"),
+				strings.Join(slices.Sorted(maps.Keys(target.tests)), "|"),
 			),
 		)
 	}
 
 	args = append(args, extra...)
 
-	command := exec.Command("go", args...)
+	command := exec.CommandContext(context.Background(), "go", args...)
 
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr

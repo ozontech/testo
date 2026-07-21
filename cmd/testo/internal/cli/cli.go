@@ -9,25 +9,32 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 )
 
 //go:embed logo.txt
 var logo string
 
+// arg0 is the program name for usage texts,
+// without the (possibly long) path prefix.
+func arg0() string {
+	return filepath.Base(os.Args[0])
+}
+
 func usage(f *flag.FlagSet) {
 	var buf bytes.Buffer
 
 	fmt.Fprint(&buf, logo)
 	fmt.Fprintln(&buf, "Usage:")
-	fmt.Fprintf(&buf, "  %s [command]\n\n", os.Args[0])
+	fmt.Fprintf(&buf, "  %s [command]\n\n", arg0())
 	fmt.Fprintln(&buf, "Available Commands:")
 
 	for _, cmd := range slices.Sorted(maps.Keys(commands)) {
 		fmt.Fprintf(&buf, "  %-10s %s\n", cmd, commands[cmd].Short)
 	}
 
-	f.Output().Write(buf.Bytes())
+	_, _ = f.Output().Write(buf.Bytes())
 	f.PrintDefaults()
 }
 
@@ -158,12 +165,15 @@ func Add[C Command](name string, flags func(f *flag.FlagSet, cmd *C), options ..
 
 				f.VisitAll(func(*flag.Flag) { hasFlags = true })
 
-				if conf.Usage != "" {
-					fmt.Fprintf(f.Output(), "  %s %s %s\n", os.Args[0], name, conf.Usage)
-				} else if hasFlags {
-					fmt.Fprintf(f.Output(), "  %s %s [flags]\n", os.Args[0], name)
-				} else {
-					fmt.Fprintf(f.Output(), "  %s %s\n", os.Args[0], name)
+				switch {
+				case conf.Usage != "":
+					fmt.Fprintf(f.Output(), "  %s %s %s\n", arg0(), name, conf.Usage)
+
+				case hasFlags:
+					fmt.Fprintf(f.Output(), "  %s %s [flags]\n", arg0(), name)
+
+				default:
+					fmt.Fprintf(f.Output(), "  %s %s\n", arg0(), name)
 				}
 
 				if hasFlags {
@@ -181,7 +191,7 @@ func Add[C Command](name string, flags func(f *flag.FlagSet, cmd *C), options ..
 
 			if conf.Args != nil {
 				if err := conf.Args(positional...); err != nil {
-					return fmt.Errorf("%s %s: %w", os.Args[0], name, err)
+					return fmt.Errorf("%s %s: %w", arg0(), name, err)
 				}
 			}
 
@@ -193,12 +203,28 @@ func Add[C Command](name string, flags func(f *flag.FlagSet, cmd *C), options ..
 func parseFlagSet(f *flag.FlagSet, args []string) error {
 	positional := make([]string, 0, len(args))
 
-	for {
+	for len(args) > 0 {
+		if args[0] == "--" {
+			positional = append(positional, args[1:]...)
+
+			break
+		}
+
 		if err := f.Parse(args); err != nil {
 			return err
 		}
 
-		args = args[len(args)-f.NArg():]
+		rest := args[len(args)-f.NArg():]
+
+		// flag.Parse consumes a "--" terminator silently;
+		// detect it and keep everything after it positional as-is
+		if i := len(args) - f.NArg() - 1; i >= 0 && args[i] == "--" {
+			positional = append(positional, rest...)
+
+			break
+		}
+
+		args = rest
 		if len(args) == 0 {
 			break
 		}
@@ -208,5 +234,7 @@ func parseFlagSet(f *flag.FlagSet, args []string) error {
 		args = args[1:]
 	}
 
-	return f.Parse(positional)
+	// re-parse behind a "--" terminator so that flag-like positionals
+	// (e.g. go test flags) are not parsed as our own flags
+	return f.Parse(append([]string{"--"}, positional...))
 }

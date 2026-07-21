@@ -73,6 +73,7 @@ func (p Pos) String() string {
 
 func templateTypes(indent string) string {
 	const start = "//types:start"
+
 	const end = "//types:end"
 
 	var inTypes bool
