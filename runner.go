@@ -5,6 +5,7 @@ import (
 	"path"
 	"reflect"
 	"runtime/debug"
+	"strings"
 	"testing"
 
 	"github.com/ozontech/testo/internal/reflectutil"
@@ -179,10 +180,17 @@ func Run[T CommonT](
 
 				parentSuite := parentT.unwrap().reflection.Load().Suite
 
+				// Derive the virtual name from the native one, which is
+				// deduplicated synchronously at Run-call time. Deduplicating
+				// independently here would let concurrent Run calls with equal
+				// names pair virtual names with the wrong native subtests.
+				nativeParent := parentT.unwrap().testingT.Name()
+				baseName := strings.TrimPrefix(testingT.Name(), nativeParent+"/")
+
 				t.reflection.Modify(func(r *testoreflect.Reflection) {
 					r.Suite = parentSuite
 					r.Test = testoreflect.RegularTestInfo{
-						Name:        parentT.unwrap().testNamer.Name(parentT.unwrap().Name(), name),
+						Name:        parentT.unwrap().Name() + "/" + baseName,
 						RawBaseName: name,
 						Level:       t.level(),
 						IsSubtest:   true,
@@ -194,17 +202,8 @@ func Run[T CommonT](
 		)
 
 		defer func() {
-			if r := recover(); r != nil {
-				trace := string(debug.Stack())
-
-				t.unwrap().reflection.Modify(func(r *testoreflect.Reflection) {
-					r.Panic = &testoreflect.PanicInfo{
-						Value: r,
-						Trace: trace,
-					}
-				})
-
-				t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), r, trace)
+			if rec := recover(); rec != nil {
+				recordPanic(t, rec)
 			}
 		}()
 
@@ -212,7 +211,7 @@ func Run[T CommonT](
 
 		runHook(t, t.unwrap().spec.Hooks.BeforeEachSub)
 
-		f(t)
+		runProtected(t, func() { f(t) })
 	})
 }
 
@@ -383,17 +382,8 @@ func (r *runner[Suite, T]) runSuiteTest(
 	t.Helper()
 
 	defer func() {
-		if r := recover(); r != nil {
-			trace := string(debug.Stack())
-
-			t.unwrap().reflection.Modify(func(ref *testoreflect.Reflection) {
-				ref.Panic = &testoreflect.PanicInfo{
-					Value: r,
-					Trace: trace,
-				}
-			})
-
-			t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), r, trace)
+		if rec := recover(); rec != nil {
+			recordPanic(t, rec)
 		}
 	}()
 
@@ -405,7 +395,42 @@ func (r *runner[Suite, T]) runSuiteTest(
 
 	s.BeforeEach(t)
 
-	test.Run(s, t)
+	runProtected(t, func() { test.Run(s, t) })
+}
+
+// runProtected runs f, converting a panic into a recorded test failure
+// before deferred after-hooks run, so that they observe the failed state
+// instead of executing mid-unwinding against a seemingly passing test.
+func runProtected[T CommonT](t T, f func()) {
+	t.Helper()
+
+	defer func() {
+		if rec := recover(); rec != nil {
+			recordPanic(t, rec)
+		}
+	}()
+
+	f()
+}
+
+// recordPanic stores rec as the test's panic information and fails the test.
+// An already recorded panic is kept, so the original panic value survives
+// even if an after-hook panics during unwinding.
+func recordPanic[T CommonT](t T, rec any) {
+	t.Helper()
+
+	trace := string(debug.Stack())
+
+	t.unwrap().reflection.Modify(func(ref *testoreflect.Reflection) {
+		if ref.Panic == nil {
+			ref.Panic = &testoreflect.PanicInfo{
+				Value: rec,
+				Trace: trace,
+			}
+		}
+	})
+
+	t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), rec, trace)
 }
 
 func (r *runner[Suite, T]) applyPlan(

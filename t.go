@@ -81,6 +81,12 @@ type (
 		failureKind     atomicInt[testoreflect.TestFailureKind]
 		hasFatalSubtest atomic.Bool
 
+		// isParallel and denyParallel mirror the testing package guards:
+		// Setenv and Chdir mutate process-wide state and therefore conflict
+		// with Parallel. See [T.checkParallel].
+		isParallel   atomic.Bool
+		denyParallel atomic.Bool
+
 		// propagateParallel if enabled, will route .Parallel() calls
 		// to suite's TestingT.
 		//
@@ -88,6 +94,11 @@ type (
 		propagateParallel bool
 
 		plugins map[reflect.Type]testoplugin.Plugin
+
+		// pluginOrder holds plugin types in their declaration order inside
+		// the user T struct. Specs are merged in this order so that
+		// equal-priority hooks and overrides run deterministically.
+		pluginOrder []reflect.Type
 	}
 
 	testoT = T
@@ -124,6 +135,12 @@ func (t *T) Parallel() {
 func (t *T) parallel() {
 	t.Helper()
 
+	if t.denyParallel.Load() {
+		panic("testo: test using t.Setenv or t.Chdir can not use t.Parallel")
+	}
+
+	t.isParallel.Store(true)
+
 	if t.propagateParallel {
 		t.reflection.Load().Suite.TestingT.Parallel()
 
@@ -131,6 +148,22 @@ func (t *T) parallel() {
 	}
 
 	t.common.Parallel()
+}
+
+// checkParallel mirrors testing.common.checkParallel: methods that mutate
+// process-wide state (Setenv, Chdir) cannot be used in parallel tests or
+// tests with parallel ancestors, and forbid a later t.Parallel call.
+func (t *T) checkParallel(method string) {
+	for c := t; c != nil; c = c.parent {
+		if c.isParallel.Load() {
+			panic(
+				"testo: t." + method + " called after t.Parallel; " +
+					"it cannot be used in parallel tests or tests with parallel ancestors",
+			)
+		}
+	}
+
+	t.denyParallel.Store(true)
 }
 
 // Setenv calls os.Setenv(key, value) and uses Cleanup to
@@ -150,6 +183,8 @@ func (t *T) Setenv(key, value string) {
 // overrides for methods such as fatal or cleanup.
 func (t *T) setenv(key, value string) {
 	t.Helper()
+
+	t.checkParallel("Setenv")
 
 	prevValue, ok := os.LookupEnv(key)
 
@@ -352,6 +387,8 @@ func (t *T) Chdir(dir string) {
 func (t *T) chdir(dir string) {
 	t.Helper()
 
+	t.checkParallel("Chdir")
+
 	oldwd, err := os.Open(".")
 	if err != nil {
 		t.Fatal(err)
@@ -443,7 +480,13 @@ func (t *T) markFailure(kind testoreflect.TestFailureKind) {
 		return
 	}
 
-	t.failureKind.Store(kind)
+	// never downgrade an already recorded fatal failure - e.g. t.Error
+	// called from a cleanup after t.Fatal must keep the fatal kind.
+	if !t.failureKind.CompareAndSwap(testoreflect.TestFailureKindNone, kind) &&
+		kind == testoreflect.TestFailureKindFatal {
+		t.failureKind.Store(kind)
+	}
+
 	t.failureSource.Store(testoreflect.TestFailureSourceSelf)
 
 	parent := t.parent

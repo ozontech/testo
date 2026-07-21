@@ -86,5 +86,15 @@ func getID[Suite any](test reflect.Value) testID {
 
 	name = strings.ReplaceAll(name, "(*"+suiteName+")", suiteName)
 
-	return testID(name)
+	// The runtime erases generic type arguments to "[...]" in function names,
+	// which would make all instantiations of a generic suite share annotations.
+	// Normalize the erased pointer-receiver form and scope the id by the
+	// concrete suite name (which keeps its type arguments).
+	if base, _, isGeneric := strings.Cut(suiteName, "["); isGeneric {
+		erased := base + "[...]"
+
+		name = strings.ReplaceAll(name, "(*"+erased+")", erased)
+	}
+
+	return testID(suiteName + "|" + name)
 }

@@ -312,7 +312,7 @@ func (c Cache) dir() (string, error) {
 }
 
 func readEntry(p, key string) ([]byte, error) {
-	info, err := os.Lstat(p)
+	linfo, err := os.Lstat(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, ErrNotFound
@@ -321,16 +321,33 @@ func readEntry(p, key string) ([]byte, error) {
 		return nil, err
 	}
 
-	if !info.Mode().IsRegular() {
+	if !linfo.Mode().IsRegular() {
 		return nil, ErrNotFound
 	}
 
-	value, err := os.ReadFile(p)
+	f, err := os.Open(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, ErrNotFound
 		}
 
+		return nil, err
+	}
+	defer f.Close()
+
+	// Stat the opened descriptor and require identity with the Lstat result,
+	// so a symlink swapped in between the two calls cannot be followed.
+	finfo, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	if !finfo.Mode().IsRegular() || !os.SameFile(linfo, finfo) {
+		return nil, ErrNotFound
+	}
+
+	value, err := io.ReadAll(f)
+	if err != nil {
 		return nil, err
 	}
 
@@ -416,7 +433,20 @@ func writeFileAtomic(p string, data []byte) (err error) {
 		return err
 	}
 
-	return os.Rename(tmp.Name(), p)
+	err = os.Rename(tmp.Name(), p)
+	if err != nil {
+		return err
+	}
+
+	// The rename is only durable across a crash once the parent directory is
+	// synced. Best-effort: syncing a directory is not supported everywhere
+	// (e.g. Windows), and the cache promises no durability.
+	if dir, dirErr := os.Open(filepath.Dir(p)); dirErr == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
+
+	return nil
 }
 
 func validateKey(key string) error {

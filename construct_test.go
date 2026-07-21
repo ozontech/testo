@@ -38,7 +38,11 @@ func (m *MockPluginWithoutT) Plugin(
 	parent testoplugin.Plugin,
 	options ...testoplugin.Option,
 ) testoplugin.Spec {
-	m.parent = parent.(*MockPluginWithoutT)
+	// parent is nil for top-level tests, as documented in [testoplugin.Plugin].
+	if parent != nil {
+		m.parent = parent.(*MockPluginWithoutT)
+	}
+
 	m.options = options
 	m.initCalled++
 
@@ -120,6 +124,14 @@ func TestConstruct(t *testing.T) {
 			if counter != 1 {
 				t.Errorf("counter #%d: initCalled not equal to 1", i)
 			}
+		}
+
+		if res.MockPluginWithoutT.parent != nil {
+			t.Error("res.MockPluginWithoutT.parent is not nil for a top-level test")
+		}
+
+		if child.MockPluginWithoutT.parent != res.MockPluginWithoutT {
+			t.Error("child.MockPluginWithoutT.parent does not point to the parent's plugin")
 		}
 
 		if !reflect.DeepEqual(res.T, child.T.parent) {
