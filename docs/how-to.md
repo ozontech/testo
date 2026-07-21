@@ -163,6 +163,46 @@ func (s *Suite) TestFoo(t *testo.T) {
 > by setting `.Propagate` field to `false` (disable) or `true` (enable).
 > However, it is highly discouraged to do so.
 
+## How to use persistent cache
+
+`testocache` stores key-value data between `go test` runs.
+By default it uses `.testo_cache` in the test working directory.
+
+```bash
+go test ./path/to/package -cache.dir /tmp/my-testo-cache
+```
+
+When testing multiple packages with `./...`, use the environment variable so
+packages that do not import `testocache` do not receive an unknown test flag:
+
+```bash
+TESTO_CACHE_DIR=/tmp/my-testo-cache go test ./...
+```
+
+```bash
+TESTO_CACHE_DISABLE=true go test ./...
+```
+
+For plugin state, prefer a namespace:
+
+```go
+var cache = testocache.Namespace("myplugin")
+```
+
+Namespaces are isolated from each other and from package-level
+`testocache.Get`, `Set`, `Keys`, and `Remove`.
+The scoped cache provides the same `Get`, `Set`, `Keys`, and `Remove` methods.
+`Keys` accepts the same glob syntax as `path.Match`.
+
+If cache is disabled, operations return `testocache.ErrDisabled`.
+If a key is missing, `Get` and `Remove` return `testocache.ErrNotFound`.
+Cache writes use a temporary file followed by `os.Rename`; atomic replacement
+follows the guarantees of `os.Rename` on the host platform.
+Malformed entries and entries whose stored key does not match the requested key
+are treated as missing. Concurrent operations are synchronized inside one test
+process; Testo does not provide cross-process locking for multiple `go test`
+processes sharing the same cache directory.
+
 ## How to structure tests
 
 Testo does not enforce any particular file structure to work.

@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Auxiliary command line tool for Testo featuring linter, suites explorer and runner.
 
+## [1.6.0] - 2026-07-17
+
+### Added
+
+- Added isolated persistent cache namespaces through `testocache.Namespace`.
+
+### Changed
+
+- Hardened persistent cache writes, entry validation, and missing-key handling.
+
 ## [1.5.1] - 2026-06-17
 
 ### Fixed
@@ -95,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial stable version.
 
+[1.6.0]: https://github.com/ozontech/testo/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/ozontech/testo/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/ozontech/testo/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ozontech/testo/compare/v1.3.2...v1.4.0
