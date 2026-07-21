@@ -31,7 +31,7 @@ doc:
 
 # get test coverage
 coverage:
-	go test -coverprofile=coverage.out -coverpkg=./... ./...
+	go test -coverprofile=coverage.out -coverpkg=.,./testo...,./internal/... ./...
 	go tool cover -func coverage.out
 
 # visualize test coverage
@@ -39,7 +39,7 @@ coverage-html: coverage
 	go tool cover -html coverage.out
 
 install:
-	go install ./cmd/testo
+	go install ./cmd/...
 
 update-examples-output:
 	./update-examples-output.sh
