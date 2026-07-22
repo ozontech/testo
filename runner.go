@@ -194,6 +194,8 @@ func Run[T CommonT](
 		)
 
 		defer func() {
+			t.Helper()
+
 			if rec := recover(); rec != nil {
 				recordPanic(t, rec)
 			}
@@ -203,7 +205,11 @@ func Run[T CommonT](
 
 		runHook(t, t.unwrap().spec.Hooks.BeforeEachSub)
 
-		runProtected(t, func() { f(t) })
+		runProtected(t, func() {
+			t.Helper()
+
+			f(t)
+		})
 	})
 }
 
@@ -374,6 +380,8 @@ func (r *runner[Suite, T]) runSuiteTest(
 	t.Helper()
 
 	defer func() {
+		t.Helper()
+
 		if rec := recover(); rec != nil {
 			recordPanic(t, rec)
 		}
@@ -387,16 +395,21 @@ func (r *runner[Suite, T]) runSuiteTest(
 
 	s.BeforeEach(t)
 
-	runProtected(t, func() { test.Run(s, t) })
+	runProtected(t, func() {
+		t.Helper()
+
+		test.Run(s, t)
+	})
 }
 
 // runProtected runs f, converting a panic into a recorded test failure
-// before deferred after-hooks run, so that they observe the failed state
-// instead of executing mid-unwinding against a seemingly passing test.
+// before deferred after-hooks run, so that they observe the failed state.
 func runProtected[T CommonT](t T, f func()) {
 	t.Helper()
 
 	defer func() {
+		t.Helper()
+
 		if rec := recover(); rec != nil {
 			recordPanic(t, rec)
 		}
