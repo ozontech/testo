@@ -5,7 +5,6 @@ import (
 	"path"
 	"reflect"
 	"runtime/debug"
-	"strings"
 	"testing"
 
 	"github.com/ozontech/testo/internal/reflectutil"
@@ -180,17 +179,10 @@ func Run[T CommonT](
 
 				parentSuite := parentT.unwrap().reflection.Load().Suite
 
-				// Derive the virtual name from the native one, which is
-				// deduplicated synchronously at Run-call time. Deduplicating
-				// independently here would let concurrent Run calls with equal
-				// names pair virtual names with the wrong native subtests.
-				nativeParent := parentT.unwrap().testingT.Name()
-				baseName := strings.TrimPrefix(testingT.Name(), nativeParent+"/")
-
 				t.reflection.Modify(func(r *testoreflect.Reflection) {
 					r.Suite = parentSuite
 					r.Test = testoreflect.RegularTestInfo{
-						Name:        parentT.unwrap().Name() + "/" + baseName,
+						Name:        parentT.unwrap().testNamer.Name(parentT.unwrap().Name(), name),
 						RawBaseName: name,
 						Level:       t.level(),
 						IsSubtest:   true,
