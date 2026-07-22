@@ -86,10 +86,18 @@ func getID[Suite any](test reflect.Value) testID {
 
 	name = strings.ReplaceAll(name, "(*"+suiteName+")", suiteName)
 
-	// The runtime erases generic type arguments to "[...]" in function names,
-	// which would make all instantiations of a generic suite share annotations.
-	// Normalize the erased pointer-receiver form and scope the id by the
-	// concrete suite name (which keeps its type arguments).
+	// Runtime erases generic type arguments to "[...]" in function names:
+	//
+	//	KVSuite[int].TestGet    -> "pkg.KVSuite[...].TestGet"
+	//	KVSuite[string].TestGet -> "pkg.KVSuite[...].TestGet" (same!)
+	//
+	// while suiteName keeps them ("KVSuite[int]").
+	//
+	// Code below gets us:
+	//
+	// 	KVSuite[int]|pkg.KVSuite[...].TestGet
+	// 	KVSuite[string]|pkg.KVSuite[...].TestGet
+
 	if base, _, isGeneric := strings.Cut(suiteName, "["); isGeneric {
 		erased := base + "[...]"
 

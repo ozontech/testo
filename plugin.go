@@ -226,9 +226,6 @@ func mergeOverride[F any](
 	getter func(testoplugin.Overrides) testoplugin.Override[F],
 ) func(F) F {
 	return func(f F) F {
-		// wrap in reverse so that the override with the lowest priority
-		// becomes the outermost wrapper, i.e. is called first -
-		// as documented on [testoplugin.Overrides.Priority].
 		for _, o := range slices.Backward(overrides) {
 			if override := getter(o); override != nil {
 				f = override(f)
