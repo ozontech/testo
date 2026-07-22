@@ -90,7 +90,7 @@ type TSuiteT struct {
 
 type TSuitePlugin struct{}
 
-var tSuiteOverridesCalls struct {
+type tSuiteCallCounts struct {
 	log,
 	parallel,
 	setenv,
@@ -108,6 +108,8 @@ var tSuiteOverridesCalls struct {
 	chdir   int
 	cleanup int
 }
+
+var tSuiteOverridesCalls tSuiteCallCounts
 
 func (p *TSuitePlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
 	return testoplugin.Spec{
@@ -234,6 +236,9 @@ func (TSuite) Test(t TSuiteT) {
 }
 
 func TestSuiteT(t *testing.T) {
+	// reset the counters so the test stays correct under -count>1
+	tSuiteOverridesCalls = tSuiteCallCounts{}
+
 	t.Parallel()
 
 	if !RunSuite(t, new(TSuite)) {

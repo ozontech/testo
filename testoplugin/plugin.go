@@ -5,7 +5,16 @@
 // Plugins can implement [Plugin] interface to be registered as such.
 //
 // Method "Plugin" will be called for each plugin before running a suite.
-// Parent is nil for top-level tests. For sub-tests it referes to the plugin instance of the parent test.
+// For sub-tests, parent refers to the plugin instance of the parent test.
+// For top-level tests, parent is a typed-nil instance of the plugin's own
+// type: the interface itself is non-nil, but the concrete pointer is nil,
+// so an unconditional type assertion like parent.(*PluginFoo) is safe.
+// To detect the top level, nil-check the asserted pointer, not the interface:
+//
+//	prev, _ := parent.(*PluginFoo)
+//	if prev != nil {
+//		// sub-test: use prev
+//	}
 //
 // It is encouraged to ensure a plugin implements [Plugin] interface with the following line:
 //

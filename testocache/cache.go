@@ -433,20 +433,10 @@ func writeFileAtomic(p string, data []byte) (err error) {
 		return err
 	}
 
-	err = os.Rename(tmp.Name(), p)
-	if err != nil {
-		return err
-	}
-
-	// The rename is only durable across a crash once the parent directory is
-	// synced. Best-effort: syncing a directory is not supported everywhere
-	// (e.g. Windows), and the cache promises no durability.
-	if dir, dirErr := os.Open(filepath.Dir(p)); dirErr == nil {
-		_ = dir.Sync()
-		_ = dir.Close()
-	}
-
-	return nil
+	// No fsync of the parent directory after the rename: it roughly doubles
+	// the cost of every Set (F_FULLFSYNC on darwin), and the cache promises
+	// no durability across a crash anyway.
+	return os.Rename(tmp.Name(), p)
 }
 
 func validateKey(key string) error {

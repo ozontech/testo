@@ -29,16 +29,21 @@ func (m *MockPluginWithT) Plugin(testoplugin.Plugin, ...testoplugin.Option) test
 }
 
 type MockPluginWithoutT struct {
-	parent     *MockPluginWithoutT
-	options    []testoplugin.Option
-	initCalled int
+	parent       *MockPluginWithoutT
+	parentNonNil bool
+	options      []testoplugin.Option
+	initCalled   int
 }
 
 func (m *MockPluginWithoutT) Plugin(
 	parent testoplugin.Plugin,
 	options ...testoplugin.Option,
 ) testoplugin.Spec {
-	// parent is nil for top-level tests, as documented in [testoplugin.Plugin].
+	// For top-level tests parent is a typed-nil *MockPluginWithoutT inside a
+	// non-nil interface, as documented in [testoplugin.Plugin]. Recording the
+	// interface comparison separately from the asserted pointer lets
+	// TestConstruct distinguish typed-nil from a true nil interface.
+	m.parentNonNil = parent != nil
 	if parent != nil {
 		m.parent = parent.(*MockPluginWithoutT)
 	}
@@ -126,8 +131,17 @@ func TestConstruct(t *testing.T) {
 			}
 		}
 
+		// Top level: parent must be a typed-nil instance of the plugin type -
+		// a non-nil interface wrapping a nil pointer - so that plugins doing
+		// an unconditional parent.(*MyPlugin) assertion keep working.
+		if !res.MockPluginWithoutT.parentNonNil {
+			t.Error(
+				"res.MockPluginWithoutT: top-level parent interface is nil, want typed-nil instance",
+			)
+		}
+
 		if res.MockPluginWithoutT.parent != nil {
-			t.Error("res.MockPluginWithoutT.parent is not nil for a top-level test")
+			t.Error("res.MockPluginWithoutT.parent is not a nil pointer for a top-level test")
 		}
 
 		if child.MockPluginWithoutT.parent != res.MockPluginWithoutT {

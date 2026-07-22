@@ -120,12 +120,16 @@ func construct[T CommonT](
 			continue
 		}
 
-		// parentPlugin stays a nil interface for top-level tests,
-		// as documented in [testoplugin.Plugin].
+		// For top-level tests the parent is a typed-nil instance of the
+		// plugin's own type: the interface is non-nil, so unconditional
+		// parent.(*MyPlugin) assertions keep working, and the concrete
+		// pointer is nil. See [testoplugin.Plugin].
 		var parentPlugin testoplugin.Plugin
 
 		if parent != nil {
 			parentPlugin = (*parent).unwrap().plugins[p.Type]
+		} else {
+			parentPlugin = reflect.New(p.Type).Elem().Interface().(testoplugin.Plugin)
 		}
 
 		specs[p.Type] = p.Plugin.Plugin(parentPlugin, seed.options()...)
