@@ -154,6 +154,8 @@ func (t *T) parallel() {
 // process-wide state (Setenv, Chdir) cannot be used in parallel tests or
 // tests with parallel ancestors, and forbid a later t.Parallel call.
 func (t *T) checkParallel(method string) {
+	t.Helper()
+
 	for c := t; c != nil; c = c.parent {
 		if c.isParallel.Load() {
 			panic(
