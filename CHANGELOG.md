@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Panics in `BeforeAll` & `AfterAll` hooks (both suite and plugin) are now caught and recorded as test failures; a panic in `BeforeAll` still prevents the suite tests from running.
 - `t.Setenv` and `t.Chdir` now enforce the standard library's conflict guards against `t.Parallel`.
 - The error for a non-pointer exported field now names the owning type and field.
+- Better wording for a warning then `CasesXxx` returnes empty slice.
 
 ### Fixed
 
