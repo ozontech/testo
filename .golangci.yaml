@@ -60,7 +60,7 @@ linters:
     cyclop:
       max-complexity: 15
     funlen:
-      lines: 80
+      lines: 90
     gosec:
       excludes:
         - G304

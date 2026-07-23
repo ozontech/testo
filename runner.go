@@ -193,21 +193,9 @@ func Run[T CommonT](
 			options...,
 		)
 
-		defer func() {
-			t.Helper()
+		defer runProtectedHook(t, "plugin AfterEachSub hook", t.unwrap().spec.Hooks.AfterEachSub)
 
-			runProtected(t, "plugin after each sub hook", func() {
-				t.Helper()
-
-				runHook(t, t.unwrap().spec.Hooks.AfterEachSub)
-			})
-		}()
-
-		runProtected(t, "plugin before each sub hook", func() {
-			t.Helper()
-
-			runHook(t, t.unwrap().spec.Hooks.BeforeEachSub)
-		})
+		runProtectedHook(t, "plugin BeforeEachSub hook", t.unwrap().spec.Hooks.BeforeEachSub)
 
 		runProtected(t, "sub-test", func() {
 			t.Helper()
@@ -313,18 +301,10 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 			return
 		}
 
-		runProtected(t, "plugin after all hook", func() {
-			t.Helper()
-
-			runHook(t, t.unwrap().spec.Hooks.AfterAll)
-		})
+		runProtectedHook(t, "plugin AfterAll hook", t.unwrap().spec.Hooks.AfterAll)
 	}()
 
-	runProtected(t, "plugin before all hook", func() {
-		t.Helper()
-
-		runHook(t, t.unwrap().spec.Hooks.BeforeAll)
-	})
+	runProtectedHook(t, "plugin BeforeAll hook", t.unwrap().spec.Hooks.BeforeAll)
 
 	defer func() {
 		t.Helper()
@@ -333,14 +313,14 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 			return
 		}
 
-		runProtected(t, "suite after all hook", func() {
+		runProtected(t, "suite AfterAll hook", func() {
 			t.Helper()
 
 			s.AfterAll(t)
 		})
 	}()
 
-	runProtected(t, "suite before all hook", func() {
+	runProtected(t, "suite BeforeAll hook", func() {
 		t.Helper()
 
 		s.BeforeAll(t)
@@ -407,25 +387,17 @@ func (r *runner[Suite, T]) runSuiteTest(
 ) {
 	t.Helper()
 
-	defer runProtected(t, "plugin after each hook", func() {
-		t.Helper()
+	defer runProtectedHook(t, "plugin AfterEach hook", t.unwrap().spec.Hooks.AfterEach)
 
-		runHook(t, t.unwrap().spec.Hooks.AfterEach)
-	})
+	runProtectedHook(t, "plugin BeforeEach hook", t.unwrap().spec.Hooks.BeforeEach)
 
-	runProtected(t, "plugin before each hook", func() {
-		t.Helper()
-
-		runHook(t, t.unwrap().spec.Hooks.BeforeEach)
-	})
-
-	defer runProtected(t, "suite after each hook", func() {
+	defer runProtected(t, "suite AfterEach hook", func() {
 		t.Helper()
 
 		s.AfterEach(t)
 	})
 
-	runProtected(t, "suite before each hook", func() {
+	runProtected(t, "suite BeforeEach hook", func() {
 		t.Helper()
 
 		s.BeforeEach(t)
@@ -452,6 +424,16 @@ func runProtected[T CommonT](t T, kind string, f func()) {
 	}()
 
 	f()
+}
+
+func runProtectedHook[T CommonT](t T, kind string, hook testoplugin.Hook) {
+	t.Helper()
+
+	runProtected(t, kind, func() {
+		t.Helper()
+
+		runHook(t, hook)
+	})
 }
 
 // recordPanic stores rec as the test's panic information and fails the test.
