@@ -1,0 +1,16 @@
+<idea-plugin>
+    <id>com.ozontech.testo.helper</id>
+    <name>Testo Framework Helper</name>
+    <vendor>Ozon Tech</vendor>
+    <description><![CDATA[
+        Adds GoLand gutter actions and run configurations for Testo suites and individual suite tests.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.go</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <runConfigurationProducer implementation="com.ozontech.testo.goland.run.TestoRunConfigurationProducer"/>
+        <runLineMarkerContributor language="go" implementationClass="com.ozontech.testo.goland.marker.TestoRunLineMarkerContributor"/>
+    </extensions>
+</idea-plugin>
