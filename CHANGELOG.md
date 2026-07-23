@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- Panics in tests now record the actual recovered value, are observed by after-hooks as a failed test.
+- `t.Setenv` and `t.Chdir` now enforce the standard library's conflict guards against `t.Parallel`.
+- Plugin hooks and overrides with equal priority now run deterministically, in the declaration order of plugins.
+- Overrides are now applied in the documented priority order, consistent with hooks.
+- `t.Error` called after `t.Fatal` (e.g. from a cleanup) no longer downgrades the recorded fatal failure kind.
+- Annotations no longer leak between instantiations of a generic suite.
+- Persistent cache reads no longer follow a symlink swapped in after validation.
+- The error for a non-pointer exported field now names the owning type and field.
+
 ## [1.6.0] - 2026-07-17
 
 ### Added
