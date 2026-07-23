@@ -193,6 +193,128 @@ func TestConstruct(t *testing.T) {
 	})
 }
 
+// nestedPluginCalls records the order in which Plugin is called for the mock
+// plugins below. Only TestConstructNestedPluginOrder and its plugins touch it.
+var nestedPluginCalls []string
+
+type MockInnerPlugin struct{ initCalled int }
+
+func (m *MockInnerPlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
+	m.initCalled++
+	nestedPluginCalls = append(nestedPluginCalls, "Inner")
+
+	return testoplugin.Spec{}
+}
+
+type MockOuterPlugin struct {
+	Inner *MockInnerPlugin
+
+	initCalled int
+}
+
+func (m *MockOuterPlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
+	m.initCalled++
+	nestedPluginCalls = append(nestedPluginCalls, "Outer")
+
+	return testoplugin.Spec{}
+}
+
+type MockDeepPlugin struct{ initCalled int }
+
+func (m *MockDeepPlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
+	m.initCalled++
+	nestedPluginCalls = append(nestedPluginCalls, "Deep")
+
+	return testoplugin.Spec{}
+}
+
+type MockMidPlugin struct {
+	Deep *MockDeepPlugin
+
+	initCalled int
+}
+
+func (m *MockMidPlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
+	m.initCalled++
+	nestedPluginCalls = append(nestedPluginCalls, "Mid")
+
+	return testoplugin.Spec{}
+}
+
+type NestedMockT struct {
+	*T
+
+	Outer *MockOuterPlugin
+	Mid   *MockMidPlugin
+}
+
+func TestConstructNestedPluginOrder(t *testing.T) {
+	t.Parallel()
+
+	nestedPluginCalls = nil
+
+	res := construct[NestedMockT](t, nil, nil)
+
+	if res.Outer.Inner == nil {
+		t.Fatal("res.Outer.Inner is nil")
+	}
+
+	if res.Mid.Deep == nil {
+		t.Fatal("res.Mid.Deep is nil")
+	}
+
+	for _, counter := range []struct {
+		name  string
+		value int
+	}{
+		{"Outer", res.Outer.initCalled},
+		{"Inner", res.Outer.Inner.initCalled},
+		{"Mid", res.Mid.initCalled},
+		{"Deep", res.Mid.Deep.initCalled},
+	} {
+		if counter.value != 1 {
+			t.Errorf("%s: initCalled = %d, want 1", counter.name, counter.value)
+		}
+	}
+
+	// Plugin must be called on a nested plugin before its container, so that
+	// the container observes fully initialized nested plugins. Sibling
+	// subtrees have no guaranteed relative order, so only pairwise
+	// nested-before-container positions are asserted.
+	for _, pair := range []struct{ nested, container string }{
+		{"Inner", "Outer"},
+		{"Deep", "Mid"},
+	} {
+		nestedIdx := slices.Index(nestedPluginCalls, pair.nested)
+		containerIdx := slices.Index(nestedPluginCalls, pair.container)
+
+		if nestedIdx < 0 || containerIdx < 0 {
+			t.Fatalf("missing Plugin calls in %v", nestedPluginCalls)
+		}
+
+		if nestedIdx > containerIdx {
+			t.Errorf(
+				"Plugin called for container %s before nested %s: %v",
+				pair.container, pair.nested, nestedPluginCalls,
+			)
+		}
+	}
+
+	// pluginOrder drives spec merging and must stay in declaration order:
+	// containers before their nested plugins, siblings as declared in T.
+	wantOrder := []reflect.Type{
+		reflect.TypeFor[*T](),
+		reflect.TypeFor[*MockOuterPlugin](),
+		reflect.TypeFor[*MockInnerPlugin](),
+		reflect.TypeFor[*MockMidPlugin](),
+		reflect.TypeFor[*MockDeepPlugin](),
+	}
+
+	if !slices.Equal(wantOrder, res.unwrap().pluginOrder) {
+		t.Errorf("pluginOrder = %v, want %v", res.unwrap().pluginOrder, wantOrder)
+	}
+}
+
 func mustPanic(t *testing.T, f func()) {
 	t.Helper()
 
