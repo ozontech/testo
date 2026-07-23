@@ -196,16 +196,20 @@ func Run[T CommonT](
 		defer func() {
 			t.Helper()
 
-			if rec := recover(); rec != nil {
-				recordPanic(t, rec)
-			}
+			runProtected(t, "plugin after each sub hook", func() {
+				t.Helper()
+
+				runHook(t, t.unwrap().spec.Hooks.AfterEachSub)
+			})
 		}()
 
-		defer runHook(t, t.unwrap().spec.Hooks.AfterEachSub)
+		runProtected(t, "plugin before each sub hook", func() {
+			t.Helper()
 
-		runHook(t, t.unwrap().spec.Hooks.BeforeEachSub)
+			runHook(t, t.unwrap().spec.Hooks.BeforeEachSub)
+		})
 
-		runProtected(t, func() {
+		runProtected(t, "sub-test", func() {
 			t.Helper()
 
 			f(t)
@@ -303,20 +307,44 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
 	t.Helper()
 
 	defer func() {
-		if !t.Skipped() {
-			runHook(t, t.unwrap().spec.Hooks.AfterAll)
+		t.Helper()
+
+		if t.Skipped() {
+			return
 		}
+
+		runProtected(t, "plugin after all hook", func() {
+			t.Helper()
+
+			runHook(t, t.unwrap().spec.Hooks.AfterAll)
+		})
 	}()
 
-	runHook(t, t.unwrap().spec.Hooks.BeforeAll)
+	runProtected(t, "plugin before all hook", func() {
+		t.Helper()
+
+		runHook(t, t.unwrap().spec.Hooks.BeforeAll)
+	})
 
 	defer func() {
-		if !t.Skipped() {
-			s.AfterAll(t)
+		t.Helper()
+
+		if t.Skipped() {
+			return
 		}
+
+		runProtected(t, "suite after all hook", func() {
+			t.Helper()
+
+			s.AfterAll(t)
+		})
 	}()
 
-	s.BeforeAll(t)
+	runProtected(t, "suite before all hook", func() {
+		t.Helper()
+
+		s.BeforeAll(t)
+	})
 
 	suiteReflection := t.unwrap().reflection.Load().Suite
 
@@ -379,23 +407,31 @@ func (r *runner[Suite, T]) runSuiteTest(
 ) {
 	t.Helper()
 
-	defer func() {
+	defer runProtected(t, "plugin after each hook", func() {
 		t.Helper()
 
-		if rec := recover(); rec != nil {
-			recordPanic(t, rec)
-		}
-	}()
+		runHook(t, t.unwrap().spec.Hooks.AfterEach)
+	})
 
-	defer runHook(t, t.unwrap().spec.Hooks.AfterEach)
+	runProtected(t, "plugin before each hook", func() {
+		t.Helper()
 
-	runHook(t, t.unwrap().spec.Hooks.BeforeEach)
+		runHook(t, t.unwrap().spec.Hooks.BeforeEach)
+	})
 
-	defer s.AfterEach(t)
+	defer runProtected(t, "suite after each hook", func() {
+		t.Helper()
 
-	s.BeforeEach(t)
+		s.AfterEach(t)
+	})
 
-	runProtected(t, func() {
+	runProtected(t, "suite before each hook", func() {
+		t.Helper()
+
+		s.BeforeEach(t)
+	})
+
+	runProtected(t, "test", func() {
 		t.Helper()
 
 		test.Run(s, t)
@@ -404,14 +440,14 @@ func (r *runner[Suite, T]) runSuiteTest(
 
 // runProtected runs f, converting a panic into a recorded test failure
 // before deferred after-hooks run, so that they observe the failed state.
-func runProtected[T CommonT](t T, f func()) {
+func runProtected[T CommonT](t T, kind string, f func()) {
 	t.Helper()
 
 	defer func() {
 		t.Helper()
 
 		if rec := recover(); rec != nil {
-			recordPanic(t, rec)
+			recordPanic(t, kind, rec)
 		}
 	}()
 
@@ -421,7 +457,7 @@ func runProtected[T CommonT](t T, f func()) {
 // recordPanic stores rec as the test's panic information and fails the test.
 // An already recorded panic is kept, so the original panic value survives
 // even if an after-hook panics during unwinding.
-func recordPanic[T CommonT](t T, rec any) {
+func recordPanic[T CommonT](t T, kind string, rec any) {
 	t.Helper()
 
 	trace := string(debug.Stack())
@@ -435,7 +471,7 @@ func recordPanic[T CommonT](t T, rec any) {
 		}
 	})
 
-	t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), rec, trace)
+	t.Fatalf("testo: %s in %q panicked: %v\n\n%s", kind, t.Name(), rec, trace)
 }
 
 func (r *runner[Suite, T]) applyPlan(

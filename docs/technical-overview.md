@@ -53,7 +53,7 @@ A root test named the same as a suite is run {
 Testo **will** catch panics from tests, including `BeforeEach`, `BeforeEachSub`, `AfterEachSub` & `AfterEach` hooks.
 Other tests will run even if some tests are panicking.
 
-Testo **will not** catch panics from `BeforeAll` & `AfterAll`.
+Testo **will** catch panics from `BeforeAll` & `AfterAll`.
 Panic in these hooks will result in suite tests not running.
 
 ## Plugins
