@@ -433,9 +433,6 @@ func writeFileAtomic(p string, data []byte) (err error) {
 		return err
 	}
 
-	// No fsync of the parent directory after the rename: it roughly doubles
-	// the cost of every Set (F_FULLFSYNC on darwin), and the cache promises
-	// no durability across a crash anyway.
 	return os.Rename(tmp.Name(), p)
 }
 
