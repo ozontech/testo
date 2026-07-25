@@ -24,9 +24,9 @@ Add some flavor to your tests with
 - [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test.
 - [Test annotations](./examples/07_annotations/main_test.go) - attach static options to any test.
 - [Informative errors and traces](./examples/06_errors/main_test.go) - no need to guess what went wrong.
-- Sub-tests & sub-suites - support for nested tests and nested suites.
-- Test reflection - deeply inspect test's meta-information.
-- Caching - key-value storage persistent between test runs.
+- [Sub-tests & sub-suites](./examples/08_subsuites/main_test.go) - support for nested tests and nested suites.
+- [Test reflection](https://pkg.go.dev/github.com/ozontech/testo/testoreflect) - deeply inspect test's meta-information.
+- [Caching](./docs/how-to.md#how-to-use-persistent-cache) - key-value storage persistent between test runs.
 - [Zero dependencies](./go.mod).
 
 ## Why Testo
@@ -80,6 +80,7 @@ See also [VS Code extension for Testo](#vs-code-extension).
 - Take [a guided tour of Testo](./docs/tutorial.md) by making simple plugins and running the tests using various features.
 - See [test examples](./examples).
 - Learn [how to use various Testo features](./docs/how-to.md).
+- Migrating from testify or allure-go? See the [migration guide](./docs/migration.md).
 - Read a [brief description and technical overview](./docs/technical-overview.md) of Testo.
 - View [API documentation](https://pkg.go.dev/github.com/ozontech/testo).
 
@@ -89,13 +90,17 @@ Testo features a powerful plugin system.
 
 Plugins can:
 
-- Provide `BeforeAll`/`AfterAll`, `BeforeEach`/`AfterEach` & `BeforeSubEach`/`AfterSubEach` hooks.
+- Provide `BeforeAll`/`AfterAll`, `BeforeEach`/`AfterEach` & `BeforeEachSub`/`AfterEachSub` hooks.
 - Plan tests for execution - filter, duplicate & reorder.
 - Override built-in `T` methods, such as `Log`, `Error` and _etc._
 - Extend `T` by adding new methods.
 - Allow users to configure their behavior through options.
 - Communicate with other plugins.
 - Add command line flags for `go test` command.
+
+The plugin API (`testoplugin` package) follows the same
+[SemVer](https://semver.org) compatibility promise as the rest of the module:
+no breaking changes within a major version. New `Spec` fields may be added in minor releases.
 
 Examples:
 

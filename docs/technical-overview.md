@@ -2,6 +2,25 @@
 
 A technical overview of Testo.
 
+## Mechanism
+
+Testo works through runtime reflection over suite method sets and `T`
+types - there is no code generation, `go:generate` step or separate
+CLI. This puts a few constraints on your types, checked before any
+test runs:
+
+- Plugins (and all exported fields of `T` and plugin structs) must be
+  embedded as pointers.
+- Recursive plugin type references are detected and rejected.
+
+Signature and `CasesXxx` mismatches are reported as test errors;
+violations of the type constraints above panic with a descriptive
+message, aborting the test binary.
+
+Plugins are re-instantiated for every test and sub-test. This is what
+makes writing to plugin fields safe without synchronization, at the
+cost of a constructor call per (sub-)test.
+
 ## Lifecycle
 
 When you call `testo.RunSuite` the following happens:
@@ -55,6 +74,9 @@ Other tests will run even if some tests are panicking.
 
 Testo **will** catch panics from `BeforeAll` & `AfterAll`.
 Panic in these hooks will result in suite tests not running.
+
+See also [suite hooks in the tutorial](./tutorial.md#suite-hooks) and
+[hook behavior with parallel tests](./how-to.md#how-to-write-parallel-tests).
 
 ## Plugins
 

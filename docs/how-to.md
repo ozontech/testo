@@ -2,6 +2,20 @@
 
 Learn how to use the features of Testo.
 
+Snippets on this page are fragments: they assume a project set up as
+in the [tutorial](./tutorial.md), with a suite and a `T` type already
+defined.
+
+- [How to write parametrized tests](#how-to-write-parametrized-tests)
+- [How to write parallel tests](#how-to-write-parallel-tests)
+- [How to use plugin options](#how-to-use-plugin-options)
+- [How to use persistent cache](#how-to-use-persistent-cache)
+- [How to structure tests](#how-to-structure-tests)
+- [How to run and skip specific tests](#how-to-run-and-skip-specific-tests)
+- [How to annotate tests](#how-to-annotate-tests)
+- [How to integrate with CI](#how-to-integrate-with-ci)
+- [How to run sub-suites](#how-to-run-sub-suites)
+
 ## How to write parametrized tests
 
 Parametrized tests are defined as regular tests with a second argument:
@@ -31,14 +45,47 @@ Field names used in a `struct{ Name string; Age int}` must be equal to existing 
 
 Given that, test `TestFoo` will be invoked with all possible combinations of names and ages:
 
-```python
-TestFoo(name=John, age=18)
-TestFoo(name=John, age=60)
-TestFoo(name=John, age=6)
-TestFoo(name=Joe, age=18)
-TestFoo(name=Joe, age=60)
-TestFoo(name=Joe, age=6)
+```txt
+TestFoo  with p = {Name: "John", Age: 18}
+TestFoo  with p = {Name: "John", Age: 60}
+TestFoo  with p = {Name: "John", Age: 6}
+TestFoo  with p = {Name: "Joe",  Age: 18}
+TestFoo  with p = {Name: "Joe",  Age: 60}
+TestFoo  with p = {Name: "Joe",  Age: 6}
 ```
+
+Note that parameter values do not appear in test names.
+In `go test -v` output the runs are named `TestFoo`, `TestFoo#01`, `TestFoo#02` and so on,
+following the standard `go test` convention for repeated names.
+
+### Table tests (correlated parameters)
+
+Separate parameters always produce the Cartesian product of their values.
+When values are correlated - a classic table test, where each case is one
+row with its own input and expected output - use a single struct-typed
+parameter instead:
+
+```go
+type Case struct {
+    Input string
+    Want  int
+}
+
+func (*Suite) CasesCase() []Case {
+    return []Case{
+        {Input: "one", Want: 1},
+        {Input: "two", Want: 2},
+    }
+}
+
+func (*Suite) TestParse(t *testo.T, p struct{ Case Case }) {
+    if got := Parse(p.Case.Input); got != p.Case.Want {
+        t.Errorf("Parse(%q) = %d, want %d", p.Case.Input, got, p.Case.Want)
+    }
+}
+```
+
+The test runs once per element of the slice, with no cross-combination.
 
 If for at least one required parameter function `CasesXxx`
 returns zero values Testo will log a warning with similar message:
@@ -72,6 +119,9 @@ func (*Suite) TestFoo(t *testo.T) {
 }
 ```
 
+Standard `go test` flags such as `-parallel`, `-count` and `-timeout`
+apply unchanged - Testo tests are regular Go tests underneath.
+
 You can expect all `AfterEach` and `AfterAll` hooks to execute at the end of each test properly.
 
 Please note, that `AfterEach` (only applies to it) hook is deferred to run at the end of the test.
@@ -99,12 +149,16 @@ func (*Suite) Test(t T) {
 }
 ```
 
-Unless you need to run sub-tests during this hook,
-it is recommended to use t.Cleanup during BeforeEach.
+If your teardown must run after all parallel sub-tests finish,
+register it with `t.Cleanup` inside `BeforeEach` instead of using the `AfterEach` hook -
+cleanups run after all parallel sub-tests of the test are done:
 
 ```go
 func (*Suite) BeforeEach(t T) {
-    t.Cleanup(t.afterEach)
+    t.Cleanup(func() {
+        // Teardown logic here.
+        // Runs after the test AND all its parallel sub-tests finish.
+    })
 }
 ```
 
@@ -179,9 +233,16 @@ packages that do not import `testocache` do not receive an unknown test flag:
 TESTO_CACHE_DIR=/tmp/my-testo-cache go test ./...
 ```
 
+To disable the cache entirely, set `TESTO_CACHE_DISABLE`:
+
 ```bash
 TESTO_CACHE_DISABLE=true go test ./...
 ```
+
+> [!NOTE]
+> `go test` caches successful test results. A cached pass skips execution
+> entirely, so `testocache` state will not refresh on such runs.
+> Pass `-count=1` to force execution when that matters.
 
 For plugin state, prefer a namespace:
 
@@ -207,8 +268,7 @@ processes sharing the same cache directory.
 
 Testo does not enforce any particular file structure to work.
 However, some patterns are proved to be useful.
-
-### Standalone suites
+Here is one with standalone suite packages:
 
 ```txt
 go.mod
@@ -244,7 +304,7 @@ type PluginCommon struct {
 
 // This method implements Plugin interface.
 func (*PluginCommon) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
-    return testolpugin.Spec{}
+    return testoplugin.Spec{}
 }
 ```
 
@@ -253,7 +313,11 @@ Contents of `tests/suite/suitefoo/t.go`:
 ```go
 package suitefoo
 
-import "example/tests/testcommon"
+import (
+    "example/tests/testcommon"
+
+    "github.com/ozontech/testo"
+)
 
 // Global (common) T used by all suites.
 type T struct {
@@ -311,7 +375,24 @@ Testo works with default go test flags, such as `-run` and `-skip`.
 
 > See `go help testflag` for detailed flags description.
 
-Testo also provides its own flag: `-testo.m regexp` to run specific suite tests.
+To make hooks work correctly with parallel tests, Testo inserts a hidden
+`testo!` level into every suite. The full name of a suite test is:
+
+```txt
+TestFunc/SuiteName/testo!/TestMethod[/sub-test...]
+```
+
+> [!WARNING]
+> A `-run` pattern that omits the `testo!` segment, such as
+> `-run 'Test/MySuite/TestFoo'`, matches **zero tests** - and `go test`
+> still reports `PASS`. This is also the pattern most IDE "run test" buttons
+> generate. Either include the segment (`-run 'Test/MySuite/testo!/TestFoo'`)
+> or - better - use the `-testo.m` flag below.
+> In VS Code, the [Testo extension](../vscode-extension) generates
+> correct run/debug commands for you.
+
+Testo provides its own flag `-testo.m regexp` to select suite tests by
+method name, without worrying about the `testo!` segment.
 
 For example, given the following suite:
 
@@ -330,15 +411,84 @@ func (MySuite) TestBar(t T) {
 We can run only `TestFoo` like that:
 
 ```shell
-go test . -run ./MySuite -testo.m TestFoo
+go test . -run 'Test/MySuite' -testo.m TestFoo
 ```
 
+Here `-run 'Test/MySuite'` selects the suite and `-testo.m TestFoo`
+selects the method inside it.
+
+Note that if `-testo.m` matches no tests, the suite runs empty (its
+`BeforeAll`/`AfterAll` hooks still execute) and `go test` reports `PASS`.
+Guard against "0 tests ran" in CI if that is a concern.
+
+> [!NOTE]
+> `t.Name()` on `testo.T` returns the logical name without the `testo!`
+> segment (e.g. `Test/MySuite/TestFoo`), while the underlying `testing.T`
+> name - the one shown in `go test -v` output and required by `-run` -
+> includes it. Keep this in mind when mapping names back to `-run` patterns
+> or parsing test output.
+
 > [!TIP]
-> See also [Visual Studio Code extension](../vscode-extension) which does just that for you.
+> See also [Visual Studio Code extension](../vscode-extension) which
+> generates correct run/debug commands for you.
+
+## How to annotate tests
+
+Annotations attach static plugin options to a specific test,
+so plugins can see them before the test runs (useful for planning,
+reporting, retries and similar features).
+
+Use `testo.For` for regular tests and `testo.ForEach` for parametrized ones:
+
+```go
+var _ = testo.For(MySuite.TestFoo, myplugin.WithRetry())
+
+func (MySuite) TestFoo(t T) {
+    // ...
+}
+
+var _ = testo.ForEach(MySuite.TestBar, myplugin.WithRetry())
+
+func (MySuite) TestBar(t T, p struct{ N int }) {
+    // ...
+}
+```
+
+Multiple annotation calls for the same test append options.
+
+An option is just a `testoplugin.Option` value wrapping any type your
+plugin knows how to interpret:
+
+```go
+func WithRetry() testoplugin.Option {
+    return testoplugin.Option{Value: retryOption{}}
+}
+```
+
+The plugin receives options in its `Plugin` method and type-asserts
+the `Value` field.
+
+See [annotations example](../examples/07_annotations/main_test.go)
+(its `plugin.go` defines the options)
+and [API documentation](https://pkg.go.dev/github.com/ozontech/testo#For).
+
+## How to integrate with CI
+
+Testo output is standard `go test` output. `go test -json`, `test2json`,
+[gotestsum](https://github.com/gotestyourself/gotestsum) and similar tools
+work unchanged.
+
+Notes:
+
+- The hidden `testo!` node appears in reports as an extra nesting level
+  (e.g. JUnit converters render it as an empty intermediate node).
+- For Allure reports, use the [testo-allure plugin](https://github.com/ozontech/testo-allure).
+- For rerunning only failed tests (flaky-test handling), see the
+  [rerun plugin](https://github.com/ozontech/testo-toppings/tree/main/rerun).
 
 ## How to run sub-suites
 
-There a `testo.RunSubSuite` function for that:
+There is a `testo.RunSubSuite` function for that:
 
 ```go
 type OuterSuite struct{ testo.Suite[T] }

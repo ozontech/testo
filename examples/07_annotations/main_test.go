@@ -11,7 +11,9 @@ import (
 type T struct {
 	*testo.T
 
-	// This is an example plugin that supports annotations
+	// This is an example plugin that supports annotations.
+	// It (and the WithOrder & WithRuns options used below)
+	// is defined in plugin.go next to this file.
 	*PluginUtils
 }
 
