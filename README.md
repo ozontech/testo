@@ -18,11 +18,11 @@ a collection of small optional plugins for Testo.
 
 ## Features
 
-- [Plugins](./examples/04_plugins/main_test.go) - hook, filter and extend `T` without forking the framework.
-- [Parametrized tests](./examples/03_parametrized/main_test.go) - describe a test once, repeat it with different parameters.
+- [Plugins](./docs/plugins.md) - hook, filter and extend `T` without forking the framework ([example](./examples/04_plugins/main_test.go)).
+- [Parametrized tests](./docs/how-to.md#how-to-write-parametrized-tests) - describe a test once, repeat it with different parameters ([example](./examples/03_parametrized/main_test.go)).
 - [Parallel tests](./examples/05_parallel/main_test.go) - run independent tests concurrently.
-- [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test ([hooks and parallel tests](./docs/how-to.md#how-to-write-parallel-tests)).
-- [Test annotations](./examples/07_annotations/main_test.go) - attach static options to any test.
+- [Lifecycle hooks](./docs/tutorial.md#suite-hooks) - before and after any suite, test & sub-test ([example](./examples/02_hooks/main_test.go), [parallel caveat](./docs/how-to.md#hooks-and-parallel-sub-tests)).
+- [Test annotations](./docs/how-to.md#how-to-annotate-tests) - attach static options to any test ([example](./examples/07_annotations/main_test.go)).
 - [Test filtering](./docs/how-to.md#how-to-run-and-skip-specific-tests) - `-run`, `-testo.m`, and the one trap to know before writing CI filters.
 - [Informative errors and traces](./examples/06_errors/main_test.go) - error messages name the exact method and type that caused them.
 - [Sub-tests & sub-suites](./examples/08_subsuites/main_test.go) - support for nested tests and nested suites.
@@ -69,7 +69,29 @@ And run it with `go test` as usual:
 go test .
 ```
 
-Testo also supports suites, parametrized tests & plugins.
+The part Testo exists for is suites with parametrized tests.
+In the same file:
+
+```go
+type Suite struct{ testo.Suite[*testo.T] }
+
+func (Suite) CasesWord() []string {
+    return []string{"dough", "bread"}
+}
+
+func (Suite) TestLen(t *testo.T, p struct{ Word string }) {
+    if len(p.Word) == 0 {
+        t.Error("word must not be empty")
+    }
+}
+
+func TestSuite(t *testing.T) {
+    testo.RunSuite(t, new(Suite))
+}
+```
+
+`TestLen` runs once per word from `CasesWord`. Plugins install the
+same way - as fields of a struct.
 
 ### Next steps
 

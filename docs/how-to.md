@@ -4,19 +4,6 @@ Snippets on this page are fragments: they assume a project set up as
 in the [tutorial](./tutorial.md), with a suite and a `T` type already
 defined.
 
-- [How to write parametrized tests](#how-to-write-parametrized-tests)
-  - [Table tests](#table-tests-correlated-parameters)
-- [How to write parallel tests](#how-to-write-parallel-tests)
-  - [Hooks and parallel sub-tests](#hooks-and-parallel-sub-tests)
-- [How to use plugin options](#how-to-use-plugin-options)
-- [How to use persistent cache](#how-to-use-persistent-cache)
-- [How to structure tests](#how-to-structure-tests)
-- [How to run and skip specific tests](#how-to-run-and-skip-specific-tests)
-- [How to enable strict mode](#how-to-enable-strict-mode)
-- [How to annotate tests](#how-to-annotate-tests)
-- [How to integrate with CI](#how-to-integrate-with-ci)
-- [How to run sub-suites](#how-to-run-sub-suites)
-
 ## How to write parametrized tests
 
 Parametrized tests are defined as regular tests with a second argument:
@@ -227,7 +214,6 @@ directory:
 
 ```bash
 # change the directory for one package
-# (cache flags use the -cache. prefix, not -testo.)
 go test ./path/to/package -cache.dir /tmp/my-testo-cache
 
 # for ./... use the env var, so packages that don't import
@@ -237,6 +223,10 @@ TESTO_CACHE_DIR=/tmp/my-testo-cache go test ./...
 # disable the cache entirely
 TESTO_CACHE_DISABLE=true go test ./...
 ```
+
+> [!NOTE]
+> Cache flags use the `-cache.` prefix, not `-testo.` -
+> there is no `-testo.cache.dir`.
 
 For plugin state, prefer a namespace. It is isolated from other
 namespaces and from the package-level functions, and has the same
@@ -414,8 +404,14 @@ selects the method inside it.
 
 If `-testo.m` matches no tests, the suite runs with zero tests
 (hooks still run) and `go test` shows `PASS`. Add a CI check that
-at least one test ran - for example, grep `go test -json` output
-for `testo!/` test events.
+at least one test ran:
+
+```bash
+go test -json ./... | grep -q '"Test":".*testo!/' || { echo "no tests ran"; exit 1; }
+```
+
+Unlike `-testo.strict` and the cache flags, `-testo.m` has no
+env-var form - pass it only to packages that import Testo.
 
 > [!NOTE]
 > `t.Name()` returns the name without `testo!`, e.g. `Test/MySuite/TestFoo`.

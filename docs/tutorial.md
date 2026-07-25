@@ -126,6 +126,8 @@ func TestBake(t *testing.T) {
 ```
 
 The body of the test did not change - only the type of `t`.
+This swap lets everything below (plugins, suites, parametrization)
+attach to a plain test.
 The `HoneyCake` name is gone, though: `RunTest` numbers its tests
 instead. Suites (below) give tests proper names again.
 
@@ -215,6 +217,11 @@ func (p *PluginTimer) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec te
 }
 ```
 
+Two Go details in the signature above. The parameters are unnamed
+because this plugin ignores them. And `(spec testoplugin.Spec)` is a
+named return: Go creates `spec` as an empty value, the method fills
+its fields and returns it.
+
 The plugin embeds `*testo.T`. Testo fills it with the same `T` as
 the current test, so the plugin sees everything the test sees.
 The unused first argument of the `Plugin` method is the parent plugin
@@ -235,7 +242,11 @@ type T struct {
 }
 ```
 
-And change the test function to take this `T`:
+(Both fields contain a `*testo.T`, but the direct one is shallower,
+so calls like `t.Log` stay unambiguous.)
+
+And change the test function to take this `T` - no `*` this time,
+since our `T` is a struct that already contains the pointers:
 
 ```go
 func TestBake(t *testing.T) {
@@ -447,6 +458,9 @@ func (Bakery) AfterAll(t T) {
 }
 ```
 
+The run output looks the same as before: these hooks are silent.
+Add a `t.Log` inside one if you want to see it fire.
+
 If `BeforeAll` fails, the suite's tests do not run at all.
 For hook behavior with parallel sub-tests and panics, see
 [how to write parallel tests](./how-to.md#how-to-write-parallel-tests)
@@ -475,7 +489,9 @@ func (t T) Bake(name string) (Pastry, bool) {
 }
 ```
 
-The test no longer deals with cleanup:
+The `Bake(name)` inside the method is the package function from
+`main.go` - methods don't shadow package names, so this is not
+recursion. The test no longer deals with cleanup:
 
 ```go
 func (Bakery) TestBake(t T, p struct{ Dessert string }) {
@@ -568,6 +584,17 @@ func TestFoo(t *testing.T) {
 		t.Log("2!")
 	}))
 }
+```
+
+Each `testo.Test` call gets its own technical levels, so the names
+run deep - that is normal:
+
+```txt
+=== RUN   TestFoo/FirstTest
+=== RUN   TestFoo/FirstTest/#00
+=== RUN   TestFoo/FirstTest/#00/testo!
+=== RUN   TestFoo/FirstTest/#00/testo!/FirstTest
+...
 ```
 
 ## The Finished Test File

@@ -39,8 +39,9 @@ var _ testoplugin.Plugin = (*PluginShout)(nil)
 
 The `parent` argument is the plugin instance of the enclosing scope:
 the suite root for a test, the test for a sub-test. Only at the suite
-root itself is it a typed-nil pointer, so assert and nil-check the
-pointer, not the interface:
+root itself is it a typed-nil pointer. A non-nil interface can hold a
+nil pointer, so `parent != nil` would lie - assert and nil-check the
+pointer instead:
 
 ```go
 prev, _ := parent.(*PluginShout)
@@ -49,10 +50,17 @@ if prev != nil {
 }
 ```
 
+Snippets in the Hooks, Overrides and Planning sections live inside
+a `Plugin` method with a named return, like the tutorial's timer:
+Go creates `spec` empty, the snippets fill its fields.
+
 ## Hooks
 
-Six hooks: the four suite hooks plus `BeforeEachSub`/`AfterEachSub`,
-which have no suite-level counterpart:
+`BeforeAll`/`AfterAll` run once per suite, `BeforeEach`/`AfterEach`
+around each test, `BeforeEachSub`/`AfterEachSub` around each
+sub-test. The first four mirror the suite hook methods but are a
+separate mechanism - both run, side by side. The `Sub` pair exists
+only for plugins.
 
 ```go
 spec.Hooks.BeforeEach = testoplugin.Hook{
@@ -63,11 +71,10 @@ spec.Hooks.BeforeEach = testoplugin.Hook{
 }
 ```
 
-`BeforeAll`/`AfterAll` run once per suite, `BeforeEach`/`AfterEach`
-around each test, `BeforeEachSub`/`AfterEachSub` around each
-sub-test. `Priority` is an `int` that orders hooks across plugins:
-lower values run earlier, any value works, `TryFirst` and `TryLast`
-are the extremes, zero keeps declaration order.
+`Priority` is an `int` that orders hooks across plugins: lower
+values run earlier, any value works, `TryFirst` and `TryLast` are
+the extremes, zero keeps declaration order. Logs from hooks point at
+the plugin's own file, which is expected.
 
 `AfterEach` and `AfterEachSub` are deferred, so with parallel
 sub-tests they run before those sub-tests finish - same caveat as
@@ -75,8 +82,11 @@ sub-tests they run before those sub-tests finish - same caveat as
 
 ## Overrides
 
-Overrides wrap built-in `T` methods in middleware style: your
-function receives the next implementation and returns a replacement.
+Overrides wrap built-in `T` methods. Testo hands your function the
+current implementation (`next`) and installs whatever you return in
+its place. When the test calls `t.Log`, your replacement runs and
+decides if and when to call `next`. With several plugins the
+replacements nest, like HTTP middleware.
 
 ```go
 spec.Overrides.Log = func(next testoplugin.FuncLog) testoplugin.FuncLog {
@@ -167,11 +177,13 @@ type shoutOption func(*PluginShout)
 
 func WithPrefix(prefix string) testoplugin.Option {
     return testoplugin.Option{
-        Value:     shoutOption(func(p *PluginShout) { p.prefix = prefix }),
-        Propagate: true, // pass to sub-tests too
+        Value: shoutOption(func(p *PluginShout) { p.prefix = prefix }),
     }
 }
 ```
+
+Set `Propagate: true` only when sub-tests need the option too;
+leave it unset otherwise.
 
 Consume options at the top of the `Plugin` method. All user-supplied
 options come through the variadic argument (including per-test
