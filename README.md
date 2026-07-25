@@ -92,6 +92,8 @@ Plugins can:
 - Communicate with other plugins.
 - Add command line flags for `go test` command.
 
+See [the guide on writing plugins](./docs/plugins.md).
+
 The plugin API (`testoplugin` package) follows the same
 [SemVer](https://semver.org) compatibility promise as the rest of the module:
 no breaking changes within a major version. New `Spec` fields may be added in minor releases.

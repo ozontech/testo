@@ -66,9 +66,6 @@ func (*MySuite) TestFoo(t T) {
 }
 ```
 
-The `s.Require().X(...)` and shorthand `s.X(...)` forms both become
-plain `require.X(t, ...)` / `assert.X(t, ...)` calls.
-
 Testo only replaces testify's `suite` package. Keep using `require`
 and `assert`.
 

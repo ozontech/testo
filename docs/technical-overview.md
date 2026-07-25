@@ -68,9 +68,11 @@ A root test named the same as a suite is run {
 ```
 
 Plugin initialization calls the `.Plugin(parent, options)` method,
-if implemented, innermost plugins first. At the top level, `parent`
-is a typed-nil instance of the plugin's own type: the interface is
-non-nil, but the concrete pointer inside is nil.
+if implemented, innermost plugins first: a plugin embedded by another
+plugin initializes before the plugin embedding it. At the suite root,
+`parent` is a typed-nil instance of the plugin's own type: the
+interface is non-nil, but the concrete pointer inside is nil. Below
+the root, `parent` is the plugin instance of the enclosing scope.
 
 ## Panics
 

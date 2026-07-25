@@ -152,8 +152,8 @@ PASS
 Two technical levels appeared in the names:
 
 - `#00` is the index of the test inside this `RunTest` call.
-- `testo!` is a special test Testo inserts to guarantee correct work
-  of hooks with parallel tests. It does not affect your tests, but it
+- `testo!` is a special test Testo inserts so hooks run correctly
+  around parallel tests. It does not affect your tests, but it
   does affect `-run` patterns - see
   [how to run specific tests](./how-to.md#how-to-run-and-skip-specific-tests).
 
@@ -260,8 +260,8 @@ accepts, then collects and initializes the plugins listed in it:
 PASS
 ```
 
-The logged name has no `testo!` in it: `t.Name()` returns the
-logical test name
+Your timings will differ. The logged name has no `testo!` in it:
+`t.Name()` returns the logical test name
 ([details](./how-to.md#how-to-run-and-skip-specific-tests)).
 
 > [!NOTE]
@@ -271,10 +271,8 @@ logical test name
 Plugins can do much more than hooks: reorder or filter the test plan,
 wrap built-in methods like `t.Log`, add new methods to `T`, accept
 [options](./how-to.md#how-to-use-plugin-options) and command line
-flags. The [plugins example](../examples/04_plugins/main_test.go)
-shows `Plan` and `Overrides` in action, and the
-[technical overview](./technical-overview.md#plugins) explains how
-plugins talk to each other.
+flags. The [writing plugins guide](./plugins.md) covers the full
+API with an example for each part.
 
 Ready-made plugins:
 [testo-allure](https://github.com/ozontech/testo-allure) for Allure

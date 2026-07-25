@@ -6,13 +6,13 @@ defined.
 
 - [How to write parametrized tests](#how-to-write-parametrized-tests)
   - [Table tests](#table-tests-correlated-parameters)
-- [How to enable strict mode](#how-to-enable-strict-mode)
 - [How to write parallel tests](#how-to-write-parallel-tests)
   - [Hooks and parallel sub-tests](#hooks-and-parallel-sub-tests)
 - [How to use plugin options](#how-to-use-plugin-options)
 - [How to use persistent cache](#how-to-use-persistent-cache)
 - [How to structure tests](#how-to-structure-tests)
 - [How to run and skip specific tests](#how-to-run-and-skip-specific-tests)
+- [How to enable strict mode](#how-to-enable-strict-mode)
 - [How to annotate tests](#how-to-annotate-tests)
 - [How to integrate with CI](#how-to-integrate-with-ci)
 - [How to run sub-suites](#how-to-run-sub-suites)
@@ -59,8 +59,9 @@ Parameter values do not appear in test names.
 In `go test -v` output the runs are named `TestFoo`, `TestFoo#01`, `TestFoo#02` and so on,
 following the standard `go test` convention for repeated names.
 Log the parameters at the start of the test, so a failing `TestFoo#03`
-identifies its case - see the
-[parametrized example](../examples/03_parametrized/main_test.go).
+identifies its case - or let a
+[ten-line plugin](./plugins.md#reading-test-metadata) do it for every
+test automatically.
 
 If a `CasesXxx` method returns an empty slice, Testo logs a warning
 (visible with `go test -v`):
@@ -100,24 +101,6 @@ func (*Suite) TestParse(t T, p struct{ Case Case }) {
 ```
 
 The test runs once per element of the slice, with no cross-combination.
-
-## How to enable strict mode
-
-Strict mode turns every Testo warning into a fatal error.
-Today there are two warnings: a suite with no tests, and a
-`CasesXxx` method returning an empty slice (shown above):
-
-```bash
-# one package
-go test ./path/to/package -testo.strict
-
-# for ./... use the env var - packages that don't import
-# Testo would fail on the unknown flag
-TESTO_STRICT=true go test ./...
-```
-
-> [!TIP]
-> Flags have higher priority than environment variables.
 
 ## How to write parallel tests
 
@@ -330,7 +313,8 @@ import (
     "github.com/ozontech/testo"
 )
 
-// Global (common) T used by all suites.
+// T for this suite. With several suites,
+// hoist it into a shared package.
 type T struct {
     *testo.T
     *testcommon.PluginCommon
@@ -393,9 +377,10 @@ TestFunc/SuiteName/testo!/TestMethod[/sub-test...]
 > [!WARNING]
 > A `-run` pattern without the `testo!` segment, such as
 > `-run 'Test/MySuite/TestFoo'`, matches **zero tests** - and `go test`
-> still reports `PASS`. Suite hooks (`BeforeAll`/`AfterAll`) still run
-> even when zero tests match. Most IDE "run test" buttons generate
-> exactly this broken pattern.
+> still exits 0 (at best you get an easy-to-miss `[no tests to run]`
+> note). Suite hooks (`BeforeAll`/`AfterAll`) still run even when zero
+> tests match. Most IDE "run test" buttons generate exactly this
+> broken pattern.
 >
 > Either include the segment (`-run 'Test/MySuite/testo!/TestFoo'`)
 > or, better, use the `-testo.m` flag below. In VS Code, the
@@ -438,6 +423,26 @@ for `testo!/` test events.
 > patterns) still contains `testo!`. Remember this when you parse test
 > output or build `-run` patterns.
 
+## How to enable strict mode
+
+Strict mode turns every Testo warning into a fatal error.
+Currently two warnings exist - a suite with no tests, and a
+`CasesXxx` method returning an
+[empty slice](#how-to-write-parametrized-tests) - and the list
+may grow:
+
+```bash
+# one package
+go test ./path/to/package -testo.strict
+
+# for ./... use the env var - packages that don't import
+# Testo would fail on the unknown flag
+TESTO_STRICT=true go test ./...
+```
+
+> [!TIP]
+> Flags have higher priority than environment variables.
+
 ## How to annotate tests
 
 Annotations attach static plugin options to a specific test, so
@@ -476,7 +481,8 @@ Plugins see annotations in two places: during planning, via
 into the `options` argument of the `Plugin` method. In both cases the
 plugin type-asserts the `Value` field.
 
-See [annotations example](../examples/07_annotations/main_test.go)
+See [options in the plugins guide](./plugins.md#options),
+the [annotations example](../examples/07_annotations/main_test.go)
 (its `plugin.go` defines the options)
 and [API documentation](https://pkg.go.dev/github.com/ozontech/testo#For).
 
