@@ -312,7 +312,7 @@ func (c Cache) dir() (string, error) {
 }
 
 func readEntry(p, key string) ([]byte, error) {
-	info, err := os.Lstat(p)
+	linfo, err := os.Lstat(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, ErrNotFound
@@ -321,16 +321,33 @@ func readEntry(p, key string) ([]byte, error) {
 		return nil, err
 	}
 
-	if !info.Mode().IsRegular() {
+	if !linfo.Mode().IsRegular() {
 		return nil, ErrNotFound
 	}
 
-	value, err := os.ReadFile(p)
+	f, err := os.Open(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, ErrNotFound
 		}
 
+		return nil, err
+	}
+	defer f.Close()
+
+	// Stat the opened descriptor and require identity with the Lstat result,
+	// so a symlink swapped in between the two calls cannot be followed.
+	finfo, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	if !finfo.Mode().IsRegular() || !os.SameFile(linfo, finfo) {
+		return nil, ErrNotFound
+	}
+
+	value, err := io.ReadAll(f)
+	if err != nil {
 		return nil, err
 	}
 

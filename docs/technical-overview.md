@@ -10,7 +10,8 @@ When you call `testo.RunSuite` the following happens:
 A root test named the same as a suite is run {
     Suite tests are collected and verified.
 
-    Plugins are collected and initialized with ".Plugin(parent: nil, options)" method call, if implemented. Innermost plugins are initialized first.
+    Plugins are collected and initialized with ".Plugin(parent, options)" method call, if implemented. Innermost plugins are initialized first.
+    At this top level, parent is a typed-nil instance of the plugin's own type: the interface is non-nil, but the concrete pointer inside is nil.
 
     "BeforeAll" plugin hooks are called.
     "BeforeAll" suite hook is called.
@@ -52,12 +53,12 @@ A root test named the same as a suite is run {
 Testo **will** catch panics from tests, including `BeforeEach`, `BeforeEachSub`, `AfterEachSub` & `AfterEach` hooks.
 Other tests will run even if some tests are panicking.
 
-Testo **will not** catch panics from `BeforeAll` & `AfterAll`.
+Testo **will** catch panics from `BeforeAll` & `AfterAll`.
 Panic in these hooks will result in suite tests not running.
 
 ## Plugins
 
-Testo uses dependency-injection-like mechanism to enable cross-plugin commuincation.
+Testo uses dependency-injection-like mechanism to enable cross-plugin communication.
 
 For example, assume we have plugin `X` and plugin `Y`.
 Plugin `X` needs to interact with plugin `Y`. To make it possible, `X` needs to embed `Y`:

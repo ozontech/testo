@@ -3,6 +3,7 @@ package testo
 import (
 	"fmt"
 	"reflect"
+	"slices"
 
 	"github.com/ozontech/testo/internal/reflectutil"
 	"github.com/ozontech/testo/internal/stack"
@@ -61,66 +62,48 @@ func construct[T CommonT](
 		))
 	}
 
-	//nolint:nestif // TODO: factor out common logic
-	if parent == nil {
-		pluginTypes := make(map[reflect.Type]struct{})
-
-		collectPlugins(realType, pluginTypes)
-
-		delete(pluginTypes, realType)
-
-		plugins := make(map[reflect.Type]testoplugin.Plugin, len(pluginTypes))
-
-		for pluginType := range pluginTypes {
-			var child testoplugin.Plugin
-
-			if pluginType == reflect.TypeFor[*testoT]() {
-				child = &seed
-			} else {
-				v := reflect.New(pluginType.Elem())
-
-				reflectutil.Fill(v)
-
-				child = v.Interface().(testoplugin.Plugin)
-			}
-
-			plugins[pluginType] = child
-		}
-
-		seed.plugins = plugins
+	if parent != nil {
+		seed.pluginOrder = (*parent).unwrap().pluginOrder
 	} else {
-		parentUnwrapped := (*parent).unwrap()
+		seen := make(map[reflect.Type]struct{})
 
-		plugins := make(map[reflect.Type]testoplugin.Plugin, len(parentUnwrapped.plugins))
+		collectPlugins(realType, seen, &seed.pluginOrder)
 
-		for pluginType := range parentUnwrapped.plugins {
-			var child testoplugin.Plugin
+		// the T type itself is not a plugin on its own.
+		seed.pluginOrder = slices.DeleteFunc(seed.pluginOrder, func(typ reflect.Type) bool {
+			return typ == realType
+		})
+	}
 
-			if pluginType == reflect.TypeFor[*testoT]() {
-				child = &seed
-			} else {
-				v := reflect.New(pluginType.Elem())
+	plugins := make(map[reflect.Type]testoplugin.Plugin, len(seed.pluginOrder))
 
-				reflectutil.Fill(v)
+	for _, pluginType := range seed.pluginOrder {
+		var child testoplugin.Plugin
 
-				child = v.Interface().(testoplugin.Plugin)
-			}
+		if pluginType == reflect.TypeFor[*testoT]() {
+			child = &seed
+		} else {
+			v := reflect.New(pluginType.Elem())
 
-			plugins[pluginType] = child
+			reflectutil.Fill(v)
+
+			child = v.Interface().(testoplugin.Plugin)
 		}
 
-		seed.plugins = plugins
+		plugins[pluginType] = child
 	}
+
+	seed.plugins = plugins
 
 	specsStack := stack.New[typedPlugin]()
 
-	for pluginType, pluginValue := range seed.plugins {
+	for _, pluginType := range seed.pluginOrder {
 		specsStack.Push(typedPlugin{
-			Plugin: pluginValue,
+			Plugin: seed.plugins[pluginType],
 			Type:   pluginType,
 		})
 
-		setPlugins(reflect.ValueOf(pluginValue), seed.plugins, &specsStack)
+		setPlugins(reflect.ValueOf(seed.plugins[pluginType]), seed.plugins, &specsStack)
 	}
 
 	setPlugins(value, seed.plugins, &specsStack)
@@ -137,6 +120,10 @@ func construct[T CommonT](
 			continue
 		}
 
+		// For top-level tests the parent is a typed-nil instance of the
+		// plugin's own type: the interface is non-nil, so unconditional
+		// parent.(*MyPlugin) assertions keep working, and the concrete
+		// pointer is nil. See [testoplugin.Plugin].
 		var parentPlugin testoplugin.Plugin
 
 		if parent != nil {
@@ -148,7 +135,17 @@ func construct[T CommonT](
 		specs[p.Type] = p.Plugin.Plugin(parentPlugin, seed.options()...)
 	}
 
-	seed.spec = mergeSpecs(t, mapValues(specs)...)
+	// merge specs in the declaration order of plugins inside T so that
+	// equal-priority hooks and overrides run deterministically.
+	orderedSpecs := make([]testoplugin.Spec, 0, len(specs))
+
+	for _, pluginType := range seed.pluginOrder {
+		if spec, ok := specs[pluginType]; ok {
+			orderedSpecs = append(orderedSpecs, spec)
+		}
+	}
+
+	seed.spec = mergeSpecs(t, orderedSpecs...)
 
 	return value.Elem().Interface().(T)
 }
@@ -205,7 +202,9 @@ func setPlugins(
 		if field.Kind() != reflect.Pointer {
 			panic(
 				fmt.Sprintf(
-					"testo: all exported fields in T must be pointers, got: %s",
+					"testo: all exported fields in T and plugins must be pointers: field %s.%s has non-pointer type %s",
+					v.Type(),
+					v.Type().Field(i).Name,
 					field.Type(),
 				),
 			)
@@ -217,9 +216,15 @@ func setPlugins(
 
 var pluginInterfaceType = reflect.TypeFor[testoplugin.Plugin]()
 
-func collectPlugins(typ reflect.Type, plugins map[reflect.Type]struct{}) {
+// collectPlugins gathers plugin types in their declaration order:
+// a depth-first walk over the exported fields of typ.
+func collectPlugins(typ reflect.Type, seen map[reflect.Type]struct{}, order *[]reflect.Type) {
 	if typ.Implements(pluginInterfaceType) {
-		plugins[typ] = struct{}{}
+		if _, ok := seen[typ]; !ok {
+			seen[typ] = struct{}{}
+
+			*order = append(*order, typ)
+		}
 	}
 
 	typ = reflectutil.Elem(typ)
@@ -232,17 +237,7 @@ func collectPlugins(typ reflect.Type, plugins map[reflect.Type]struct{}) {
 		field := typ.Field(i)
 
 		if field.IsExported() {
-			collectPlugins(field.Type, plugins)
+			collectPlugins(field.Type, seen, order)
 		}
 	}
-}
-
-func mapValues[K comparable, V any](m map[K]V) []V {
-	values := make([]V, 0, len(m))
-
-	for _, v := range m {
-		values = append(values, v)
-	}
-
-	return values
 }

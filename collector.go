@@ -392,7 +392,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 
 					warnf(
 						tb,
-						"(%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s won't run",
+						"(%[1]s).Cases%[2]s returned empty slice, (%[1]s).%[3]s will not run",
 						structName,
 						caseName,
 						method.Name,
