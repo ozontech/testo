@@ -23,7 +23,7 @@ a collection of small optional plugins for Testo.
 - [Parallel tests](./examples/05_parallel/main_test.go) - run independent tests concurrently.
 - [Lifecycle hooks](./docs/tutorial.md#suite-hooks) - before and after any suite, test & sub-test ([example](./examples/02_hooks/main_test.go), [parallel caveat](./docs/how-to.md#hooks-and-parallel-sub-tests)).
 - [Test annotations](./docs/how-to.md#how-to-annotate-tests) - attach static options to any test ([example](./examples/07_annotations/main_test.go)).
-- [Test filtering](./docs/how-to.md#how-to-run-and-skip-specific-tests) - `-run`, `-testo.m`, and the one trap to know before writing CI filters.
+- [Test filtering](./docs/how-to.md#how-to-run-and-skip-specific-tests) - `-run`, `-testo.m`.
 - [Informative errors and traces](./examples/06_errors/main_test.go) - error messages name the exact method and type that caused them.
 - [Sub-tests & sub-suites](./examples/08_subsuites/main_test.go) - support for nested tests and nested suites.
 - [Test reflection](https://pkg.go.dev/github.com/ozontech/testo/testoreflect) - deeply inspect test's meta-information.
@@ -69,8 +69,7 @@ And run it with `go test` as usual:
 go test .
 ```
 
-The part Testo exists for is suites with parametrized tests.
-In the same file:
+Testo can do more. For example, run parametrized tests in suite:
 
 ```go
 type Suite struct{ testo.Suite[*testo.T] }
@@ -90,8 +89,7 @@ func TestSuite(t *testing.T) {
 }
 ```
 
-`TestLen` runs once per word from `CasesWord`. Plugins install the
-same way - as fields of a struct.
+`TestLen` runs once per word from `CasesWord`.
 
 ### Next steps
 
@@ -115,10 +113,6 @@ Plugins can:
 - Add command line flags for `go test` command.
 
 See [the guide on writing plugins](./docs/plugins.md).
-
-The plugin API (`testoplugin` package) follows the same
-[SemVer](https://semver.org) compatibility promise as the rest of the module:
-no breaking changes within a major version. New `Spec` fields may be added in minor releases.
 
 Examples:
 

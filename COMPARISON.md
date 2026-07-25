@@ -19,15 +19,15 @@ Testo focuses on extensibility through plugins and stays a thin layer over usual
 Other frameworks may be a better fit if you need BDD scenarios or some unique features "out of the box".
 Testo can support BDD-style tests through plugins.
 
-## Why we moved off allure-go
+## Why we moved off [Allure-Go]
 
-Testo was created at Ozon as the successor to [allure-go][Allure-Go].
-In allure-go, the test framework and Allure report generation are one
+Testo was created at Ozon as the successor to [Allure-Go].
+In Allure-Go, the test framework and Allure report generation are one
 piece: you can't swap the reporting or extend the framework. Testo
 splits them. The framework is a dependency-free layer over
 `testing.T`, and Allure reporting is
 [one plugin among many](https://github.com/ozontech/testo-allure).
-If you are on allure-go today, see the
+If you are on Allure-Go today, see the
 [migration guide](./docs/migration.md#migrating-from-allure-go).
 
 [^1]: Ginkgo runs parallel tests in [separate processes](https://onsi.github.io/ginkgo/#mental-model-how-ginkgo-runs-parallel-specs) with its own runner (not available through `go test`). It costs more startup time and memory than goroutine-based `go test` parallelization, but you get process isolation in return.

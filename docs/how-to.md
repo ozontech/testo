@@ -369,8 +369,7 @@ TestFunc/SuiteName/testo!/TestMethod[/sub-test...]
 > `-run 'Test/MySuite/TestFoo'`, matches **zero tests** - and `go test`
 > still exits 0 (at best you get an easy-to-miss `[no tests to run]`
 > note). Suite hooks (`BeforeAll`/`AfterAll`) still run even when zero
-> tests match. Most IDE "run test" buttons generate exactly this
-> broken pattern.
+> tests match.
 >
 > Either include the segment (`-run 'Test/MySuite/testo!/TestFoo'`)
 > or, better, use the `-testo.m` flag below. In VS Code, the
@@ -391,6 +390,10 @@ func (MySuite) TestFoo(t T) {
 func (MySuite) TestBar(t T) {
     // ...
 }
+
+func Test(t *testing.T) {
+    testo.RunSuite(t, new(MySuite))
+}
 ```
 
 To run only `TestFoo`:
@@ -401,17 +404,6 @@ go test . -run 'Test/MySuite' -testo.m TestFoo
 
 Here `-run 'Test/MySuite'` selects the suite and `-testo.m TestFoo`
 selects the method inside it.
-
-If `-testo.m` matches no tests, the suite runs with zero tests
-(hooks still run) and `go test` shows `PASS`. Add a CI check that
-at least one test ran:
-
-```bash
-go test -json ./... | grep -q '"Test":".*testo!/' || { echo "no tests ran"; exit 1; }
-```
-
-Unlike `-testo.strict` and the cache flags, `-testo.m` has no
-env-var form - pass it only to packages that import Testo.
 
 > [!NOTE]
 > `t.Name()` returns the name without `testo!`, e.g. `Test/MySuite/TestFoo`.
@@ -490,9 +482,7 @@ work unchanged.
 
 Notes:
 
-- Before writing CI test filters, read
-  [how to run and skip specific tests](#how-to-run-and-skip-specific-tests) -
-  a `-run` pattern without `testo!` silently runs zero tests.
+- Read [how to run and skip specific tests](#how-to-run-and-skip-specific-tests).
 - The hidden `testo!` node appears in reports as an extra nesting level
   (e.g. JUnit converters render it as an empty intermediate node).
 - For Allure reports, use the [testo-allure plugin](https://github.com/ozontech/testo-allure).

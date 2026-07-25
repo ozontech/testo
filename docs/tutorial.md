@@ -323,6 +323,7 @@ type Bakery struct{ testo.Suite[T] }
 Tests become methods of the suite. They follow the usual Go naming
 rules (the `Test` prefix) and must accept the same `T` as specified in
 `testo.Suite[T]`. Value and pointer receivers both work.
+
 Replace the `TestBake` function with:
 
 ```go

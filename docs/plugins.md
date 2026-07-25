@@ -1,6 +1,5 @@
 # Writing plugins
 
-Everything a plugin can do, with a compiling example for each part.
 This page assumes you finished the [tutorial](./tutorial.md), where a
 first plugin (the timer) is built step by step.
 
@@ -23,11 +22,11 @@ func (p *PluginShout) Plugin(parent testoplugin.Plugin, options ...testoplugin.O
 
 The returned `testoplugin.Spec` has three parts, all optional:
 
-| Part | What it does |
-| :--- | :----------- |
-| `Hooks` | run code around suites, tests and sub-tests |
-| `Overrides` | wrap built-in `T` methods (`Log`, `Fail`, ...) |
-| `Plan` | filter, reorder or duplicate the tests before the run |
+| Part        | What it does                                          |
+| :---------- | :---------------------------------------------------- |
+| `Hooks`     | run code around suites, tests and sub-tests           |
+| `Overrides` | wrap built-in `T` methods (`Log`, `Fail`, ...)        |
+| `Plan`      | filter, reorder or duplicate the tests before the run |
 
 A plugin usually embeds `*testo.T`. Testo fills it with the same `T`
 as the current test, so the plugin can log, fail, or inspect the test
