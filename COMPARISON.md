@@ -34,7 +34,7 @@ If you are on Allure-Go today, see the
 [^2]: [Not supported](https://github.com/smartystreets/goconvey/issues/360).
 [^3]: See [issue #934](https://github.com/stretchr/testify/issues/934).
 [^4]: DSL: Domain-Specific Language. Requires describing tests in a specific way, different from usual Go tests. Not necessarily a bad thing, but has a learning curve and is less flexible.
-[^5]: Whether it has any dependencies. Fewer dependencies mean a smaller footprint, faster builds and fewer potential vulnerabilities.
+[^5]: Whether it has any dependencies.
 [^6]: Any report format is achievable through plugins, but none is baked into Testo by default. See [testo-allure](https://github.com/ozontech/testo-allure).
 [^7]: "Native `go test`" means _all features_ are supported using only the `go test` command without any other CLIs.
 

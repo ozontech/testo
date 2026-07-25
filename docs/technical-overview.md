@@ -5,8 +5,8 @@ A technical overview of Testo.
 ## Mechanism
 
 Testo works through runtime reflection over suite method sets and `T`
-types - there is no code generation, `go:generate` step or separate
-CLI. This puts a few constraints on your types, checked before any
+types. There is no code generation and no separate CLI.
+This puts a few constraints on your types, checked before any
 test runs:
 
 - Plugins (and all exported fields of `T` and plugin structs) must be

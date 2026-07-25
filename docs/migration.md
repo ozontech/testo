@@ -29,7 +29,7 @@ package with no interference. Migrate one suite at a time.
 
 One flag caveat: testify method filters like `-run 'TestMySuite/TestFoo'`
 stop matching after migration, because Testo inserts a hidden `testo!`
-level into test names. Update CI filters to use `-testo.m` - see
+level into test names. Update CI filters to use `-testo.m`. See
 [how to run and skip specific tests](./how-to.md#how-to-run-and-skip-specific-tests).
 
 `T` here is your own type built on `*testo.T` - in the simplest case
@@ -69,11 +69,10 @@ There is no need to drop testify to adopt Testo - it replaces
 ### Suite state
 
 testify suites keep per-test state in suite struct fields.
-A Testo suite is also a single instance, so fields shared by all
-tests still work - but for per-test state prefer methods on your `T`
-(fixtures) or plugin fields, which get a fresh instance per test and
-are safe with parallel tests. See
-[fixtures in the tutorial](./tutorial.md#fixtures).
+A Testo suite is also a single instance, so shared fields still work.
+For per-test state, prefer [fixtures](./tutorial.md#fixtures)
+(methods on your `T`) or plugin fields. Both get a fresh instance
+for each test and are safe with parallel tests.
 
 ### Parallelism
 
@@ -85,9 +84,9 @@ tests correctly. See
 
 ## Migrating from allure-go
 
-Testo is [allure-go's successor at Ozon](../COMPARISON.md#why-we-moved-off-allure-go),
-with reporting split out of the framework. That means you need
-**two** pieces: `github.com/ozontech/testo` and the
+Testo [replaces allure-go at Ozon](../COMPARISON.md#why-we-moved-off-allure-go).
+Reporting is now a separate plugin, not part of the framework.
+So you need **two** pieces: `github.com/ozontech/testo` and the
 [testo-allure](https://github.com/ozontech/testo-allure) plugin.
 
 ```go

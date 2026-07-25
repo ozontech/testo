@@ -54,7 +54,7 @@ TestFoo  with p = {Name: "Joe",  Age: 60}
 TestFoo  with p = {Name: "Joe",  Age: 6}
 ```
 
-Note that parameter values do not appear in test names.
+Parameter values do not appear in test names.
 In `go test -v` output the runs are named `TestFoo`, `TestFoo#01`, `TestFoo#02` and so on,
 following the standard `go test` convention for repeated names.
 
@@ -121,8 +121,10 @@ func (*Suite) TestFoo(t *testo.T) {
 Standard `go test` flags such as `-parallel`, `-count` and `-timeout`
 apply unchanged - Testo tests are regular Go tests underneath.
 
+### Hooks and parallel sub-tests
+
 `AfterEach` and `AfterAll` still run for parallel tests, but
-`AfterEach` is deferred to the end of the test body - if the test has
+`AfterEach` is deferred to the end of the test body. If the test has
 parallel sub-tests, the hook runs BEFORE they finish:
 
 ```go
@@ -207,9 +209,9 @@ func (s *Suite) TestFoo(t *testo.T) {
 }
 ```
 
-> Whether an option propagates to inner sub-tests is the plugin
-> author's call. The `.Propagate` field overrides that, but you
-> rarely should.
+> The plugin author decides if an option is passed to inner
+> sub-tests. You can force this with the `.Propagate` field,
+> but usually you should not.
 
 ## How to use persistent cache
 
@@ -237,9 +239,9 @@ TESTO_CACHE_DIR=/tmp/my-testo-cache go test ./...
 TESTO_CACHE_DISABLE=true go test ./...
 ```
 
-For plugin state, prefer a namespace - isolated from other namespaces
-and from the package-level functions, with the same `Get`, `Set`,
-`Keys` and `Remove` methods:
+For plugin state, prefer a namespace. It is isolated from other
+namespaces and from the package-level functions, and has the same
+`Get`, `Set`, `Keys` and `Remove` methods:
 
 ```go
 var cache = testocache.Namespace("myplugin")
@@ -289,8 +291,8 @@ import (
 )
 
 // A plugin shared by all tests.
-// Define it even with no plugins yet: adding one later
-// then touches no other file.
+// Define it even if you have no plugins yet. When you add
+// a plugin later, you will change only this file.
 type PluginCommon struct {
     *testo.T
 }
@@ -373,13 +375,14 @@ TestFunc/SuiteName/testo!/TestMethod[/sub-test...]
 ```
 
 > [!WARNING]
-> A `-run` pattern that omits the `testo!` segment, such as
+> A `-run` pattern without the `testo!` segment, such as
 > `-run 'Test/MySuite/TestFoo'`, matches **zero tests** - and `go test`
-> still reports `PASS`. This is also the pattern most IDE "run test" buttons
-> generate. Either include the segment (`-run 'Test/MySuite/testo!/TestFoo'`)
-> or - better - use the `-testo.m` flag below.
-> In VS Code, the [Testo extension](../vscode-extension) generates
-> correct run/debug commands for you.
+> still reports `PASS`. Most IDE "run test" buttons generate exactly
+> this broken pattern.
+>
+> Either include the segment (`-run 'Test/MySuite/testo!/TestFoo'`)
+> or, better, use the `-testo.m` flag below. In VS Code, the
+> [Testo extension](../vscode-extension) generates correct commands.
 
 Testo provides its own flag `-testo.m regexp` to select suite tests by
 method name, without worrying about the `testo!` segment.
@@ -407,15 +410,15 @@ go test . -run 'Test/MySuite' -testo.m TestFoo
 Here `-run 'Test/MySuite'` selects the suite and `-testo.m TestFoo`
 selects the method inside it.
 
-If `-testo.m` matches nothing, the suite runs empty (hooks still
-fire) and `go test` reports `PASS` - guard against "0 tests ran" in CI.
+If `-testo.m` matches no tests, the suite runs with zero tests
+(hooks still run) and `go test` shows `PASS`. Add a CI check that
+at least one test ran.
 
 > [!NOTE]
-> `t.Name()` on `testo.T` returns the logical name without the `testo!`
-> segment (e.g. `Test/MySuite/TestFoo`), while the underlying `testing.T`
-> name - the one shown in `go test -v` output and required by `-run` -
-> includes it. Keep this in mind when mapping names back to `-run` patterns
-> or parsing test output.
+> `t.Name()` returns the name without `testo!`, e.g. `Test/MySuite/TestFoo`.
+> The real `testing.T` name (the one in `go test -v` output and in `-run`
+> patterns) still contains `testo!`. Remember this when you parse test
+> output or build `-run` patterns.
 
 ## How to annotate tests
 
@@ -465,6 +468,9 @@ work unchanged.
 
 Notes:
 
+- Before writing CI test filters, read
+  [how to run and skip specific tests](#how-to-run-and-skip-specific-tests) -
+  a `-run` pattern without `testo!` silently runs zero tests.
 - The hidden `testo!` node appears in reports as an extra nesting level
   (e.g. JUnit converters render it as an empty intermediate node).
 - For Allure reports, use the [testo-allure plugin](https://github.com/ozontech/testo-allure).

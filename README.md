@@ -23,7 +23,8 @@ a collection of small optional plugins for Testo.
 - [Parallel tests](./examples/05_parallel/main_test.go) - make your tests faster by running them all at once.
 - [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test.
 - [Test annotations](./examples/07_annotations/main_test.go) - attach static options to any test.
-- [Informative errors and traces](./examples/06_errors/main_test.go) - no need to guess what went wrong.
+- [Test filtering](./docs/how-to.md#how-to-run-and-skip-specific-tests) - `-run`, `-testo.m`, and the one trap to know before writing CI filters.
+- [Informative errors and traces](./examples/06_errors/main_test.go) - error messages name the exact method and type that caused them.
 - [Sub-tests & sub-suites](./examples/08_subsuites/main_test.go) - support for nested tests and nested suites.
 - [Test reflection](https://pkg.go.dev/github.com/ozontech/testo/testoreflect) - deeply inspect test's meta-information.
 - [Caching](./docs/how-to.md#how-to-use-persistent-cache) - key-value storage persistent between test runs.
@@ -33,8 +34,8 @@ a collection of small optional plugins for Testo.
 
 At Ozon, Testo powers thousands of end-to-end tests daily in production.
 
-With plugins, it is flexible enough to adapt to diverse requirements,
-without leaving the Go ecosystem - just a layer over `testing.T`.
+Plugins let teams add what they need: reporting, retries, custom `T`
+methods. Tests stay plain `go test` tests.
 
 See [comparison with other frameworks](./COMPARISON.md).
 
@@ -80,8 +81,6 @@ Testo also supports suites, parametrized tests & plugins.
 - View [API documentation](https://pkg.go.dev/github.com/ozontech/testo).
 
 ## Plugins
-
-Testo features a powerful plugin system.
 
 Plugins can:
 

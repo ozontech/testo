@@ -155,7 +155,8 @@ Two technical levels appeared in the names:
   does affect `-run` patterns - see
   [how to run specific tests](./how-to.md#how-to-run-and-skip-specific-tests).
 
-So far Testo gave us nothing new. Its value starts with plugins.
+So far Testo has given us nothing new. Plugins are where it gets
+interesting.
 
 ## Plugins
 
@@ -212,10 +213,11 @@ func (p *PluginTimer) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec te
 }
 ```
 
-The plugin embeds `*testo.T` - Testo initializes it with the same `T`
-as the current test, so the plugin sees everything the test sees.
-The `Plugin` method is called for each test, so writing to plugin
-fields is safe: every test gets its own instance.
+The plugin embeds `*testo.T`. Testo fills it with the same `T` as
+the current test, so the plugin sees everything the test sees.
+
+The `Plugin` method is called for each test, and every test gets its
+own plugin instance. That is why writing to plugin fields is safe.
 
 To use the plugin, define your own `T` type that embeds `*testo.T`
 together with the plugins you want:
@@ -264,10 +266,12 @@ Plugins can do much more than hooks: reorder or filter the test plan,
 wrap built-in methods like `t.Log`, add new methods to `T`, accept
 [options](./how-to.md#how-to-use-plugin-options) and command line
 flags. The [plugins example](../examples/04_plugins/main_test.go)
-shows `Plan` and `Overrides` in action. Ready-made plugins:
+shows `Plan` and `Overrides` in action.
+
+Ready-made plugins:
 [testo-allure](https://github.com/ozontech/testo-allure) for Allure
-reports, [testo-toppings](https://github.com/ozontech/testo-toppings)
-for small everyday ones.
+reports, and [testo-toppings](https://github.com/ozontech/testo-toppings) -
+a collection of small utility plugins.
 
 For instance, here is a complete plugin that makes every test parallel:
 
@@ -283,8 +287,8 @@ func (p *PluginParallel) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec
 }
 ```
 
-Don't add this one to your file (it would change the outputs below) -
-a fuller version ships as the
+Don't add this one to your file, or it would change the outputs
+below. A more complete version is available as the
 [parallel plugin](https://github.com/ozontech/testo-toppings/tree/main/parallel)
 in testo-toppings.
 
@@ -477,8 +481,8 @@ func (Bakery) TestBake(t T, p struct{ Dessert string }) {
 }
 ```
 
-Fixtures in Testo are ordinary methods, without any registration
-step, and they are reusable across all tests of the suite.
+A fixture in Testo is an ordinary method. There is nothing to
+register, and every test of the suite can use it.
 
 ## Steps (Sub-tests)
 
@@ -519,7 +523,7 @@ func (Bakery) TestBake(t T, p struct{ Dessert string }) {
 
 > [!WARNING]
 > `t.Fatal` inside a sub-test stops only that sub-test, not the outer
-> test - standard `go test` behavior. If a failed step must stop the
+> test. That is standard `go test` behavior. If a failed step must stop the
 > whole test, check the sub-test result in the outer test, or use a
 > plugin that propagates the failure, such as `allure.Step` from
 > [testo-allure](https://github.com/ozontech/testo-allure).
