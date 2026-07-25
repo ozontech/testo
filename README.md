@@ -21,7 +21,7 @@ a collection of small optional plugins for Testo.
 - [Plugins](./examples/04_plugins/main_test.go) - hook, filter and extend `T` without forking the framework.
 - [Parametrized tests](./examples/03_parametrized/main_test.go) - describe a test once, repeat it with different parameters.
 - [Parallel tests](./examples/05_parallel/main_test.go) - make your tests faster by running them all at once.
-- [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test.
+- [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test ([hooks and parallel tests](./docs/how-to.md#how-to-write-parallel-tests)).
 - [Test annotations](./examples/07_annotations/main_test.go) - attach static options to any test.
 - [Test filtering](./docs/how-to.md#how-to-run-and-skip-specific-tests) - `-run`, `-testo.m`, and the one trap to know before writing CI filters.
 - [Informative errors and traces](./examples/06_errors/main_test.go) - error messages name the exact method and type that caused them.
@@ -32,7 +32,7 @@ a collection of small optional plugins for Testo.
 
 ## Why Testo
 
-At Ozon, Testo powers thousands of end-to-end tests daily in production.
+Ozon runs thousands of end-to-end tests on Testo every day.
 
 Plugins let teams add what they need: reporting, retries, custom `T`
 methods. Tests stay plain `go test` tests.
@@ -77,7 +77,7 @@ Testo also supports suites, parametrized tests & plugins.
 - See [test examples](./examples).
 - Learn [how to use various Testo features](./docs/how-to.md).
 - Migrating from testify or allure-go? See the [migration guide](./docs/migration.md).
-- Read a [brief description and technical overview](./docs/technical-overview.md) of Testo.
+- Read the [technical overview](./docs/technical-overview.md) - lifecycle, panics, plugin internals.
 - View [API documentation](https://pkg.go.dev/github.com/ozontech/testo).
 
 ## Plugins
@@ -86,7 +86,7 @@ Plugins can:
 
 - Provide `BeforeAll`/`AfterAll`, `BeforeEach`/`AfterEach` & `BeforeEachSub`/`AfterEachSub` hooks.
 - Plan tests for execution - filter, duplicate & reorder.
-- Override built-in `T` methods, such as `Log`, `Error` and _etc._
+- Override built-in `T` methods, such as `Log` and `Error`.
 - Extend `T` by adding new methods.
 - Allow users to configure their behavior through options.
 - Communicate with other plugins.

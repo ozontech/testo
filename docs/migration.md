@@ -24,6 +24,12 @@ package with no interference. Migrate one suite at a time.
 | `s.T()` | `t` (passed to every method) |
 | `s.Run(name, func())` | `testo.Run(t, name, func(t T))` |
 | `func (s *S) BeforeTest(suiteName, testName string)` | `BeforeEach(t T)` + `t.Name()` (same for `AfterTest`) |
+
+Two notes on the hook mapping. `t.Name()` returns the full path
+(`Test/MySuite/TestFoo`), not the bare method name - compare with
+`strings.HasSuffix`, not `==`. And if a suite uses both `SetupTest`
+and `BeforeTest`, merge them into one `BeforeEach` (testify runs
+`SetupTest` first; keep that order).
 | `SetupSubTest()` / `TearDownSubTest()` | `BeforeEachSub`/`AfterEachSub` plugin hooks (no suite-level equivalent) |
 | `go test -run TestSuite -testify.m TestFoo` | `go test -run TestSuite -testo.m TestFoo` |
 
@@ -63,13 +69,15 @@ func (*MySuite) TestFoo(t T) {
 The `s.Require().X(...)` and shorthand `s.X(...)` forms both become
 plain `require.X(t, ...)` / `assert.X(t, ...)` calls.
 
-There is no need to drop testify to adopt Testo - it replaces
-`suite`, not `require`/`assert`.
+Testo only replaces testify's `suite` package. Keep using `require`
+and `assert`.
 
 ### Suite state
 
 testify suites keep per-test state in suite struct fields.
 A Testo suite is also a single instance, so shared fields still work.
+But writes to shared fields from parallel tests are a data race -
+run migrated packages with `-race` before enabling `t.Parallel()`.
 For per-test state, prefer [fixtures](./tutorial.md#fixtures)
 (methods on your `T`) or plugin fields. Both get a fresh instance
 for each test and are safe with parallel tests.
@@ -115,8 +123,20 @@ type T struct {
 | `t.Title`, `t.Epic`, `t.Feature`, `t.Story`, `t.Tags`, `t.Severity`, `t.Owner`, `t.ID` | same-named methods added to `T` by `PluginAllure` |
 | `t.Link(...)`, `t.TmsLink(...)`, `t.TmsLinks(...)` | `t.Links(...)` with the `allure.NewLink`/`allure.TMS`/`allure.Issue` constructors |
 | `t.WithNewAttachment(name, mimeType, content)`, `t.WithAttachments(...)` | `t.Attach(name, allure.Bytes(...))` or `t.Attach(name, allure.File(...))` |
-| table tests / `ParametrizedRunner` | single struct-typed parameter, see [table tests](./how-to.md#table-tests-correlated-parameters) |
-| `t.XSkip()` | `t.XFail()` via the [xfail plugin](https://github.com/ozontech/testo-toppings/tree/main/xfail) from testo-toppings |
+| table tests (`ParametrizedSuite` / `TableTestXxx` methods) | single struct-typed parameter, see [table tests](./how-to.md#table-tests-correlated-parameters) |
+| `t.XSkip()` | `t.XFail()` via the [xfail plugin](https://github.com/ozontech/testo-toppings/tree/main/xfail) from testo-toppings (semantics differ slightly - check its README) |
+
+Other labels (`Description`, `Labels`, `Layer`, `Lead`, `Stage`,
+`WithParameters`) map to the `Description`, `Labels` and `Parameters`
+methods of `PluginAllure`.
+
+A minimal setup to start a proof of concept:
+
+```go
+func Test(t *testing.T) {
+    testo.RunSuite(t, new(Bakery), allure.WithOutputDir("allure-results"))
+}
+```
 
 ### Steps
 

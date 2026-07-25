@@ -26,6 +26,8 @@ func (Suite) AfterAll(t T) {
 }
 
 func (Suite) BeforeEach(t T) {
+	// AfterEach fires before parallel sub-tests finish;
+	// Cleanup runs after them. That is why teardown goes here.
 	t.Cleanup(func() {
 		t.Logf("cleanup %q", t.Name())
 	})

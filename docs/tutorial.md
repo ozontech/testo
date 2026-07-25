@@ -215,6 +215,9 @@ func (p *PluginTimer) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec te
 
 The plugin embeds `*testo.T`. Testo fills it with the same `T` as
 the current test, so the plugin sees everything the test sees.
+The unused first argument of the `Plugin` method is the parent plugin
+instance - see the
+[technical overview](./technical-overview.md#lifecycle) if you need it.
 
 The `Plugin` method is called for each test, and every test gets its
 own plugin instance. That is why writing to plugin fields is safe.
@@ -266,7 +269,9 @@ Plugins can do much more than hooks: reorder or filter the test plan,
 wrap built-in methods like `t.Log`, add new methods to `T`, accept
 [options](./how-to.md#how-to-use-plugin-options) and command line
 flags. The [plugins example](../examples/04_plugins/main_test.go)
-shows `Plan` and `Overrides` in action.
+shows `Plan` and `Overrides` in action, and the
+[technical overview](./technical-overview.md#plugins) explains how
+plugins talk to each other.
 
 Ready-made plugins:
 [testo-allure](https://github.com/ozontech/testo-allure) for Allure
@@ -305,7 +310,8 @@ type Bakery struct{ testo.Suite[T] }
 
 Tests become methods of the suite. They follow the usual Go naming
 rules (the `Test` prefix) and must accept the same `T` as specified in
-`testo.Suite[T]`. Replace the `TestBake` function with:
+`testo.Suite[T]`. Value and pointer receivers both work.
+Replace the `TestBake` function with:
 
 ```go
 func (Bakery) TestBake(t T) {

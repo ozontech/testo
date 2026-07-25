@@ -3,21 +3,21 @@
     main_test.go:21: starting suite
 === RUN   Test/Suite/testo!
 === RUN   Test/Suite/testo!/TestBar
-    main_test.go:33: before "Test/Suite/TestBar"
+    main_test.go:35: before "Test/Suite/TestBar"
 === PAUSE Test/Suite/testo!/TestBar
 === RUN   Test/Suite/testo!/TestFoo
-    main_test.go:33: before "Test/Suite/TestFoo"
+    main_test.go:35: before "Test/Suite/TestFoo"
 === PAUSE Test/Suite/testo!/TestFoo
 === CONT  Test/Suite/testo!/TestBar
-    main_test.go:62: inside test bar
-    main_test.go:37: after "Test/Suite/TestBar"
-    main_test.go:30: cleanup "Test/Suite/TestBar"
+    main_test.go:64: inside test bar
+    main_test.go:39: after "Test/Suite/TestBar"
+    main_test.go:32: cleanup "Test/Suite/TestBar"
 === CONT  Test/Suite/testo!/TestFoo
-    main_test.go:44: inside test foo
+    main_test.go:46: inside test foo
 === RUN   Test/Suite/testo!/TestFoo/sub-test
 === PAUSE Test/Suite/testo!/TestFoo/sub-test
 === NAME  Test/Suite/testo!/TestFoo
-    main_test.go:37: after "Test/Suite/TestFoo"
+    main_test.go:39: after "Test/Suite/TestFoo"
 === CONT  Test/Suite/testo!/TestFoo/sub-test
 === RUN   Test/Suite/testo!/TestFoo/sub-test/inner_0
 === PAUSE Test/Suite/testo!/TestFoo/sub-test/inner_0
@@ -40,27 +40,27 @@
 === RUN   Test/Suite/testo!/TestFoo/sub-test/inner_9
 === PAUSE Test/Suite/testo!/TestFoo/sub-test/inner_9
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_0
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_0"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_0"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_5
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_5"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_5"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_9
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_9"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_9"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_8
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_8"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_8"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_7
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_7"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_7"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_6
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_6"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_6"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_3
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_3"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_3"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_4
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_4"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_4"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_2
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_2"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_2"
 === CONT  Test/Suite/testo!/TestFoo/sub-test/inner_1
-    main_test.go:53: inside "Test/Suite/TestFoo/sub-test/inner_1"
+    main_test.go:55: inside "Test/Suite/TestFoo/sub-test/inner_1"
 === NAME  Test/Suite/testo!/TestFoo
-    main_test.go:30: cleanup "Test/Suite/TestFoo"
+    main_test.go:32: cleanup "Test/Suite/TestFoo"
 === NAME  Test/Suite
     main_test.go:25: finishing suite
 --- PASS: Test (0.00s)
@@ -80,4 +80,4 @@
                     --- PASS: Test/Suite/testo!/TestFoo/sub-test/inner_2 (0.00s)
                     --- PASS: Test/Suite/testo!/TestFoo/sub-test/inner_1 (0.00s)
 PASS
-ok  	github.com/ozontech/testo/examples/05_parallel	0.314s
+ok  	github.com/ozontech/testo/examples/05_parallel	0.364s

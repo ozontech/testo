@@ -22,15 +22,15 @@ Testo can support BDD-style tests through plugins.
 ## Why we moved off Allure-Go
 
 Testo was created at Ozon as the successor to [Allure-Go].
-Allure-Go couples the test framework with Allure report generation:
-reporting cannot be swapped out, and the framework cannot be extended
-beyond what it ships with. Testo decouples the two - the framework
-itself is a dependency-free layer over `testing.T`, and Allure
-reporting is [one plugin among many](https://github.com/ozontech/testo-allure).
+In Allure-Go, the test framework and Allure report generation are one
+piece: you can't swap the reporting or extend the framework. Testo
+splits them. The framework is a dependency-free layer over
+`testing.T`, and Allure reporting is
+[one plugin among many](https://github.com/ozontech/testo-allure).
 If you are on Allure-Go today, see the
 [migration guide](./docs/migration.md#migrating-from-allure-go).
 
-[^1]: Ginkgo runs parallel tests in [separate processes](https://onsi.github.io/ginkgo/#mental-model-how-ginkgo-runs-parallel-specs) with its own runner (not available through `go test`). This is heavier-weight than native `go test` parallelization based on goroutines, trading startup and memory cost for process isolation.
+[^1]: Ginkgo runs parallel tests in [separate processes](https://onsi.github.io/ginkgo/#mental-model-how-ginkgo-runs-parallel-specs) with its own runner (not available through `go test`). It costs more startup time and memory than goroutine-based `go test` parallelization, but you get process isolation in return.
 [^2]: [Not supported](https://github.com/smartystreets/goconvey/issues/360).
 [^3]: See [issue #934](https://github.com/stretchr/testify/issues/934).
 [^4]: DSL: Domain-Specific Language. Requires describing tests in a specific way, different from usual Go tests. Not necessarily a bad thing, but has a learning curve and is less flexible.
