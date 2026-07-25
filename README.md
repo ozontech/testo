@@ -13,12 +13,12 @@ with an extensive plugin system.
 > Testo (/tɛstɒ/) is a play on words "test" and "тесто", meaning "dough".
 > Just like you can cook anything from dough, you can test anything with Testo!
 
-Add some flavor to your tests with
-[toppings - a collection of small, miscellaneous plugins for Testo framework.](https://github.com/ozontech/testo-toppings)
+See also [toppings](https://github.com/ozontech/testo-toppings) -
+a collection of small optional plugins for Testo.
 
 ## Features
 
-- [Plugins](./examples/04_plugins/main_test.go) - adapt your tests to any scenario with features you need.
+- [Plugins](./examples/04_plugins/main_test.go) - hook, filter and extend `T` without forking the framework.
 - [Parametrized tests](./examples/03_parametrized/main_test.go) - describe a test once, repeat it with different parameters.
 - [Parallel tests](./examples/05_parallel/main_test.go) - make your tests faster by running them all at once.
 - [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test.
@@ -35,8 +35,6 @@ At Ozon, Testo powers thousands of end-to-end tests daily in production.
 
 With plugins, it is flexible enough to adapt to diverse requirements,
 without leaving the Go ecosystem - just a layer over `testing.T`.
-
-If your needs are outgrowing standard `testing` package, Testo is a great choice.
 
 See [comparison with other frameworks](./COMPARISON.md).
 
@@ -70,10 +68,7 @@ And run it with `go test` as usual:
 go test .
 ```
 
-But there is more!
-Testo supports suites, parametrized tests & plugins, see [Next steps](#next-steps).
-
-See also [VS Code extension for Testo](#vs-code-extension).
+Testo also supports suites, parametrized tests & plugins.
 
 ### Next steps
 
@@ -132,9 +127,3 @@ See [contributing guidelines](./CONTRIBUTING.md).
 ## License
 
 This project is released under the [Apache-2.0 license](./LICENSE).
-
----
-
-> [!TIP]
-> If you find Testo useful, [consider giving this repository a star](https://github.com/ozontech/testo) to help it reach more people.
-> Thank you!

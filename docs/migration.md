@@ -85,10 +85,8 @@ tests correctly. See
 
 ## Migrating from allure-go
 
-Testo grew out of [allure-go](https://github.com/ozontech/allure-go)
-at Ozon: allure-go couples the test framework with Allure reporting,
-while Testo splits them - the framework is dependency-free, and
-Allure reporting is one plugin among many. Keep in mind you need
+Testo is [allure-go's successor at Ozon](../COMPARISON.md#why-we-moved-off-allure-go),
+with reporting split out of the framework. That means you need
 **two** pieces: `github.com/ozontech/testo` and the
 [testo-allure](https://github.com/ozontech/testo-allure) plugin.
 
@@ -132,12 +130,11 @@ Steps are sub-tests. Two ways to create them:
   parent test and stops it - matching `WithNewStep` semantics from
   allure-go.
 
-When migrating `WithNewStep`-heavy code, `allure.Step` is the
-drop-in choice. Nested steps started from a `StepCtx`
-(`sCtx.WithNewStep`, `sCtx.NewStep`) become plain nested
-`allure.Step(t, ...)` calls, and step-level assertions
-(`sCtx.Assert()`, `sCtx.Require()`) become the `t.Assert()` /
-`t.Require()` methods that `PluginAllure` adds to `T`.
+For code full of `WithNewStep`, use `allure.Step` - same semantics.
+Nested steps (`sCtx.WithNewStep`, `sCtx.NewStep`) become nested
+`allure.Step(t, ...)` calls. Step assertions (`sCtx.Assert()`,
+`sCtx.Require()`) become `t.Assert()` / `t.Require()`, which
+`PluginAllure` adds to `T`.
 
 For the full testo-allure API (output directory, labels, attachments
 and so on), see the

@@ -93,7 +93,7 @@ go test . -v
 PASS
 ```
 
-So far, so ordinary. Let's bring in Testo.
+So far this is a plain Go test. Let's bring in Testo.
 
 ## Switching to Testo
 
@@ -127,12 +127,11 @@ func TestBake(t *testing.T) {
 
 The body of the test did not change - only the type of `t`.
 
-`testo.T` is a wrapper around `testing.T`.
-All methods available on `testing.T` are also available on `testo.T`
-(except `t.Run` - sub-tests are started with `testo.Run`, covered
-[later](#steps-sub-tests)), and `testo.T` implements the `testing.TB`
-interface, so libraries built for standard tests (assertion helpers,
-mocks and so on) keep working.
+`testo.T` wraps `testing.T` and keeps its interface, with one
+exception: sub-tests are started with `testo.Run` instead of `t.Run`
+(covered [later](#steps-sub-tests)). It also implements `testing.TB`,
+so assertion libraries and mocks built for standard tests keep
+working.
 
 Run the test again:
 
@@ -253,21 +252,22 @@ accepts, then collects and initializes the plugins listed in it:
 PASS
 ```
 
+Note the logged name has no `testo!` in it: `t.Name()` returns the
+logical test name
+([details](./how-to.md#how-to-run-and-skip-specific-tests)).
+
 > [!NOTE]
 > Plugins must be embedded as pointers. Pointers let plugins share
 > state with each other by pointing to the same memory.
->
-> Also note that `t.Name()` on `testo.T` returns the logical test name
-> without the `testo!` segment.
 
 Plugins can do much more than hooks: reorder or filter the test plan,
 wrap built-in methods like `t.Log`, add new methods to `T`, accept
-options and command line flags. See the
-[plugins example](../examples/04_plugins/main_test.go) for a tour of
-`Plan` and `Overrides`, and the ready-made plugins:
+[options](./how-to.md#how-to-use-plugin-options) and command line
+flags. The [plugins example](../examples/04_plugins/main_test.go)
+shows `Plan` and `Overrides` in action. Ready-made plugins:
 [testo-allure](https://github.com/ozontech/testo-allure) for Allure
-reports and [testo-toppings](https://github.com/ozontech/testo-toppings)
-for a collection of small plugins.
+reports, [testo-toppings](https://github.com/ozontech/testo-toppings)
+for small everyday ones.
 
 For instance, here is a complete plugin that makes every test parallel:
 
@@ -283,17 +283,10 @@ func (p *PluginParallel) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec
 }
 ```
 
-This one is for illustration only - don't add it to your file, or the
-outputs (and their line numbers) below will differ. A more complete
-version of it is available as the
+Don't add this one to your file (it would change the outputs below) -
+a fuller version ships as the
 [parallel plugin](https://github.com/ozontech/testo-toppings/tree/main/parallel)
-from testo-toppings.
-
-Plugins can also accept options passed to `testo.RunSuite` or
-`testo.Run` - see
-[how to use plugin options](./how-to.md#how-to-use-plugin-options)
-and the [annotations example](../examples/07_annotations/plugin.go)
-for a plugin that defines its own options.
+in testo-toppings.
 
 ## Suites
 

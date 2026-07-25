@@ -14,19 +14,11 @@ Small runnable projects, one per Testo feature.
 | [07_annotations](./07_annotations/main_test.go) | Attaching static options to tests with `testo.For` & `testo.ForEach`. |
 | [08_subsuites](./08_subsuites/main_test.go) | Nesting suites with `testo.RunSubSuite`. |
 
-Examples are sorted from basic to advanced.
-Start with [01_suite](./01_suite/main_test.go) or [01_suiteless](./01_suiteless/main_test.go).
-
-To run an example, execute the following command in its directory:
+To run an example, execute the following command in its directory
+(or run `make`, which does the same):
 
 ```bash
 go test . -v -tags example -count=1
 ```
-
-Or run `make` to do the same.
-
-> [!NOTE]
-> `06_errors` demonstrates how Testo reports mistakes,
-> so its `go test` run is expected to fail.
 
 Each example includes its expected output in an `output.golden` file.
