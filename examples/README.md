@@ -14,6 +14,9 @@ Small runnable projects, one per Testo feature.
 | [07_annotations](./07_annotations/main_test.go) | Attaching static options to tests with `testo.For` & `testo.ForEach`. |
 | [08_subsuites](./08_subsuites/main_test.go) | Nesting suites with `testo.RunSubSuite`. |
 
+`01_` has two variants on purpose: the same starting point, with and
+without a suite.
+
 To run an example, execute the following command in its directory
 (or run `make`, which does the same):
 

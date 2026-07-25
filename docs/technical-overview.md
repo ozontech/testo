@@ -10,8 +10,8 @@ types. There is no code generation and no separate CLI.
 This puts a few constraints on your types, checked before any
 test runs:
 
-- Plugins (and all exported fields of `T` and plugin structs) must be
-  embedded as pointers.
+- Plugins must be embedded as pointers. More generally, every
+  exported field of `T` and of plugin structs must be a pointer type.
 - Recursive plugin type references are detected and rejected.
 
 Signature and `CasesXxx` mismatches are reported as test errors.
@@ -30,25 +30,24 @@ When you call `testo.RunSuite` the following happens:
 A root test named the same as a suite is run {
     Suite tests are collected and verified.
 
-    Plugins are collected and initialized with ".Plugin(parent, options)" method call, if implemented. Innermost plugins are initialized first.
-    At this top level, parent is a typed-nil instance of the plugin's own type: the interface is non-nil, but the concrete pointer inside is nil.
+    Plugins are initialized (innermost first; see note below).
 
     "BeforeAll" plugin hooks are called.
     "BeforeAll" suite hook is called.
 
-    "CasesXXX" functions are called and parametrized tests are collected.
+    "CasesXxx" functions are called and parametrized tests are collected.
     Test plan from plugins is applied to the final test collection.
 
     A test named "testo!" is run {
         For each test in collection {
-            Plugins are collected and initialized with ".Plugin(parent: parent, options)" method call, if implemented. Innermost plugins are initialized first.
+            Plugins are initialized (innermost first).
 
             "BeforeEach" plugin hooks are called.
             "BeforeEach" suite hook is called.
 
             Actual test is run {
-                For each sub-test in test (ran through "testo.Run") {
-                    Plugins are collected and initialized with ".Plugin(parent: parent, options)" method call, if implemented. Innermost plugins are initialized first.
+                For each sub-test in test (run via "testo.Run") {
+                    Plugins are initialized (innermost first).
 
                     "BeforeEachSub" plugin hooks are called.
 
@@ -68,13 +67,20 @@ A root test named the same as a suite is run {
 }
 ```
 
+Plugin initialization calls the `.Plugin(parent, options)` method,
+if implemented, innermost plugins first. At the top level, `parent`
+is a typed-nil instance of the plugin's own type: the interface is
+non-nil, but the concrete pointer inside is nil.
+
 ## Panics
 
-Testo **will** catch panics from tests, including `BeforeEach`, `BeforeEachSub`, `AfterEachSub` & `AfterEach` hooks.
-Other tests will run even if some tests are panicking.
+Unlike plain `go test`, a panicking test does not abort the whole
+binary: Testo catches panics from tests and from all hooks.
+Other tests keep running even if some panic.
 
-Testo **will** catch panics from `BeforeAll` & `AfterAll`.
-Panic in these hooks will result in suite tests not running.
+A panic in `BeforeAll` prevents the suite's tests from running.
+A panic in `AfterAll` is caught like any other hook panic and fails
+the suite.
 
 If the suite-level `T` is skipped (for example, `t.Skip` inside
 `BeforeAll`), the `AfterAll` hooks are skipped too.

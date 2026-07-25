@@ -1,12 +1,12 @@
-# How to
-
-Learn how to use the features of Testo.
+# How to use Testo features
 
 Snippets on this page are fragments: they assume a project set up as
 in the [tutorial](./tutorial.md), with a suite and a `T` type already
 defined.
 
 - [How to write parametrized tests](#how-to-write-parametrized-tests)
+  - [Table tests](#table-tests-correlated-parameters)
+- [How to enable strict mode](#how-to-enable-strict-mode)
 - [How to write parallel tests](#how-to-write-parallel-tests)
   - [Hooks and parallel sub-tests](#hooks-and-parallel-sub-tests)
 - [How to use plugin options](#how-to-use-plugin-options)
@@ -22,7 +22,7 @@ defined.
 Parametrized tests are defined as regular tests with a second argument:
 
 ```go
-func (*Suite) TestFoo(t *testo.T, p struct{ Name string; Age int }) {
+func (*Suite) TestFoo(t T, p struct{ Name string; Age int }) {
     t.Logf("Using name=%q and age=%d", p.Name, p.Age)
 }
 ```
@@ -42,7 +42,7 @@ func (*Suite) CasesAge() []int {
 > [!TIP]
 > `CasesXxx` are invoked *after* `BeforeAll` hook.
 
-Field names used in a `struct{ Name string; Age int }` must be equal to existing `CasesXxx` functions.
+Each parameter field must have a matching `CasesXxx` method.
 
 Given that, test `TestFoo` will be invoked with all possible combinations of names and ages:
 
@@ -58,27 +58,19 @@ TestFoo  with p = {Name: "Joe",  Age: 6}
 Parameter values do not appear in test names.
 In `go test -v` output the runs are named `TestFoo`, `TestFoo#01`, `TestFoo#02` and so on,
 following the standard `go test` convention for repeated names.
+Log the parameters at the start of the test, so a failing `TestFoo#03`
+identifies its case - see the
+[parametrized example](../examples/03_parametrized/main_test.go).
 
 If a `CasesXxx` method returns an empty slice, Testo logs a warning
-like this:
+(visible with `go test -v`):
 
 ```txt
 main_test.go:15: testo: warning: (*main.Suite).CasesName returned empty slice, (*main.Suite).TestFoo will not run
 ```
 
-To make this a fatal error that stops the run, use strict mode:
-
-```bash
-# one package
-go test ./path/to/package -testo.strict
-
-# for ./... use the env var - packages that don't import
-# Testo would fail on the unknown flag
-TESTO_STRICT=true go test ./...
-```
-
-> [!TIP]
-> Flags have higher priority than environment variables.
+To make this warning fatal, enable
+[strict mode](#how-to-enable-strict-mode).
 
 ### Table tests (correlated parameters)
 
@@ -100,7 +92,7 @@ func (*Suite) CasesCase() []Case {
     }
 }
 
-func (*Suite) TestParse(t *testo.T, p struct{ Case Case }) {
+func (*Suite) TestParse(t T, p struct{ Case Case }) {
     if got := Parse(p.Case.Input); got != p.Case.Want {
         t.Errorf("Parse(%q) = %d, want %d", p.Case.Input, got, p.Case.Want)
     }
@@ -109,12 +101,30 @@ func (*Suite) TestParse(t *testo.T, p struct{ Case Case }) {
 
 The test runs once per element of the slice, with no cross-combination.
 
+## How to enable strict mode
+
+Strict mode turns every Testo warning into a fatal error.
+Today there are two warnings: a suite with no tests, and a
+`CasesXxx` method returning an empty slice (shown above):
+
+```bash
+# one package
+go test ./path/to/package -testo.strict
+
+# for ./... use the env var - packages that don't import
+# Testo would fail on the unknown flag
+TESTO_STRICT=true go test ./...
+```
+
+> [!TIP]
+> Flags have higher priority than environment variables.
+
 ## How to write parallel tests
 
-You can use your regular `t.Parallel` method to mark a test as parallel.
+Mark a test as parallel with the standard `t.Parallel`:
 
 ```go
-func (*Suite) TestFoo(t *testo.T) {
+func (*Suite) TestFoo(t T) {
     t.Parallel()
 
     // your test here
@@ -129,7 +139,7 @@ With `-count=N`, `BeforeAll` and `AfterAll` run once per iteration.
 
 `AfterEach` and `AfterAll` still run for parallel tests, but
 `AfterEach` is deferred to the end of the test body. If the test has
-parallel sub-tests, the hook runs BEFORE they finish:
+parallel sub-tests, the hook runs **before** they finish:
 
 ```go
 func (*Suite) Test(t T) {
@@ -206,13 +216,14 @@ func Test(t *testing.T) {
 Passing to `testo.Run`:
 
 ```go
-func (s *Suite) TestFoo(t *testo.T) {
-    testo.Run(t, "my sub-test", func(t *testo.T) {
+func (s *Suite) TestFoo(t T) {
+    testo.Run(t, "my sub-test", func(t T) {
         // ...
     }, myplugin.SomeOption())
 }
 ```
 
+> [!NOTE]
 > The plugin author decides if an option is passed to inner
 > sub-tests. You can force this with the `.Propagate` field,
 > but usually you should not.
@@ -368,9 +379,9 @@ func TestSuiteFoo(t *testing.T) {
 
 ## How to run and skip specific tests
 
-Testo works with default go test flags, such as `-run` and `-skip`.
+Testo supports the standard `go test` flags, such as `-run` and `-skip`.
 
-> See `go help testflag` for detailed flags description.
+See `go help testflag` for the full flag reference.
 
 To make hooks work correctly with parallel tests, Testo inserts a hidden
 `testo!` level into every suite. The full name of a suite test is:
@@ -418,7 +429,8 @@ selects the method inside it.
 
 If `-testo.m` matches no tests, the suite runs with zero tests
 (hooks still run) and `go test` shows `PASS`. Add a CI check that
-at least one test ran.
+at least one test ran - for example, grep `go test -json` output
+for `testo!/` test events.
 
 > [!NOTE]
 > `t.Name()` returns the name without `testo!`, e.g. `Test/MySuite/TestFoo`.

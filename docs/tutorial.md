@@ -126,6 +126,8 @@ func TestBake(t *testing.T) {
 ```
 
 The body of the test did not change - only the type of `t`.
+The `HoneyCake` name is gone, though: `RunTest` numbers its tests
+instead. Suites (below) give tests proper names again.
 
 `testo.T` wraps `testing.T` and keeps its interface, with one
 exception: sub-tests are started with `testo.Run` instead of `t.Run`
@@ -219,8 +221,9 @@ The unused first argument of the `Plugin` method is the parent plugin
 instance - see the
 [technical overview](./technical-overview.md#lifecycle) if you need it.
 
-The `Plugin` method is called for each test, and every test gets its
-own plugin instance. That is why writing to plugin fields is safe.
+The `Plugin` method is called for each test and sub-test, and each
+gets its own plugin instance. That is why writing to plugin fields
+is safe.
 
 To use the plugin, define your own `T` type that embeds `*testo.T`
 together with the plugins you want:
@@ -257,7 +260,7 @@ accepts, then collects and initializes the plugins listed in it:
 PASS
 ```
 
-Note the logged name has no `testo!` in it: `t.Name()` returns the
+The logged name has no `testo!` in it: `t.Name()` returns the
 logical test name
 ([details](./how-to.md#how-to-run-and-skip-specific-tests)).
 
@@ -292,7 +295,7 @@ func (p *PluginParallel) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec
 }
 ```
 
-Don't add this one to your file, or it would change the outputs
+Don't add this one to your file, or it will change the outputs
 below. A more complete version is available as the
 [parallel plugin](https://github.com/ozontech/testo-toppings/tree/main/parallel)
 in testo-toppings.
@@ -401,7 +404,9 @@ func (Bakery) CasesDessert() []string {
 PASS
 ```
 
-The test ran once per dessert. With several parameters, the test runs
+The test ran once per dessert. The name `TestBake#01` does not say
+which dessert it was, so log `p.Dessert` at the top of the test if
+that matters to you. With several parameters, the test runs
 with the [Cartesian product](https://en.wikipedia.org/wiki/Cartesian_product)
 of all their values. For correlated values (classic table tests), use
 a single struct-typed parameter - see

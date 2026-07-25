@@ -20,7 +20,7 @@ a collection of small optional plugins for Testo.
 
 - [Plugins](./examples/04_plugins/main_test.go) - hook, filter and extend `T` without forking the framework.
 - [Parametrized tests](./examples/03_parametrized/main_test.go) - describe a test once, repeat it with different parameters.
-- [Parallel tests](./examples/05_parallel/main_test.go) - make your tests faster by running them all at once.
+- [Parallel tests](./examples/05_parallel/main_test.go) - run independent tests concurrently.
 - [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test ([hooks and parallel tests](./docs/how-to.md#how-to-write-parallel-tests)).
 - [Test annotations](./examples/07_annotations/main_test.go) - attach static options to any test.
 - [Test filtering](./docs/how-to.md#how-to-run-and-skip-specific-tests) - `-run`, `-testo.m`, and the one trap to know before writing CI filters.
@@ -75,7 +75,7 @@ Testo also supports suites, parametrized tests & plugins.
 
 - Take [a guided tour of Testo](./docs/tutorial.md) by making simple plugins and running the tests using various features.
 - See [test examples](./examples).
-- Learn [how to use various Testo features](./docs/how-to.md).
+- Learn [how to use Testo features](./docs/how-to.md).
 - Migrating from testify or allure-go? See the [migration guide](./docs/migration.md).
 - Read the [technical overview](./docs/technical-overview.md) - lifecycle, panics, plugin internals.
 - View [API documentation](https://pkg.go.dev/github.com/ozontech/testo).
@@ -107,7 +107,7 @@ Examples:
 
 Testo has its own [VS Code extension](./vscode-extension).
 
-Makes it easier to run and debug individual suite tests and adds helpful snippets.
+The extension adds run/debug buttons for individual suite tests, plus snippets.
 
 ![VSCode extension screenshot showing codelens buttons for running and debugging a test](./vscode-extension/example.png)
 
@@ -115,7 +115,7 @@ Makes it easier to run and debug individual suite tests and adds helpful snippet
 
 Testo guarantees to support at least **3 latest major** [Go releases](https://go.dev/doc/devel/release).
 
-Currently, minimum supported Go version is **1.24**
+Currently, the minimum supported Go version is **1.24**.
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 # Migration guide
 
-How to move an existing test base to Testo - from
+How to move existing tests to Testo - from
 [testify](#migrating-from-testify) or from
 [allure-go](#migrating-from-allure-go).
 
@@ -24,14 +24,14 @@ package with no interference. Migrate one suite at a time.
 | `s.T()` | `t` (passed to every method) |
 | `s.Run(name, func())` | `testo.Run(t, name, func(t T))` |
 | `func (s *S) BeforeTest(suiteName, testName string)` | `BeforeEach(t T)` + `t.Name()` (same for `AfterTest`) |
+| `SetupSubTest()` / `TearDownSubTest()` | `BeforeEachSub`/`AfterEachSub` plugin hooks (no suite-level equivalent) |
+| `go test -run TestSuite -testify.m TestFoo` | `go test -run TestSuite -testo.m TestFoo` |
 
 Two notes on the hook mapping. `t.Name()` returns the full path
 (`Test/MySuite/TestFoo`), not the bare method name - compare with
 `strings.HasSuffix`, not `==`. And if a suite uses both `SetupTest`
 and `BeforeTest`, merge them into one `BeforeEach` (testify runs
 `SetupTest` first; keep that order).
-| `SetupSubTest()` / `TearDownSubTest()` | `BeforeEachSub`/`AfterEachSub` plugin hooks (no suite-level equivalent) |
-| `go test -run TestSuite -testify.m TestFoo` | `go test -run TestSuite -testo.m TestFoo` |
 
 One flag caveat: testify method filters like `-run 'TestMySuite/TestFoo'`
 stop matching after migration, because Testo inserts a hidden `testo!`
