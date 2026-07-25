@@ -55,11 +55,11 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/ozontech/testo/annotations.go (100.0%)</option>
+				<option value="file0">github.com/ozontech/testo/annotations.go (88.2%)</option>
 				
 				<option value="file1">github.com/ozontech/testo/collector.go (82.6%)</option>
 				
-				<option value="file2">github.com/ozontech/testo/construct.go (95.7%)</option>
+				<option value="file2">github.com/ozontech/testo/construct.go (95.3%)</option>
 				
 				<option value="file3">github.com/ozontech/testo/flag.go (33.3%)</option>
 				
@@ -79,13 +79,13 @@
 				
 				<option value="file11">github.com/ozontech/testo/plugin.go (97.1%)</option>
 				
-				<option value="file12">github.com/ozontech/testo/runner.go (87.4%)</option>
+				<option value="file12">github.com/ozontech/testo/runner.go (88.5%)</option>
 				
 				<option value="file13">github.com/ozontech/testo/suite.go (100.0%)</option>
 				
-				<option value="file14">github.com/ozontech/testo/t.go (56.2%)</option>
+				<option value="file14">github.com/ozontech/testo/t.go (52.4%)</option>
 				
-				<option value="file15">github.com/ozontech/testo/testocache/cache.go (84.2%)</option>
+				<option value="file15">github.com/ozontech/testo/testocache/cache.go (83.3%)</option>
 				
 				<option value="file16">github.com/ozontech/testo/testoplugin/overrides.go (100.0%)</option>
 				
@@ -202,8 +202,26 @@ func getID[Suite any](test reflect.Value) testID <span class="cov10" title="21">
 
         name = strings.ReplaceAll(name, "(*"+suiteName+")", suiteName)
 
-        return testID(name)
-}</span>
+        // Runtime erases generic type arguments to "[...]" in function names:
+        //
+        //        KVSuite[int].TestGet    -&gt; "pkg.KVSuite[...].TestGet"
+        //        KVSuite[string].TestGet -&gt; "pkg.KVSuite[...].TestGet" (same!)
+        //
+        // while suiteName keeps them ("KVSuite[int]").
+        //
+        // Code below gets us:
+        //
+        //         KVSuite[int]|pkg.KVSuite[...].TestGet
+        //         KVSuite[string]|pkg.KVSuite[...].TestGet
+
+        if base, _, isGeneric := strings.Cut(suiteName, "["); isGeneric </span><span class="cov0" title="0">{
+                erased := base + "[...]"
+
+                name = strings.ReplaceAll(name, "(*"+erased+")", erased)
+        }</span>
+
+        <span class="cov10" title="21">return testID(suiteName + "|" + name)</span>
+}
 </pre>
 		
 		<pre class="file" id="file1" style="display: none">package testo
@@ -600,7 +618,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 
                                         warnf(
                                                 tb,
-                                                "(%[1]s).Cases%[2]s provides zero values, (%[1]s).%[3]s won't run",
+                                                "(%[1]s).Cases%[2]s returned empty slice, (%[1]s).%[3]s will not run",
                                                 structName,
                                                 caseName,
                                                 method.Name,
@@ -701,6 +719,7 @@ func casesPermutations[V any](v map[string][]V) []map[string]V <span class="cov3
 import (
         "fmt"
         "reflect"
+        "slices"
 
         "github.com/ozontech/testo/internal/reflectutil"
         "github.com/ozontech/testo/internal/stack"
@@ -713,7 +732,7 @@ func construct[T CommonT](
         parent *T,
         fill func(t *testoT),
         options ...testoplugin.Option,
-) T <span class="cov6" title="27">{
+) T <span class="cov6" title="28">{
         t.Helper()
 
         seed := testoT{
@@ -726,7 +745,7 @@ func construct[T CommonT](
                 seed.parent = (*parent).unwrap()
         }</span>
 
-        <span class="cov6" title="27">if fill != nil </span><span class="cov6" title="22">{
+        <span class="cov6" title="28">if fill != nil </span><span class="cov6" title="22">{
                 fill(&amp;seed)
         }</span>
 
@@ -736,7 +755,7 @@ func construct[T CommonT](
         //
         // However, parent is always a concrete value,
         // so, if present, we extract that type from it.
-        <span class="cov6" title="27">realType := reflect.TypeFor[T]()
+        <span class="cov6" title="28">realType := reflect.TypeFor[T]()
 
         if parent != nil </span><span class="cov5" title="17">{
                 rv := reflect.ValueOf(*parent)
@@ -745,11 +764,11 @@ func construct[T CommonT](
         }</span>
 
         // special case when T is *testo.T
-        <span class="cov6" title="27">if realType == reflect.TypeFor[*testoT]() </span><span class="cov4" title="6">{
+        <span class="cov6" title="28">if realType == reflect.TypeFor[*testoT]() </span><span class="cov3" title="6">{
                 return any(&amp;seed).(T)
         }</span>
 
-        <span class="cov6" title="21">value := reflect.New(realType)
+        <span class="cov6" title="22">value := reflect.New(realType)
 
         if !reflectutil.Fill(value) </span><span class="cov1" title="1">{
                 panic(fmt.Sprintf(
@@ -759,94 +778,90 @@ func construct[T CommonT](
                 ))</span>
         }
 
-        //nolint:nestif // TODO: factor out common logic
-        <span class="cov6" title="20">if parent == nil </span><span class="cov4" title="6">{
-                pluginTypes := make(map[reflect.Type]struct{})
+        <span class="cov6" title="21">if parent != nil </span><span class="cov5" title="14">{
+                seed.pluginOrder = (*parent).unwrap().pluginOrder
+        }</span> else<span class="cov4" title="7"> {
+                seen := make(map[reflect.Type]struct{})
 
-                collectPlugins(realType, pluginTypes)
+                collectPlugins(realType, seen, &amp;seed.pluginOrder)
 
-                delete(pluginTypes, realType)
-
-                plugins := make(map[reflect.Type]testoplugin.Plugin, len(pluginTypes))
-
-                for pluginType := range pluginTypes </span><span class="cov5" title="12">{
-                        var child testoplugin.Plugin
-
-                        if pluginType == reflect.TypeFor[*testoT]() </span><span class="cov4" title="6">{
-                                child = &amp;seed
-                        }</span> else<span class="cov4" title="6"> {
-                                v := reflect.New(pluginType.Elem())
-
-                                reflectutil.Fill(v)
-
-                                child = v.Interface().(testoplugin.Plugin)
-                        }</span>
-
-                        <span class="cov5" title="12">plugins[pluginType] = child</span>
-                }
-
-                <span class="cov4" title="6">seed.plugins = plugins</span>
-        } else<span class="cov5" title="14"> {
-                parentUnwrapped := (*parent).unwrap()
-
-                plugins := make(map[reflect.Type]testoplugin.Plugin, len(parentUnwrapped.plugins))
-
-                for pluginType := range parentUnwrapped.plugins </span><span class="cov6" title="29">{
-                        var child testoplugin.Plugin
-
-                        if pluginType == reflect.TypeFor[*testoT]() </span><span class="cov5" title="14">{
-                                child = &amp;seed
-                        }</span> else<span class="cov5" title="15"> {
-                                v := reflect.New(pluginType.Elem())
-
-                                reflectutil.Fill(v)
-
-                                child = v.Interface().(testoplugin.Plugin)
-                        }</span>
-
-                        <span class="cov6" title="29">plugins[pluginType] = child</span>
-                }
-
-                <span class="cov5" title="14">seed.plugins = plugins</span>
+                // the T type itself is not a plugin on its own.
+                seed.pluginOrder = slices.DeleteFunc(seed.pluginOrder, func(typ reflect.Type) bool </span><span class="cov5" title="19">{
+                        return typ == realType
+                }</span>)
         }
 
-        <span class="cov6" title="20">specsStack := stack.New[typedPlugin]()
+        <span class="cov6" title="21">plugins := make(map[reflect.Type]testoplugin.Plugin, len(seed.pluginOrder))
 
-        for pluginType, pluginValue := range seed.plugins </span><span class="cov7" title="41">{
+        for _, pluginType := range seed.pluginOrder </span><span class="cov7" title="46">{
+                var child testoplugin.Plugin
+
+                if pluginType == reflect.TypeFor[*testoT]() </span><span class="cov6" title="21">{
+                        child = &amp;seed
+                }</span> else<span class="cov6" title="25"> {
+                        v := reflect.New(pluginType.Elem())
+
+                        reflectutil.Fill(v)
+
+                        child = v.Interface().(testoplugin.Plugin)
+                }</span>
+
+                <span class="cov7" title="46">plugins[pluginType] = child</span>
+        }
+
+        <span class="cov6" title="21">seed.plugins = plugins
+
+        specsStack := stack.New[typedPlugin]()
+
+        for _, pluginType := range seed.pluginOrder </span><span class="cov7" title="46">{
                 specsStack.Push(typedPlugin{
-                        Plugin: pluginValue,
+                        Plugin: seed.plugins[pluginType],
                         Type:   pluginType,
                 })
 
-                setPlugins(reflect.ValueOf(pluginValue), seed.plugins, &amp;specsStack)
+                setPlugins(reflect.ValueOf(seed.plugins[pluginType]), seed.plugins, &amp;specsStack)
         }</span>
 
-        <span class="cov6" title="19">setPlugins(value, seed.plugins, &amp;specsStack)
+        <span class="cov5" title="20">setPlugins(value, seed.plugins, &amp;specsStack)
 
         specs := make(map[reflect.Type]testoplugin.Spec, len(seed.plugins))
 
-        for </span><span class="cov9" title="130">{
+        for </span><span class="cov9" title="143">{
                 p, ok := specsStack.Pop()
-                if !ok </span><span class="cov6" title="18">{
+                if !ok </span><span class="cov5" title="19">{
                         break</span>
                 }
 
-                <span class="cov9" title="112">if _, ok := specs[p.Type]; ok </span><span class="cov8" title="74">{
+                <span class="cov8" title="124">if _, ok := specs[p.Type]; ok </span><span class="cov8" title="81">{
                         continue</span>
                 }
 
-                <span class="cov7" title="38">var parentPlugin testoplugin.Plugin
+                // For top-level tests the parent is a typed-nil instance of the
+                // plugin's own type: the interface is non-nil, so unconditional
+                // parent.(*MyPlugin) assertions keep working, and the concrete
+                // pointer is nil. See [testoplugin.Plugin].
+                <span class="cov7" title="43">var parentPlugin testoplugin.Plugin
 
                 if parent != nil </span><span class="cov6" title="29">{
                         parentPlugin = (*parent).unwrap().plugins[p.Type]
-                }</span> else<span class="cov4" title="9"> {
+                }</span> else<span class="cov5" title="14"> {
                         parentPlugin = reflect.New(p.Type).Elem().Interface().(testoplugin.Plugin)
                 }</span>
 
-                <span class="cov7" title="38">specs[p.Type] = p.Plugin.Plugin(parentPlugin, seed.options()...)</span>
+                <span class="cov7" title="43">specs[p.Type] = p.Plugin.Plugin(parentPlugin, seed.options()...)</span>
         }
 
-        <span class="cov6" title="18">seed.spec = mergeSpecs(t, mapValues(specs)...)
+        // merge specs in the declaration order of plugins inside T so that
+        // equal-priority hooks and overrides run deterministically.
+        <span class="cov5" title="19">orderedSpecs := make([]testoplugin.Spec, 0, len(specs))
+
+        for _, pluginType := range seed.pluginOrder </span><span class="cov7" title="43">{
+                if spec, ok := specs[pluginType]; ok </span><span class="cov7" title="43">{
+                        orderedSpecs = append(orderedSpecs, spec)
+                }</span>
+        }
+
+        <span class="cov5" title="19">seed.spec = mergeSpecs(t, orderedSpecs...)
 
         return value.Elem().Interface().(T)</span>
 }
@@ -861,20 +876,20 @@ func setPlugins(
         v reflect.Value,
         plugins map[reflect.Type]testoplugin.Plugin,
         specs *stack.Stack[typedPlugin],
-) <span class="cov9" title="135">{
-        if plugin, ok := plugins[v.Type().Elem()]; ok </span><span class="cov8" title="75">{
+) <span class="cov9" title="148">{
+        if plugin, ok := plugins[v.Type().Elem()]; ok </span><span class="cov8" title="82">{
                 elem := v.Elem()
 
                 if !elem.IsValid() </span><span class="cov0" title="0">{
                         panic(fmt.Sprintf("testo: invalid elem for %s", v.Type()))</span>
                 }
 
-                <span class="cov8" title="75">if !elem.CanSet() </span><span class="cov0" title="0">{
+                <span class="cov8" title="82">if !elem.CanSet() </span><span class="cov0" title="0">{
                         // TODO(metafates): add path to the field so that it is clear where error happens
                         panic(fmt.Sprintf("testo: can't set value for %s", v.Type()))</span>
                 }
 
-                <span class="cov8" title="75">elem.Set(reflect.ValueOf(plugin))
+                <span class="cov8" title="82">elem.Set(reflect.ValueOf(plugin))
 
                 specs.Push(typedPlugin{
                         Plugin: elem.Interface().(testoplugin.Plugin),
@@ -882,67 +897,65 @@ func setPlugins(
                 })</span>
         }
 
-        <span class="cov9" title="135">v = reflectutil.Elem(v)
+        <span class="cov9" title="148">v = reflectutil.Elem(v)
 
         if v.Kind() != reflect.Struct </span><span class="cov0" title="0">{
                 return
         }</span>
 
         // special case - we do not go deeper than that.
-        <span class="cov9" title="135">if v.Type() == reflect.TypeFor[T]() </span><span class="cov8" title="73">{
+        <span class="cov9" title="148">if v.Type() == reflect.TypeFor[T]() </span><span class="cov8" title="75">{
                 return
         }</span>
 
-        <span class="cov8" title="62">for i := range v.NumField() </span><span class="cov9" title="101">{
+        <span class="cov8" title="73">for i := range v.NumField() </span><span class="cov8" title="122">{
                 field := v.Field(i)
 
-                if !v.Type().Field(i).IsExported() </span><span class="cov6" title="24">{
+                if !v.Type().Field(i).IsExported() </span><span class="cov7" title="38">{
                         continue</span>
                 }
 
-                <span class="cov8" title="77">if field.Kind() != reflect.Pointer </span><span class="cov2" title="2">{
+                <span class="cov8" title="84">if field.Kind() != reflect.Pointer </span><span class="cov2" title="2">{
                         panic(
                                 fmt.Sprintf(
-                                        "testo: all exported fields in T must be pointers, got: %s",
+                                        "testo: all exported fields in T and plugins must be pointers: field %s.%s has non-pointer type %s",
+                                        v.Type(),
+                                        v.Type().Field(i).Name,
                                         field.Type(),
                                 ),
                         )</span>
                 }
 
-                <span class="cov8" title="75">setPlugins(field.Addr(), plugins, specs)</span>
+                <span class="cov8" title="82">setPlugins(field.Addr(), plugins, specs)</span>
         }
 }
 
 var pluginInterfaceType = reflect.TypeFor[testoplugin.Plugin]()
 
-func collectPlugins(typ reflect.Type, plugins map[reflect.Type]struct{}) <span class="cov6" title="26">{
-        if typ.Implements(pluginInterfaceType) </span><span class="cov6" title="19">{
-                plugins[typ] = struct{}{}
-        }</span>
+// collectPlugins gathers plugin types in their declaration order:
+// a depth-first walk over the exported fields of typ.
+func collectPlugins(typ reflect.Type, seen map[reflect.Type]struct{}, order *[]reflect.Type) <span class="cov6" title="32">{
+        if typ.Implements(pluginInterfaceType) </span><span class="cov6" title="25">{
+                if _, ok := seen[typ]; !ok </span><span class="cov5" title="19">{
+                        seen[typ] = struct{}{}
 
-        <span class="cov6" title="26">typ = reflectutil.Elem(typ)
+                        *order = append(*order, typ)
+                }</span>
+        }
+
+        <span class="cov6" title="32">typ = reflectutil.Elem(typ)
 
         if typ.Kind() != reflect.Struct </span><span class="cov0" title="0">{
                 return
         }</span>
 
-        <span class="cov6" title="26">for i := range typ.NumField() </span><span class="cov10" title="171">{
+        <span class="cov6" title="32">for i := range typ.NumField() </span><span class="cov10" title="232">{
                 field := typ.Field(i)
 
-                if field.IsExported() </span><span class="cov6" title="20">{
-                        collectPlugins(field.Type, plugins)
+                if field.IsExported() </span><span class="cov6" title="25">{
+                        collectPlugins(field.Type, seen, order)
                 }</span>
         }
-}
-
-func mapValues[K comparable, V any](m map[K]V) []V <span class="cov6" title="18">{
-        values := make([]V, 0, len(m))
-
-        for _, v := range m </span><span class="cov7" title="38">{
-                values = append(values, v)
-        }</span>
-
-        <span class="cov6" title="18">return values</span>
 }
 </pre>
 		
@@ -1046,12 +1059,12 @@ type canElem[Self any] interface {
 // Nested pointers are also supported - e.g. given "****value" it will return "value".
 //
 // Non-pointer values will be returned as is.
-func Elem[T canElem[T]](v T) T <span class="cov8" title="200">{
-        for v.Kind() == reflect.Pointer </span><span class="cov8" title="256">{
+func Elem[T canElem[T]](v T) T <span class="cov7" title="219">{
+        for v.Kind() == reflect.Pointer </span><span class="cov8" title="281">{
                 v = v.Elem()
         }</span>
 
-        <span class="cov8" title="200">return v</span>
+        <span class="cov7" title="219">return v</span>
 }
 
 // NameOf returns name of the underlying type T.
@@ -1090,7 +1103,7 @@ func Filled(hint reflect.Type) (reflect.Value, bool) <span class="cov2" title="3
         return value.Elem(), ok
 }</span>
 
-func Fill(v reflect.Value) bool <span class="cov6" title="45">{
+func Fill(v reflect.Value) bool <span class="cov6" title="50">{
         return fill(v, make(map[reflect.Type]bool))
 }</span>
 
@@ -1110,10 +1123,10 @@ func findRecursiveType(t reflect.Type, visited map[reflect.Type]bool) reflect.Ty
 
                 <span class="cov3" title="6">visited[t] = true
 
-                for i := range t.NumField() </span><span class="cov5" title="22">{
+                for i := range t.NumField() </span><span class="cov5" title="25">{
                         field := t.Field(i)
 
-                        if !field.IsExported() </span><span class="cov4" title="14">{
+                        if !field.IsExported() </span><span class="cov4" title="17">{
                                 continue</span>
                         }
 
@@ -1132,41 +1145,41 @@ func findRecursiveType(t reflect.Type, visited map[reflect.Type]bool) reflect.Ty
 }
 
 // fill returns true on success, meaning that type recursion was not detected.
-func fill(v reflect.Value, visited map[reflect.Type]bool) bool <span class="cov8" title="273">{
+func fill(v reflect.Value, visited map[reflect.Type]bool) bool <span class="cov8" title="297">{
         if !v.IsValid() </span><span class="cov0" title="0">{
                 return true
         }</span>
 
-        <span class="cov8" title="273">switch v.Kind() </span>{
-        case reflect.Pointer:<span class="cov7" title="134">
-                if v.IsNil() </span><span class="cov7" title="89">{
+        <span class="cov8" title="297">switch v.Kind() </span>{
+        case reflect.Pointer:<span class="cov7" title="146">
+                if v.IsNil() </span><span class="cov6" title="96">{
                         v.Set(reflect.New(v.Type().Elem()))
                 }</span>
 
-                <span class="cov7" title="134">return fill(v.Elem(), visited)</span>
+                <span class="cov7" title="146">return fill(v.Elem(), visited)</span>
 
-        case reflect.Struct:<span class="cov7" title="133">
+        case reflect.Struct:<span class="cov7" title="145">
                 typ := v.Type()
 
                 if visited[typ] </span><span class="cov1" title="2">{
                         return false
                 }</span>
 
-                <span class="cov7" title="131">visited[typ] = true
+                <span class="cov7" title="143">visited[typ] = true
 
-                for i := range v.NumField() </span><span class="cov10" title="815">{
+                for i := range v.NumField() </span><span class="cov10" title="1025">{
                         field := v.Field(i)
 
-                        if !field.CanSet() </span><span class="cov9" title="721">{
+                        if !field.CanSet() </span><span class="cov9" title="924">{
                                 continue</span>
                         }
 
-                        <span class="cov7" title="94">if !fill(field, visited) </span><span class="cov1" title="2">{
+                        <span class="cov6" title="101">if !fill(field, visited) </span><span class="cov1" title="2">{
                                 return false
                         }</span>
                 }
 
-                <span class="cov7" title="129">visited[typ] = false
+                <span class="cov7" title="141">visited[typ] = false
 
                 return true</span>
 
@@ -1187,7 +1200,7 @@ type Stack[T any] struct {
         values []T
 }
 
-func New[T any]() Stack[T] <span class="cov6" title="20">{
+func New[T any]() Stack[T] <span class="cov6" title="21">{
         return Stack[T]{}
 }</span>
 
@@ -1195,16 +1208,16 @@ func (s *Stack[T]) Len() int <span class="cov0" title="0">{
         return len(s.values)
 }</span>
 
-func (s *Stack[T]) Push(v T) <span class="cov9" title="122">{
+func (s *Stack[T]) Push(v T) <span class="cov9" title="134">{
         s.values = append(s.values, v)
 }</span>
 
-func (s *Stack[T]) Pop() (T, bool) <span class="cov10" title="140">{
-        if len(s.values) == 0 </span><span class="cov6" title="22">{
+func (s *Stack[T]) Pop() (T, bool) <span class="cov10" title="153">{
+        if len(s.values) == 0 </span><span class="cov6" title="23">{
                 return *new(T), false
         }</span>
 
-        <span class="cov9" title="118">last := s.values[len(s.values)-1]
+        <span class="cov9" title="130">last := s.values[len(s.values)-1]
 
         s.values = slices.Delete(s.values, len(s.values)-1, len(s.values))
 
@@ -1458,34 +1471,34 @@ import (
 )
 
 // mergeSpecs multiple plugin specs into one.
-func mergeSpecs(tb testing.TB, plugins ...testoplugin.Spec) testoplugin.Spec <span class="cov5" title="18">{
+func mergeSpecs(tb testing.TB, plugins ...testoplugin.Spec) testoplugin.Spec <span class="cov5" title="19">{
         tb.Helper()
 
         plans := make([]testoplugin.Plan, 0, len(plugins))
         hooks := make([]testoplugin.Hooks, 0, len(plugins))
         overrides := make([]testoplugin.Overrides, 0, len(plugins))
 
-        for _, p := range plugins </span><span class="cov6" title="38">{
+        for _, p := range plugins </span><span class="cov6" title="43">{
                 plans = append(plans, p.Plan)
                 hooks = append(hooks, p.Hooks)
                 overrides = append(overrides, p.Overrides)
         }</span>
 
-        <span class="cov5" title="18">return testoplugin.Spec{
+        <span class="cov5" title="19">return testoplugin.Spec{
                 Plan:      mergePlans(tb, plans...),
                 Hooks:     mergeHooks(tb, hooks...),
                 Overrides: mergeOverrides(overrides...),
         }</span>
 }
 
-func mergePlans(tb testing.TB, plans ...testoplugin.Plan) testoplugin.Plan <span class="cov5" title="18">{
+func mergePlans(tb testing.TB, plans ...testoplugin.Plan) testoplugin.Plan <span class="cov5" title="19">{
         tb.Helper()
 
-        slices.SortStableFunc(plans, func(a, b testoplugin.Plan) int </span><span class="cov5" title="20">{
+        slices.SortStableFunc(plans, func(a, b testoplugin.Plan) int </span><span class="cov6" title="24">{
                 return cmp.Compare(a.Priority, b.Priority)
         }</span>)
 
-        <span class="cov5" title="18">return testoplugin.Plan{
+        <span class="cov5" title="19">return testoplugin.Plan{
                 Prepare: func(suite testoreflect.SuiteInfo, tests *[]testoplugin.PlannedTest) </span><span class="cov2" title="3">{
                         tb.Helper()
 
@@ -1501,7 +1514,7 @@ func mergePlans(tb testing.TB, plans ...testoplugin.Plan) testoplugin.Plan <span
         }
 }
 
-func mergeHooks(tb testing.TB, hooks ...testoplugin.Hooks) testoplugin.Hooks <span class="cov5" title="18">{
+func mergeHooks(tb testing.TB, hooks ...testoplugin.Hooks) testoplugin.Hooks <span class="cov5" title="19">{
         tb.Helper()
 
         beforeAll := make([]testoplugin.Hook, 0, len(hooks))
@@ -1511,40 +1524,40 @@ func mergeHooks(tb testing.TB, hooks ...testoplugin.Hooks) testoplugin.Hooks <sp
         afterEach := make([]testoplugin.Hook, 0, len(hooks))
         afterAll := make([]testoplugin.Hook, 0, len(hooks))
 
-        for _, h := range hooks </span><span class="cov6" title="38">{
+        for _, h := range hooks </span><span class="cov6" title="43">{
                 if h := h.BeforeAll; h.Func != nil </span><span class="cov4" title="11">{
                         beforeAll = append(beforeAll, h)
                 }</span>
 
-                <span class="cov6" title="38">if h := h.BeforeEach; h.Func != nil </span><span class="cov4" title="11">{
+                <span class="cov6" title="43">if h := h.BeforeEach; h.Func != nil </span><span class="cov4" title="11">{
                         beforeEach = append(beforeEach, h)
                 }</span>
 
-                <span class="cov6" title="38">if h := h.BeforeEachSub; h.Func != nil </span><span class="cov4" title="11">{
+                <span class="cov6" title="43">if h := h.BeforeEachSub; h.Func != nil </span><span class="cov4" title="11">{
                         beforeEachSub = append(beforeEachSub, h)
                 }</span>
 
-                <span class="cov6" title="38">if h := h.AfterEachSub; h.Func != nil </span><span class="cov5" title="14">{
+                <span class="cov6" title="43">if h := h.AfterEachSub; h.Func != nil </span><span class="cov5" title="14">{
                         afterEachSub = append(afterEachSub, h)
                 }</span>
 
-                <span class="cov6" title="38">if h := h.AfterEach; h.Func != nil </span><span class="cov5" title="14">{
+                <span class="cov6" title="43">if h := h.AfterEach; h.Func != nil </span><span class="cov5" title="14">{
                         afterEach = append(afterEach, h)
                 }</span>
 
-                <span class="cov6" title="38">if h := h.AfterAll; h.Func != nil </span><span class="cov5" title="14">{
+                <span class="cov6" title="43">if h := h.AfterAll; h.Func != nil </span><span class="cov5" title="14">{
                         afterAll = append(afterAll, h)
                 }</span>
         }
 
-        <span class="cov5" title="18">run := func(hooks []testoplugin.Hook) func() </span><span class="cov8" title="108">{
+        <span class="cov5" title="19">run := func(hooks []testoplugin.Hook) func() </span><span class="cov8" title="114">{
                 tb.Helper()
 
                 slices.SortStableFunc(hooks, func(a, b testoplugin.Hook) int </span><span class="cov0" title="0">{
                         return cmp.Compare(a.Priority, b.Priority)
                 }</span>)
 
-                <span class="cov8" title="108">return func() </span><span class="cov6" title="32">{
+                <span class="cov8" title="114">return func() </span><span class="cov6" title="32">{
                         tb.Helper()
 
                         for _, h := range hooks </span><span class="cov6" title="25">{
@@ -1553,7 +1566,7 @@ func mergeHooks(tb testing.TB, hooks ...testoplugin.Hooks) testoplugin.Hooks <sp
                 }
         }
 
-        <span class="cov5" title="18">return testoplugin.Hooks{
+        <span class="cov5" title="19">return testoplugin.Hooks{
                 BeforeAll:     testoplugin.Hook{Func: run(beforeAll)},
                 BeforeEach:    testoplugin.Hook{Func: run(beforeEach)},
                 BeforeEachSub: testoplugin.Hook{Func: run(beforeEachSub)},
@@ -1564,12 +1577,12 @@ func mergeHooks(tb testing.TB, hooks ...testoplugin.Hooks) testoplugin.Hooks <sp
 }
 
 //nolint:funlen // splitting this into subfunctons would make it worse
-func mergeOverrides(overrides ...testoplugin.Overrides) testoplugin.Overrides <span class="cov5" title="18">{
-        slices.SortStableFunc(overrides, func(a, b testoplugin.Overrides) int </span><span class="cov5" title="20">{
+func mergeOverrides(overrides ...testoplugin.Overrides) testoplugin.Overrides <span class="cov5" title="19">{
+        slices.SortStableFunc(overrides, func(a, b testoplugin.Overrides) int </span><span class="cov6" title="24">{
                 return cmp.Compare(a.Priority, b.Priority)
         }</span>)
 
-        <span class="cov5" title="18">return testoplugin.Overrides{
+        <span class="cov5" title="19">return testoplugin.Overrides{
                 Log: mergeOverride(
                         overrides,
                         func(o testoplugin.Overrides) testoplugin.Override[testoplugin.FuncLog] </span><span class="cov3" title="6">{
@@ -1672,9 +1685,9 @@ func mergeOverrides(overrides ...testoplugin.Overrides) testoplugin.Overrides <s
 func mergeOverride[F any](
         overrides []testoplugin.Overrides,
         getter func(testoplugin.Overrides) testoplugin.Override[F],
-) func(F) F <span class="cov10" title="288">{
+) func(F) F <span class="cov10" title="304">{
         return func(f F) F </span><span class="cov6" title="27">{
-                for _, o := range overrides </span><span class="cov7" title="54">{
+                for _, o := range slices.Backward(overrides) </span><span class="cov7" title="54">{
                         if override := getter(o); override != nil </span><span class="cov5" title="22">{
                                 f = override(f)
                         }</span>
@@ -1880,26 +1893,15 @@ func Run[T CommonT](
                         options...,
                 )
 
-                <span class="cov2" title="2">defer func() </span><span class="cov2" title="2">{
-                        if r := recover(); r != nil </span><span class="cov0" title="0">{
-                                trace := string(debug.Stack())
+                <span class="cov2" title="2">defer runProtectedHook(t, "plugin AfterEachSub hook", t.unwrap().spec.Hooks.AfterEachSub)
 
-                                t.unwrap().reflection.Modify(func(r *testoreflect.Reflection) </span><span class="cov0" title="0">{
-                                        r.Panic = &amp;testoreflect.PanicInfo{
-                                                Value: r,
-                                                Trace: trace,
-                                        }
-                                }</span>)
+                runProtectedHook(t, "plugin BeforeEachSub hook", t.unwrap().spec.Hooks.BeforeEachSub)
 
-                                <span class="cov0" title="0">t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), r, trace)</span>
-                        }
-                }()
+                runProtected(t, "sub-test", func() </span><span class="cov2" title="2">{
+                        t.Helper()
 
-                <span class="cov2" title="2">defer runHook(t, t.unwrap().spec.Hooks.AfterEachSub)
-
-                runHook(t, t.unwrap().spec.Hooks.BeforeEachSub)
-
-                f(t)</span>
+                        f(t)
+                }</span>)
         })
 }
 
@@ -1981,10 +1983,10 @@ func (r *runner[Suite, T]) runSuite(
         })
 }
 
-func runHook(t testing.TB, h testoplugin.Hook) <span class="cov10" title="69">{
+func runHook(t testing.TB, h testoplugin.Hook) <span class="cov9" title="69">{
         t.Helper()
 
-        if h.Func != nil </span><span class="cov9" title="57">{
+        if h.Func != nil </span><span class="cov8" title="57">{
                 h.Func()
         }</span>
 }
@@ -1993,22 +1995,38 @@ func (r *runner[Suite, T]) runSuiteTests(t T, s Suite, tests suiteTests[Suite, T
         t.Helper()
 
         defer func() </span><span class="cov4" title="6">{
-                if !t.Skipped() </span><span class="cov4" title="6">{
-                        runHook(t, t.unwrap().spec.Hooks.AfterAll)
+                t.Helper()
+
+                if t.Skipped() </span><span class="cov0" title="0">{
+                        return
                 }</span>
+
+                <span class="cov4" title="6">runProtectedHook(t, "plugin AfterAll hook", t.unwrap().spec.Hooks.AfterAll)</span>
         }()
 
-        <span class="cov4" title="6">runHook(t, t.unwrap().spec.Hooks.BeforeAll)
+        <span class="cov4" title="6">runProtectedHook(t, "plugin BeforeAll hook", t.unwrap().spec.Hooks.BeforeAll)
 
         defer func() </span><span class="cov4" title="6">{
-                if !t.Skipped() </span><span class="cov4" title="6">{
-                        s.AfterAll(t)
+                t.Helper()
+
+                if t.Skipped() </span><span class="cov0" title="0">{
+                        return
                 }</span>
+
+                <span class="cov4" title="6">runProtected(t, "suite AfterAll hook", func() </span><span class="cov4" title="6">{
+                        t.Helper()
+
+                        s.AfterAll(t)
+                }</span>)
         }()
 
-        <span class="cov4" title="6">s.BeforeAll(t)
+        <span class="cov4" title="6">runProtected(t, "suite BeforeAll hook", func() </span><span class="cov4" title="6">{
+                t.Helper()
 
-        suiteReflection := t.unwrap().reflection.Load().Suite
+                s.BeforeAll(t)
+        }</span>)
+
+        <span class="cov4" title="6">suiteReflection := t.unwrap().reflection.Load().Suite
 
         suiteInfo := testoreflect.SuiteInfo{
                 Parent:   suiteReflection.Parent,
@@ -2069,30 +2087,73 @@ func (r *runner[Suite, T]) runSuiteTest(
 ) <span class="cov6" title="14">{
         t.Helper()
 
-        defer func() </span><span class="cov6" title="14">{
-                if r := recover(); r != nil </span><span class="cov0" title="0">{
-                        trace := string(debug.Stack())
+        defer runProtectedHook(t, "plugin AfterEach hook", t.unwrap().spec.Hooks.AfterEach)
 
-                        t.unwrap().reflection.Modify(func(ref *testoreflect.Reflection) </span><span class="cov0" title="0">{
-                                ref.Panic = &amp;testoreflect.PanicInfo{
-                                        Value: r,
-                                        Trace: trace,
-                                }
-                        }</span>)
+        runProtectedHook(t, "plugin BeforeEach hook", t.unwrap().spec.Hooks.BeforeEach)
 
-                        <span class="cov0" title="0">t.Fatalf("testo: test %q panicked: %v\n\n%s", t.Name(), r, trace)</span>
-                }
+        defer runProtected(t, "suite AfterEach hook", func() </span><span class="cov6" title="14">{
+                t.Helper()
+
+                s.AfterEach(t)
+        }</span>)
+
+        <span class="cov6" title="14">runProtected(t, "suite BeforeEach hook", func() </span><span class="cov6" title="14">{
+                t.Helper()
+
+                s.BeforeEach(t)
+        }</span>)
+
+        <span class="cov6" title="14">runProtected(t, "test", func() </span><span class="cov6" title="14">{
+                t.Helper()
+
+                test.Run(s, t)
+        }</span>)
+}
+
+// runProtected runs f, converting a panic into a recorded test failure
+// before deferred after-hooks run, so that they observe the failed state.
+func runProtected[T CommonT](t T, kind string, f func()) <span class="cov10" title="100">{
+        t.Helper()
+
+        defer func() </span><span class="cov10" title="100">{
+                t.Helper()
+
+                if rec := recover(); rec != nil </span><span class="cov0" title="0">{
+                        recordPanic(t, kind, rec)
+                }</span>
         }()
 
-        <span class="cov6" title="14">defer runHook(t, t.unwrap().spec.Hooks.AfterEach)
+        <span class="cov10" title="100">f()</span>
+}
 
-        runHook(t, t.unwrap().spec.Hooks.BeforeEach)
+func runProtectedHook[T CommonT](t T, kind string, hook testoplugin.Hook) <span class="cov8" title="44">{
+        t.Helper()
 
-        defer s.AfterEach(t)
+        runProtected(t, kind, func() </span><span class="cov8" title="44">{
+                t.Helper()
 
-        s.BeforeEach(t)
+                runHook(t, hook)
+        }</span>)
+}
 
-        test.Run(s, t)</span>
+// recordPanic stores rec as the test's panic information and fails the test.
+// An already recorded panic is kept, so the original panic value survives
+// even if an after-hook panics during unwinding.
+func recordPanic[T CommonT](t T, kind string, rec any) <span class="cov0" title="0">{
+        t.Helper()
+
+        trace := string(debug.Stack())
+
+        t.unwrap().reflection.Modify(func(ref *testoreflect.Reflection) </span><span class="cov0" title="0">{
+                if ref.Panic == nil </span><span class="cov0" title="0">{
+                        ref.Panic = &amp;testoreflect.PanicInfo{
+                                Value: rec,
+                                Trace: trace,
+                        }
+                }</span>
+        })
+
+        <span class="cov0" title="0">t.Fatalf("testo: %s in %q panicked: %v\n\n%s", kind, t.Name(), rec, trace)</span>
 }
 
 func (r *runner[Suite, T]) applyPlan(
@@ -2323,6 +2384,12 @@ type (
                 failureKind     atomicInt[testoreflect.TestFailureKind]
                 hasFatalSubtest atomic.Bool
 
+                // isParallel and denyParallel mirror the testing package guards:
+                // Setenv and Chdir mutate process-wide state and therefore conflict
+                // with Parallel. See [T.checkParallel].
+                isParallel   atomic.Bool
+                denyParallel atomic.Bool
+
                 // propagateParallel if enabled, will route .Parallel() calls
                 // to suite's TestingT.
                 //
@@ -2330,6 +2397,11 @@ type (
                 propagateParallel bool
 
                 plugins map[reflect.Type]testoplugin.Plugin
+
+                // pluginOrder holds plugin types in their declaration order inside
+                // the user T struct. Specs are merged in this order so that
+                // equal-priority hooks and overrides run deterministically.
+                pluginOrder []reflect.Type
         }
 
         testoT = T
@@ -2338,7 +2410,7 @@ type (
 // Plugin implements [testoplugin.Plugin].
 //
 // This is a placeholder to prevent other .Plugin methods being promoted.
-func (*T) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec <span class="cov6" title="18">{
+func (*T) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec <span class="cov6" title="19">{
         return testoplugin.Spec{}
 }</span>
 
@@ -2366,6 +2438,12 @@ func (t *T) Parallel() <span class="cov1" title="1">{
 func (t *T) parallel() <span class="cov0" title="0">{
         t.Helper()
 
+        if t.denyParallel.Load() </span><span class="cov0" title="0">{
+                panic("testo: test using t.Setenv or t.Chdir can not use t.Parallel")</span>
+        }
+
+        <span class="cov0" title="0">t.isParallel.Store(true)
+
         if t.propagateParallel </span><span class="cov0" title="0">{
                 t.reflection.Load().Suite.TestingT.Parallel()
 
@@ -2373,6 +2451,24 @@ func (t *T) parallel() <span class="cov0" title="0">{
         }</span>
 
         <span class="cov0" title="0">t.common.Parallel()</span>
+}
+
+// checkParallel mirrors testing.common.checkParallel: methods that mutate
+// process-wide state (Setenv, Chdir) cannot be used in parallel tests or
+// tests with parallel ancestors, and forbid a later t.Parallel call.
+func (t *T) checkParallel(method string) <span class="cov0" title="0">{
+        t.Helper()
+
+        for c := t; c != nil; c = c.parent </span><span class="cov0" title="0">{
+                if c.isParallel.Load() </span><span class="cov0" title="0">{
+                        panic(
+                                "testo: t." + method + " called after t.Parallel; " +
+                                        "it cannot be used in parallel tests or tests with parallel ancestors",
+                        )</span>
+                }
+        }
+
+        <span class="cov0" title="0">t.denyParallel.Store(true)</span>
 }
 
 // Setenv calls os.Setenv(key, value) and uses Cleanup to
@@ -2392,6 +2488,8 @@ func (t *T) Setenv(key, value string) <span class="cov1" title="1">{
 // overrides for methods such as fatal or cleanup.
 func (t *T) setenv(key, value string) <span class="cov0" title="0">{
         t.Helper()
+
+        t.checkParallel("Setenv")
 
         prevValue, ok := os.LookupEnv(key)
 
@@ -2594,6 +2692,8 @@ func (t *T) Chdir(dir string) <span class="cov1" title="1">{
 func (t *T) chdir(dir string) <span class="cov0" title="0">{
         t.Helper()
 
+        t.checkParallel("Chdir")
+
         oldwd, err := os.Open(".")
         if err != nil </span><span class="cov0" title="0">{
                 t.Fatal(err)
@@ -2658,7 +2758,7 @@ func (t *T) Name() string <span class="cov7" title="45">{
 // unwrap the underlying T.
 //
 // It works since T's are embedded in user-defined structs.
-func (t *T) unwrap() *T <span class="cov10" title="180">{
+func (t *T) unwrap() *T <span class="cov10" title="181">{
         return t
 }</span>
 
@@ -2685,8 +2785,14 @@ func (t *T) markFailure(kind testoreflect.TestFailureKind) <span class="cov0" ti
                 return
         }</span>
 
-        <span class="cov0" title="0">t.failureKind.Store(kind)
-        t.failureSource.Store(testoreflect.TestFailureSourceSelf)
+        // never downgrade an already recorded fatal failure - e.g. t.Error
+        // called from a cleanup after t.Fatal must keep the fatal kind.
+        <span class="cov0" title="0">if !t.failureKind.CompareAndSwap(testoreflect.TestFailureKindNone, kind) &amp;&amp;
+                kind == testoreflect.TestFailureKindFatal </span><span class="cov0" title="0">{
+                t.failureKind.Store(kind)
+        }</span>
+
+        <span class="cov0" title="0">t.failureSource.Store(testoreflect.TestFailureSourceSelf)
 
         parent := t.parent
 
@@ -2711,7 +2817,7 @@ func (t *T) markFailure(kind testoreflect.TestFailureKind) <span class="cov0" ti
         }
 }
 
-func (t *T) options() []testoplugin.Option <span class="cov7" title="38">{
+func (t *T) options() []testoplugin.Option <span class="cov7" title="43">{
         size := len(t.levelOptions)
         byLevel := [][]testoplugin.Option{t.levelOptions}
 
@@ -2733,15 +2839,15 @@ func (t *T) options() []testoplugin.Option <span class="cov7" title="38">{
                 parent = parent.parent</span>
         }
 
-        <span class="cov7" title="38">options := make([]testoplugin.Option, 0, size)
+        <span class="cov7" title="43">options := make([]testoplugin.Option, 0, size)
 
         // so that child options come after parent options
 
-        for _, level := range slices.Backward(byLevel) </span><span class="cov8" title="71">{
+        for _, level := range slices.Backward(byLevel) </span><span class="cov8" title="76">{
                 options = append(options, level...)
         }</span>
 
-        <span class="cov7" title="38">return options</span>
+        <span class="cov7" title="43">return options</span>
 }
 
 func (t *T) pluginNames() []string <span class="cov4" title="6">{
@@ -3160,7 +3266,7 @@ func (c Cache) dir() (string, error) <span class="cov8" title="42">{
 }
 
 func readEntry(p, key string) ([]byte, error) <span class="cov7" title="22">{
-        info, err := os.Lstat(p)
+        linfo, err := os.Lstat(p)
         if err != nil </span><span class="cov2" title="2">{
                 if errors.Is(err, os.ErrNotExist) </span><span class="cov2" title="2">{
                         return nil, ErrNotFound
@@ -3169,11 +3275,11 @@ func readEntry(p, key string) ([]byte, error) <span class="cov7" title="22">{
                 <span class="cov0" title="0">return nil, err</span>
         }
 
-        <span class="cov7" title="20">if !info.Mode().IsRegular() </span><span class="cov2" title="2">{
+        <span class="cov7" title="20">if !linfo.Mode().IsRegular() </span><span class="cov2" title="2">{
                 return nil, ErrNotFound
         }</span>
 
-        <span class="cov6" title="18">value, err := os.ReadFile(p)
+        <span class="cov6" title="18">f, err := os.Open(p)
         if err != nil </span><span class="cov0" title="0">{
                 if errors.Is(err, os.ErrNotExist) </span><span class="cov0" title="0">{
                         return nil, ErrNotFound
@@ -3181,6 +3287,23 @@ func readEntry(p, key string) ([]byte, error) <span class="cov7" title="22">{
 
                 <span class="cov0" title="0">return nil, err</span>
         }
+        <span class="cov6" title="18">defer f.Close()
+
+        // Stat the opened descriptor and require identity with the Lstat result,
+        // so a symlink swapped in between the two calls cannot be followed.
+        finfo, err := f.Stat()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov6" title="18">if !finfo.Mode().IsRegular() || !os.SameFile(linfo, finfo) </span><span class="cov0" title="0">{
+                return nil, ErrNotFound
+        }</span>
+
+        <span class="cov6" title="18">value, err := io.ReadAll(f)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
 
         <span class="cov6" title="18">storedKey, value, ok := bytes.Cut(value, []byte{0})
         if !ok || string(storedKey) != key </span><span class="cov3" title="3">{
@@ -3431,7 +3554,16 @@ func (o Override[F]) Call(f F) F <span class="cov10" title="33">{
 // Plugins can implement [Plugin] interface to be registered as such.
 //
 // Method "Plugin" will be called for each plugin before running a suite.
-// Parent is nil for top-level tests. For sub-tests it referes to the plugin instance of the parent test.
+// For sub-tests, parent refers to the plugin instance of the parent test.
+// For top-level tests, parent is a typed-nil instance of the plugin's own
+// type: the interface itself is non-nil, but the concrete pointer is nil,
+// so an unconditional type assertion like parent.(*PluginFoo) is safe.
+// To detect the top level, nil-check the asserted pointer, not the interface:
+//
+//        prev, _ := parent.(*PluginFoo)
+//        if prev != nil {
+//                // sub-test: use prev
+//        }
 //
 // It is encouraged to ensure a plugin implements [Plugin] interface with the following line:
 //
