@@ -17,7 +17,7 @@ import (
 
 var ignoreLineOrder = []string{
 	"02_hooks",
-	"06_parallel",
+	"05_parallel",
 }
 
 func TestExamples(t *testing.T) {

@@ -19,11 +19,22 @@ Testo focuses on extensibility through plugins and stays a thin layer over usual
 Other frameworks may be a better fit if you need BDD scenarios or some unique features "out of the box".
 Testo can support BDD-style tests through plugins.
 
-[^1]: Ginkgo runs parallel tests in [separate processes](https://onsi.github.io/ginkgo/#mental-model-how-ginkgo-runs-parallel-specs) with its own runner (not available through `go test`). This is _less performant_ than native `go test` parallelization based on goroutines.
+## Why we moved off [Allure-Go]
+
+Testo was created at Ozon as the successor to [Allure-Go].
+In Allure-Go, the test framework and Allure report generation are one
+piece: you can't swap the reporting or extend the framework. Testo
+splits them. The framework is a dependency-free layer over
+`testing.T`, and Allure reporting is
+[one plugin among many](https://github.com/ozontech/testo-allure).
+If you are on Allure-Go today, see the
+[migration guide](./docs/migration.md#migrating-from-allure-go).
+
+[^1]: Ginkgo runs parallel tests in [separate processes](https://onsi.github.io/ginkgo/#mental-model-how-ginkgo-runs-parallel-specs) with its own runner (not available through `go test`). It costs more startup time and memory than goroutine-based `go test` parallelization, but you get process isolation in return.
 [^2]: [Not supported](https://github.com/smartystreets/goconvey/issues/360).
 [^3]: See [issue #934](https://github.com/stretchr/testify/issues/934).
-[^4]: DSL — Domain-Specific Language. Requires describing tests in a specific way, different from usual Go tests. Not necessarily a bad thing, but has a learning curve and is less flexible.
-[^5]: Whether it has any dependencies. Not necessarily a bad thing, but fewer dependencies mean a smaller footprint, faster build times and avoiding potential vulnerabilities.
+[^4]: DSL: Domain-Specific Language. Requires describing tests in a specific way, different from usual Go tests. Not necessarily a bad thing, but has a learning curve and is less flexible.
+[^5]: "Yes" means no third-party dependencies: only the standard library is used.
 [^6]: Any report format is achievable through plugins, but none is baked into Testo by default. See [testo-allure](https://github.com/ozontech/testo-allure).
 [^7]: "Native `go test`" means _all features_ are supported using only the `go test` command without any other CLIs.
 

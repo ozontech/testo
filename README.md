@@ -13,30 +13,29 @@ with an extensive plugin system.
 > Testo (/tɛstɒ/) is a play on words "test" and "тесто", meaning "dough".
 > Just like you can cook anything from dough, you can test anything with Testo!
 
-Add some flavor to your tests with
-[toppings - a collection of small, miscellaneous plugins for Testo framework.](https://github.com/ozontech/testo-toppings)
+See also [toppings](https://github.com/ozontech/testo-toppings) -
+a collection of small optional plugins for Testo.
 
 ## Features
 
-- [Plugins](./examples/04_plugins/main_test.go) - adapt your tests to any scenario with features you need.
-- [Parametrized tests](./examples/03_parametrized/main_test.go) - describe a test once, repeat it with different parameters.
-- [Parallel tests](./examples/05_parallel/main_test.go) - make your tests faster by running them all at once.
-- [Lifecycle hooks](./examples/02_hooks/main_test.go) - before and after any suite, test & sub-test.
-- [Test annotations](./examples/07_annotations/main_test.go) - attach static options to any test.
-- [Informative errors and traces](./examples/06_errors/main_test.go) - no need to guess what went wrong.
-- Sub-tests & sub-suites - support for nested tests and nested suites.
-- Test reflection - deeply inspect test's meta-information.
-- Caching - key-value storage persistent between test runs.
+- [Plugins](./docs/plugins.md) - hook, filter and extend `T` without forking the framework ([example](./examples/04_plugins/main_test.go)).
+- [Parametrized tests](./docs/how-to.md#how-to-write-parametrized-tests) - describe a test once, repeat it with different parameters ([example](./examples/03_parametrized/main_test.go)).
+- [Parallel tests](./examples/05_parallel/main_test.go) - run independent tests concurrently.
+- [Lifecycle hooks](./docs/tutorial.md#suite-hooks) - before and after any suite, test & sub-test ([example](./examples/02_hooks/main_test.go), [parallel caveat](./docs/how-to.md#hooks-and-parallel-sub-tests)).
+- [Test annotations](./docs/how-to.md#how-to-annotate-tests) - attach static options to any test ([example](./examples/07_annotations/main_test.go)).
+- [Test filtering](./docs/how-to.md#how-to-run-and-skip-specific-tests) - `-run`, `-testo.m`.
+- [Informative errors and traces](./examples/06_errors/main_test.go) - error messages name the exact method and type that caused them.
+- [Sub-tests & sub-suites](./examples/08_subsuites/main_test.go) - support for nested tests and nested suites.
+- [Test reflection](https://pkg.go.dev/github.com/ozontech/testo/testoreflect) - deeply inspect test's meta-information.
+- [Caching](./docs/how-to.md#how-to-use-persistent-cache) - key-value storage persistent between test runs.
 - [Zero dependencies](./go.mod).
 
 ## Why Testo
 
-At Ozon, Testo powers thousands of end-to-end tests daily in production.
+Ozon runs thousands of end-to-end tests on Testo every day.
 
-With plugins, it is flexible enough to adapt to diverse requirements,
-without leaving the Go ecosystem - just a layer over `testing.T`.
-
-If your needs are outgrowing standard `testing` package, Testo is a great choice.
+Plugins let teams add what they need: reporting, retries, custom `T`
+methods. Tests stay plain `go test` tests.
 
 See [comparison with other frameworks](./COMPARISON.md).
 
@@ -70,32 +69,50 @@ And run it with `go test` as usual:
 go test .
 ```
 
-But there is more!
-Testo supports suites, parametrized tests & plugins, see [Next steps](#next-steps).
+Testo can do more. For example, run parametrized tests in suite:
 
-See also [VS Code extension for Testo](#vs-code-extension).
+```go
+type Suite struct{ testo.Suite[*testo.T] }
+
+func (Suite) CasesWord() []string {
+    return []string{"dough", "bread"}
+}
+
+func (Suite) TestLen(t *testo.T, p struct{ Word string }) {
+    if len(p.Word) == 0 {
+        t.Error("word must not be empty")
+    }
+}
+
+func TestSuite(t *testing.T) {
+    testo.RunSuite(t, new(Suite))
+}
+```
+
+`TestLen` runs once per word from `CasesWord`.
 
 ### Next steps
 
 - Take [a guided tour of Testo](./docs/tutorial.md) by making simple plugins and running the tests using various features.
 - See [test examples](./examples).
-- Learn [how to use various Testo features](./docs/how-to.md).
-- Read a [brief description and technical overview](./docs/technical-overview.md) of Testo.
+- Learn [how to use Testo features](./docs/how-to.md).
+- Migrating from testify or allure-go? See the [migration guide](./docs/migration.md).
+- Read the [technical overview](./docs/technical-overview.md) - lifecycle, panics, plugin internals.
 - View [API documentation](https://pkg.go.dev/github.com/ozontech/testo).
 
 ## Plugins
 
-Testo features a powerful plugin system.
-
 Plugins can:
 
-- Provide `BeforeAll`/`AfterAll`, `BeforeEach`/`AfterEach` & `BeforeSubEach`/`AfterSubEach` hooks.
+- Provide `BeforeAll`/`AfterAll`, `BeforeEach`/`AfterEach` & `BeforeEachSub`/`AfterEachSub` hooks.
 - Plan tests for execution - filter, duplicate & reorder.
-- Override built-in `T` methods, such as `Log`, `Error` and _etc._
+- Override built-in `T` methods, such as `Log` and `Error`.
 - Extend `T` by adding new methods.
 - Allow users to configure their behavior through options.
 - Communicate with other plugins.
 - Add command line flags for `go test` command.
+
+See [the guide on writing plugins](./docs/plugins.md).
 
 Examples:
 
@@ -108,7 +125,7 @@ Examples:
 
 Testo has its own [VS Code extension](./vscode-extension).
 
-Makes it easier to run and debug individual suite tests and adds helpful snippets.
+The extension adds run/debug buttons for individual suite tests, plus snippets.
 
 ![VSCode extension screenshot showing codelens buttons for running and debugging a test](./vscode-extension/example.png)
 
@@ -116,7 +133,7 @@ Makes it easier to run and debug individual suite tests and adds helpful snippet
 
 Testo guarantees to support at least **3 latest major** [Go releases](https://go.dev/doc/devel/release).
 
-Currently, minimum supported Go version is **1.24**
+Currently, the minimum supported Go version is **1.24**.
 
 ## Contributing
 
@@ -127,9 +144,3 @@ See [contributing guidelines](./CONTRIBUTING.md).
 ## License
 
 This project is released under the [Apache-2.0 license](./LICENSE).
-
----
-
-> [!TIP]
-> If you find Testo useful, [consider giving this repository a star](https://github.com/ozontech/testo) to help it reach more people.
-> Thank you!

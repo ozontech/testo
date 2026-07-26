@@ -1,6 +1,6 @@
 === RUN   Test
 === RUN   Test/Suite
-    main_test.go:32: testo: plugins collected: 1: main.PluginUtils
+    main_test.go:34: testo: plugins collected: 1: main.PluginUtils
 === RUN   Test/Suite/testo!
 === RUN   Test/Suite/testo!/TestFizz
 === RUN   Test/Suite/testo!/TestBar
@@ -16,4 +16,4 @@
             --- PASS: Test/Suite/testo!/TestFoo#01 (0.00s)
             --- PASS: Test/Suite/testo!/TestFoo#02 (0.00s)
 PASS
-ok  	github.com/ozontech/testo/examples/07_annotations	0.319s
+ok  	github.com/ozontech/testo/examples/07_annotations	0.272s

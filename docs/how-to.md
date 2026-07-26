@@ -1,13 +1,15 @@
-# How to
+# How to use Testo features
 
-Learn how to use the features of Testo.
+Snippets on this page are fragments: they assume a project set up as
+in the [tutorial](./tutorial.md), with a suite and a `T` type already
+defined.
 
 ## How to write parametrized tests
 
 Parametrized tests are defined as regular tests with a second argument:
 
 ```go
-func (*Suite) TestFoo(t *testo.T, p struct{ Name string; Age int }) {
+func (*Suite) TestFoo(t T, p struct{ Name string; Age int }) {
     t.Logf("Using name=%q and age=%d", p.Name, p.Age)
 }
 ```
@@ -27,56 +29,87 @@ func (*Suite) CasesAge() []int {
 > [!TIP]
 > `CasesXxx` are invoked *after* `BeforeAll` hook.
 
-Field names used in a `struct{ Name string; Age int}` must be equal to existing `CasesXxx` functions.
+Each parameter field must have a matching `CasesXxx` method.
 
 Given that, test `TestFoo` will be invoked with all possible combinations of names and ages:
 
-```python
-TestFoo(name=John, age=18)
-TestFoo(name=John, age=60)
-TestFoo(name=John, age=6)
-TestFoo(name=Joe, age=18)
-TestFoo(name=Joe, age=60)
-TestFoo(name=Joe, age=6)
+```txt
+TestFoo  with p = {Name: "John", Age: 18}
+TestFoo  with p = {Name: "John", Age: 60}
+TestFoo  with p = {Name: "John", Age: 6}
+TestFoo  with p = {Name: "Joe",  Age: 18}
+TestFoo  with p = {Name: "Joe",  Age: 60}
+TestFoo  with p = {Name: "Joe",  Age: 6}
 ```
 
-If for at least one required parameter function `CasesXxx`
-returns zero values Testo will log a warning with similar message:
+Parameter values do not appear in test names.
+In `go test -v` output the runs are named `TestFoo`, `TestFoo#01`, `TestFoo#02` and so on,
+following the standard `go test` convention for repeated names.
+Log the parameters at the start of the test, so a failing `TestFoo#03`
+identifies its case - or let a
+[ten-line plugin](./plugins.md#reading-test-metadata) do it for every
+test automatically.
+
+If a `CasesXxx` method returns an empty slice, Testo logs a warning
+(visible with `go test -v`):
 
 ```txt
-main_test.go:15: testo: (*main.Suite).CasesName returned empty slice, (*main.Suite).TestFoo will not run
+main_test.go:15: testo: warning: (*main.Suite).CasesName returned empty slice, (*main.Suite).TestFoo will not run
 ```
 
-To turn this log into fatal error and do not proceed with further execution
-pass flag `-testo.strict` to the `go test` command invocation:
+To make this warning fatal, enable
+[strict mode](#how-to-enable-strict-mode).
 
-```bash
-go test ./... -testo.strict
+### Table tests (correlated parameters)
+
+Separate parameters always produce the Cartesian product of their values.
+When values are correlated - a classic table test, where each case is one
+row with its own input and expected output - use a single struct-typed
+parameter instead:
+
+```go
+type Case struct {
+    Input string
+    Want  int
+}
+
+func (*Suite) CasesCase() []Case {
+    return []Case{
+        {Input: "one", Want: 1},
+        {Input: "two", Want: 2},
+    }
+}
+
+func (*Suite) TestParse(t T, p struct{ Case Case }) {
+    if got := Parse(p.Case.Input); got != p.Case.Want {
+        t.Errorf("Parse(%q) = %d, want %d", p.Case.Input, got, p.Case.Want)
+    }
+}
 ```
 
-> [!TIP]
-> You can also set `TESTO_STRICT` environment variable to `true`
-> for the same effect.
->
-> Flags have higher priority than environment variables.
+The test runs once per element of the slice, with no cross-combination.
 
 ## How to write parallel tests
 
-You can use your regular `t.Parallel` method to mark a test as parallel.
+Mark a test as parallel with the standard `t.Parallel`:
 
 ```go
-func (*Suite) TestFoo(t *testo.T) {
+func (*Suite) TestFoo(t T) {
     t.Parallel()
 
     // your test here
 }
 ```
 
-You can expect all `AfterEach` and `AfterAll` hooks to execute at the end of each test properly.
+Standard `go test` flags such as `-parallel`, `-count` and `-timeout`
+apply unchanged - Testo tests are regular Go tests underneath.
+With `-count=N`, `BeforeAll` and `AfterAll` run once per iteration.
 
-Please note, that `AfterEach` (only applies to it) hook is deferred to run at the end of the test.
-If that test has sub-tests marked as parallel,
-this hook will run BEFORE those sub-tests are finished.
+### Hooks and parallel sub-tests
+
+`AfterEach` and `AfterAll` still run for parallel tests, but
+`AfterEach` is deferred to the end of the test body. If the test has
+parallel sub-tests, the hook runs **before** they finish:
 
 ```go
 func (*Suite) Test(t T) {
@@ -99,12 +132,16 @@ func (*Suite) Test(t T) {
 }
 ```
 
-Unless you need to run sub-tests during this hook,
-it is recommended to use t.Cleanup during BeforeEach.
+If your teardown must run after all parallel sub-tests finish,
+register it with `t.Cleanup` inside `BeforeEach` instead of using the `AfterEach` hook -
+cleanups run after all parallel sub-tests of the test are done:
 
 ```go
 func (*Suite) BeforeEach(t T) {
-    t.Cleanup(t.afterEach)
+    t.Cleanup(func() {
+        // Teardown logic here.
+        // Runs after the test AND all its parallel sub-tests finish.
+    })
 }
 ```
 
@@ -149,66 +186,75 @@ func Test(t *testing.T) {
 Passing to `testo.Run`:
 
 ```go
-func (s *Suite) TestFoo(t *testo.T) {
-    testo.Run(t, "my sub-test", func(t *testo.T) {
+func (s *Suite) TestFoo(t T) {
+    testo.Run(t, "my sub-test", func(t T) {
         // ...
     }, myplugin.SomeOption())
 }
 ```
 
-> Options can be propagated to inner sub-tests, but it's up to a plugin author
-> to decide whether an option should be propagated or not.
->
-> If needed, you can change propagation for certain options
-> by setting `.Propagate` field to `false` (disable) or `true` (enable).
-> However, it is highly discouraged to do so.
+> [!NOTE]
+> The plugin author decides if an option is passed to inner
+> sub-tests. You can force this with the `.Propagate` field,
+> but usually you should not.
 
 ## How to use persistent cache
 
-`testocache` stores key-value data between `go test` runs.
-By default it uses `.testo_cache` in the test working directory.
+`testocache` stores key-value data between `go test` runs:
+
+```go
+import "github.com/ozontech/testo/testocache"
+
+err := testocache.Set("token", []byte("abc"))
+value, err := testocache.Get("token")
+```
+
+By default the cache lives in `.testo_cache` in the test working
+directory:
 
 ```bash
+# change the directory for one package
 go test ./path/to/package -cache.dir /tmp/my-testo-cache
-```
 
-When testing multiple packages with `./...`, use the environment variable so
-packages that do not import `testocache` do not receive an unknown test flag:
-
-```bash
+# for ./... use the env var, so packages that don't import
+# testocache don't fail on an unknown flag
 TESTO_CACHE_DIR=/tmp/my-testo-cache go test ./...
-```
 
-```bash
+# disable the cache entirely
 TESTO_CACHE_DISABLE=true go test ./...
 ```
 
-For plugin state, prefer a namespace:
+> [!NOTE]
+> Cache flags use the `-cache.` prefix, not `-testo.` -
+> there is no `-testo.cache.dir`.
+
+For plugin state, prefer a namespace. It is isolated from other
+namespaces and from the package-level functions, and has the same
+`Get`, `Set`, `Keys` and `Remove` methods:
 
 ```go
 var cache = testocache.Namespace("myplugin")
 ```
 
-Namespaces are isolated from each other and from package-level
-`testocache.Get`, `Set`, `Keys`, and `Remove`.
-The scoped cache provides the same `Get`, `Set`, `Keys`, and `Remove` methods.
-`Keys` accepts the same glob syntax as `path.Match`.
+Behavior details:
 
-If cache is disabled, operations return `testocache.ErrDisabled`.
-If a key is missing, `Get` and `Remove` return `testocache.ErrNotFound`.
-Cache writes use a temporary file followed by `os.Rename`; atomic replacement
-follows the guarantees of `os.Rename` on the host platform.
-Malformed entries and entries whose stored key does not match the requested key
-are treated as missing. Concurrent operations are synchronized inside one test
-process; Testo does not provide cross-process locking for multiple `go test`
-processes sharing the same cache directory.
+- `Get` and `Remove` return `testocache.ErrNotFound` for missing keys.
+- All operations return `testocache.ErrDisabled` when the cache is off.
+- `Keys` accepts the same glob syntax as `path.Match`.
+- Writes are atomic (temporary file + `os.Rename`); malformed entries
+  are treated as missing.
+- Operations are synchronized within one process. There is no locking
+  between separate `go test` processes sharing a cache directory.
+
+> [!NOTE]
+> `go test` caches successful test results, and a cached pass skips
+> execution - so `testocache` state will not refresh. Pass `-count=1`
+> to force a run.
 
 ## How to structure tests
 
-Testo does not enforce any particular file structure to work.
-However, some patterns are proved to be useful.
-
-### Standalone suites
+Testo does not enforce any particular file structure.
+Here is one pattern we find useful - standalone suite packages:
 
 ```txt
 go.mod
@@ -233,18 +279,16 @@ import (
     "github.com/ozontech/testo/testoplugin"
 )
 
-// Here we define a global plugin common for all tests.
-//
-// It is highly advised to make it even if you don't use any plugins yet,
-// as in the future it won't require any further changes in other files if you
-// decide to add plugins.
+// A plugin shared by all tests.
+// Define it even if you have no plugins yet. When you add
+// a plugin later, you will change only this file.
 type PluginCommon struct {
     *testo.T
 }
 
 // This method implements Plugin interface.
 func (*PluginCommon) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
-    return testolpugin.Spec{}
+    return testoplugin.Spec{}
 }
 ```
 
@@ -253,9 +297,14 @@ Contents of `tests/suite/suitefoo/t.go`:
 ```go
 package suitefoo
 
-import "example/tests/testcommon"
+import (
+    "example/tests/testcommon"
 
-// Global (common) T used by all suites.
+    "github.com/ozontech/testo"
+)
+
+// T for this suite. With several suites,
+// hoist it into a shared package.
 type T struct {
     *testo.T
     *testcommon.PluginCommon
@@ -269,7 +318,7 @@ package suitefoo
 
 import "github.com/ozontech/testo"
 
-// An actual test logic for this suite goes here.
+// The test logic for this suite goes here.
 
 type Suite struct{ testo.Suite[T] }
 
@@ -293,12 +342,9 @@ import (
     "github.com/ozontech/testo"
 )
 
-// In this file we actually run our suites.
-// The reason for starting tests here is that
-// single file makes it easier to see what suites will we run or skip.
-//
-// Moreover, if you add some build tag, like we do here ("integration" on the top),
-// specifying it only once makes it less typo-prone.
+// All suites are started here.
+// One file shows at a glance which suites run,
+// and the build tag ("integration") is declared once.
 
 func TestSuiteFoo(t *testing.T) {
     testo.RunSuite(t, new(suitefoo.Suite))
@@ -307,11 +353,30 @@ func TestSuiteFoo(t *testing.T) {
 
 ## How to run and skip specific tests
 
-Testo works with default go test flags, such as `-run` and `-skip`.
+Testo supports the standard `go test` flags, such as `-run` and `-skip`.
 
-> See `go help testflag` for detailed flags description.
+See `go help testflag` for the full flag reference.
 
-Testo also provides its own flag: `-testo.m regexp` to run specific suite tests.
+To make hooks work correctly with parallel tests, Testo inserts a hidden
+`testo!` level into every suite. The full name of a suite test is:
+
+```txt
+TestFunc/SuiteName/testo!/TestMethod[/sub-test...]
+```
+
+> [!WARNING]
+> A `-run` pattern without the `testo!` segment, such as
+> `-run 'Test/MySuite/TestFoo'`, matches **zero tests** - and `go test`
+> still exits 0 (at best you get an easy-to-miss `[no tests to run]`
+> note). Suite hooks (`BeforeAll`/`AfterAll`) still run even when zero
+> tests match.
+>
+> Either include the segment (`-run 'Test/MySuite/testo!/TestFoo'`)
+> or, better, use the `-testo.m` flag below. In VS Code, the
+> [Testo extension](../vscode-extension) generates correct commands.
+
+Testo provides its own flag `-testo.m regexp` to select suite tests by
+method name, without worrying about the `testo!` segment.
 
 For example, given the following suite:
 
@@ -325,20 +390,108 @@ func (MySuite) TestFoo(t T) {
 func (MySuite) TestBar(t T) {
     // ...
 }
+
+func Test(t *testing.T) {
+    testo.RunSuite(t, new(MySuite))
+}
 ```
 
-We can run only `TestFoo` like that:
+To run only `TestFoo`:
 
 ```shell
-go test . -run ./MySuite -testo.m TestFoo
+go test . -run 'Test/MySuite' -testo.m TestFoo
+```
+
+Here `-run 'Test/MySuite'` selects the suite and `-testo.m TestFoo`
+selects the method inside it.
+
+> [!NOTE]
+> `t.Name()` returns the name without `testo!`, e.g. `Test/MySuite/TestFoo`.
+> The real `testing.T` name (the one in `go test -v` output and in `-run`
+> patterns) still contains `testo!`. Remember this when you parse test
+> output or build `-run` patterns.
+
+## How to enable strict mode
+
+Strict mode turns every Testo warning into a fatal error.
+Currently two warnings exist - a suite with no tests, and a
+`CasesXxx` method returning an
+[empty slice](#how-to-write-parametrized-tests) - and the list
+may grow:
+
+```bash
+# one package
+go test ./path/to/package -testo.strict
+
+# for ./... use the env var - packages that don't import
+# Testo would fail on the unknown flag
+TESTO_STRICT=true go test ./...
 ```
 
 > [!TIP]
-> See also [Visual Studio Code extension](../vscode-extension) which does just that for you.
+> Flags have higher priority than environment variables.
+
+## How to annotate tests
+
+Annotations attach static plugin options to a specific test, so
+plugins can see them before the test runs - for example to plan
+retries or add report labels.
+
+Use `testo.For` for regular tests and `testo.ForEach` for parametrized ones:
+
+```go
+var _ = testo.For(MySuite.TestFoo, myplugin.WithRetry())
+
+func (MySuite) TestFoo(t T) {
+    // ...
+}
+
+var _ = testo.ForEach(MySuite.TestBar, myplugin.WithRetry())
+
+func (MySuite) TestBar(t T, p struct{ N int }) {
+    // ...
+}
+```
+
+Multiple annotation calls for the same test append options.
+
+An option is just a `testoplugin.Option` value wrapping any type your
+plugin knows how to interpret:
+
+```go
+func WithRetry() testoplugin.Option {
+    return testoplugin.Option{Value: retryOption{}}
+}
+```
+
+Plugins see annotations in two places: during planning, via
+`PlannedTest.Annotations()` in `Plan.Prepare`, and per test, merged
+into the `options` argument of the `Plugin` method. In both cases the
+plugin type-asserts the `Value` field.
+
+See [options in the plugins guide](./plugins.md#options),
+the [annotations example](../examples/07_annotations/main_test.go)
+(its `plugin.go` defines the options)
+and [API documentation](https://pkg.go.dev/github.com/ozontech/testo#For).
+
+## How to integrate with CI
+
+Testo output is standard `go test` output. `go test -json`, `test2json`,
+[gotestsum](https://github.com/gotestyourself/gotestsum) and similar tools
+work unchanged.
+
+Notes:
+
+- Read [how to run and skip specific tests](#how-to-run-and-skip-specific-tests).
+- The hidden `testo!` node appears in reports as an extra nesting level
+  (e.g. JUnit converters render it as an empty intermediate node).
+- For Allure reports, use the [testo-allure plugin](https://github.com/ozontech/testo-allure).
+- For rerunning only failed tests (flaky-test handling), see the
+  [rerun plugin](https://github.com/ozontech/testo-toppings/tree/main/rerun).
 
 ## How to run sub-suites
 
-There a `testo.RunSubSuite` function for that:
+There is a `testo.RunSubSuite` function for that:
 
 ```go
 type OuterSuite struct{ testo.Suite[T] }
@@ -354,5 +507,8 @@ func (InnerSuite) Test(t T) {
 }
 ```
 
+See the [sub-suites example](../examples/08_subsuites/main_test.go).
+
 > [!WARNING]
-> Running the same suite as sub-suite may cause infinite loop.
+> Running a suite inside itself causes an infinite loop.
+> Keep sub-suite nesting acyclic.
