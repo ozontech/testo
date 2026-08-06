@@ -16,6 +16,8 @@ with an extensive plugin system.
 See also [toppings](https://github.com/ozontech/testo-toppings) -
 a collection of small optional plugins for Testo.
 
+<img width="24" height="24" alt="habr logo" src="https://github.com/user-attachments/assets/196475a0-ecf3-4231-9a32-0702f058d4ab" /> Habr article: https://habr.com/companies/ozontech/articles/1062036
+
 ## Features
 
 - [Plugins](./docs/plugins.md) - hook, filter and extend `T` without forking the framework ([example](./examples/04_plugins/main_test.go)).
