@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ozontech/testo/internal/pragma"
+	"github.com/ozontech/testo/internal/reflectutil"
 	"github.com/ozontech/testo/internal/testnamer"
 	"github.com/ozontech/testo/testoplugin"
 	"github.com/ozontech/testo/testoreflect"
@@ -309,7 +310,7 @@ func (tc *testsCollector[Suite, T]) Collect(tb testing.TB) suiteTests[Suite, T] 
 					Level:       1,
 					FuncPC:      method.Func.Pointer(),
 				},
-				Run: method.Func.Interface().(func(Suite, T)),
+				Run: reflectutil.MustTypeAssert[func(Suite, T)](method.Func),
 			})
 
 		case 3: // parametrized test - (Suite, T, Params)

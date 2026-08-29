@@ -133,7 +133,7 @@ func TestFilled(t *testing.T) {
 			t.Fatal("ok must be true")
 		}
 
-		v := value.Interface().(Mock)
+		v := MustTypeAssert[Mock](value)
 
 		if v.String == nil {
 			t.Error("Mock.String is nil")
@@ -192,7 +192,7 @@ func TestFilled(t *testing.T) {
 			t.Error("ok should be true")
 		}
 
-		v := value.Interface().(Foo)
+		v := MustTypeAssert[Foo](value)
 
 		if v.Bar == nil {
 			t.Fatal("Foo.Bar is nil")
