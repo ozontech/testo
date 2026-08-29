@@ -122,6 +122,22 @@ func (t *T) Context() context.Context {
 	return t.spec.Overrides.Context.Call(t.common.Context)()
 }
 
+// Attr emits a test attribute associated with this test.
+//
+// The key must not contain whitespace.
+// The value must not contain newlines or carriage returns.
+//
+// The meaning of different attribute keys is left up to
+// continuous integration systems and test frameworks.
+//
+// Test attributes are emitted immediately in the test log,
+// but they are intended to be treated as unordered.
+func (t *T) Attr(key, value string) {
+	t.Helper()
+
+	t.spec.Overrides.Attr.Call(t.common.Attr)(key, value)
+}
+
 // Parallel signals that this test is to be run in parallel with (and only with)
 // other parallel tests. When a test is run multiple times due to use of
 // -test.count or -test.cpu, multiple instances of a single test never run in

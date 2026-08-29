@@ -23,6 +23,7 @@ type Overrides struct {
 	Deadline Override[FuncDeadline]
 	Context  Override[FuncContext]
 	Cleanup  Override[FuncCleanup]
+	Attr     Override[FuncAttr]
 
 	// Setenv calls Cleanup to restore an environment variable.
 	// On error, it calls Fatal.
@@ -95,6 +96,9 @@ type (
 
 	// FuncCleanup describes [testing.T.Cleanup] method.
 	FuncCleanup func(f func())
+
+	// FuncAttr describes [testing.T.Attr] method.
+	FuncAttr func(key, value string)
 )
 
 // Override for the function.

@@ -129,7 +129,9 @@ func construct[T CommonT](
 		if parent != nil {
 			parentPlugin = (*parent).unwrap().plugins[p.Type]
 		} else {
-			parentPlugin = reflectutil.MustTypeAssert[testoplugin.Plugin](reflect.New(p.Type).Elem())
+			parentPlugin = reflectutil.MustTypeAssert[testoplugin.Plugin](
+				reflect.New(p.Type).Elem(),
+			)
 		}
 
 		specs[p.Type] = p.Plugin.Plugin(parentPlugin, seed.options()...)

@@ -158,6 +158,12 @@ func mergeOverrides(overrides ...testoplugin.Overrides) testoplugin.Overrides {
 				return o.Context
 			},
 		),
+		Attr: mergeOverride(
+			overrides,
+			func(o testoplugin.Overrides) testoplugin.Override[F] {
+				return o.Attr
+			},
+		),
 		Chdir: mergeOverride(
 			overrides,
 			func(o testoplugin.Overrides) testoplugin.Override[testoplugin.FuncChdir] {

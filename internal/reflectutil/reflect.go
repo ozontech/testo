@@ -27,7 +27,9 @@ func Elem[T canElem[T]](v T) T {
 func MustTypeAssert[T any](v reflect.Value) T {
 	asserted, ok := reflect.TypeAssert[T](v)
 	if !ok {
-		panic(fmt.Errorf("testo: value %[1]v (%[1]T) is not of type %[2]s", v, reflect.TypeFor[T]()))
+		panic(
+			fmt.Errorf("testo: value %[1]v (%[1]T) is not of type %[2]s", v, reflect.TypeFor[T]()),
+		)
 	}
 
 	return asserted
