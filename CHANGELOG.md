@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- `t.Attr` method is now natively supported by testo and can be overridden.
+
+### Changed
+
+- Minimum go version was updated to `1.25`.
+- Reduced allocations by testo by replacing `.Interface().(T)` with `reflect.TypeAssert` internally.
+
 ## [1.7.0] - 2026-07-25
 
 ### Changed

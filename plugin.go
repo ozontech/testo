@@ -160,7 +160,7 @@ func mergeOverrides(overrides ...testoplugin.Overrides) testoplugin.Overrides {
 		),
 		Attr: mergeOverride(
 			overrides,
-			func(o testoplugin.Overrides) testoplugin.Override[F] {
+			func(o testoplugin.Overrides) testoplugin.Override[testoplugin.FuncAttr] {
 				return o.Attr
 			},
 		),

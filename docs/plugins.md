@@ -101,7 +101,7 @@ at the wrapper's own file and line.
 
 Overridable methods: `Log`, `Error`, `Fatal`, `Fail`, `FailNow`,
 `Failed`, `Skip`, `SkipNow`, `Skipped`, `Parallel`, `Cleanup`,
-`Context`, `Deadline`, `TempDir`, `Setenv`, `Chdir`.
+`Context`, `Deadline`, `TempDir`, `Setenv`, `Chdir`, `Attr`.
 Each method `X` has a matching `testoplugin.FuncX` signature type.
 
 Methods call each other underneath - `Error` is `Log` + `Fail`,

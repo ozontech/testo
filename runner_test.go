@@ -214,15 +214,11 @@ type PluginGoroutine struct {
 func (p *PluginGoroutine) Go(f func()) {
 	p.Helper()
 
-	p.wg.Add(1)
-
-	go func() {
-		defer p.wg.Done()
-
+	p.wg.Go(func() {
 		p.Helper()
 
 		f()
-	}()
+	})
 }
 
 func (p *PluginGoroutine) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {

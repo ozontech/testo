@@ -135,7 +135,7 @@ The extension adds run/debug buttons for individual suite tests, plus snippets.
 
 Testo guarantees to support at least **3 latest major** [Go releases](https://go.dev/doc/devel/release).
 
-Currently, the minimum supported Go version is **1.24**.
+Currently, the minimum supported Go version is **1.25**.
 
 ## Contributing
 

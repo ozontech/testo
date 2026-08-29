@@ -107,6 +107,7 @@ type tSuiteCallCounts struct {
 	fatal int
 	chdir   int
 	cleanup int
+	attr    int
 }
 
 var tSuiteOverridesCalls tSuiteCallCounts
@@ -204,6 +205,11 @@ func (p *TSuitePlugin) Plugin(testoplugin.Plugin, ...testoplugin.Option) testopl
 					tSuiteOverridesCalls.cleanup++
 				}
 			},
+			Attr: func(f testoplugin.FuncAttr) testoplugin.FuncAttr {
+				return func(key, value string) {
+					tSuiteOverridesCalls.attr++
+				}
+			},
 		},
 	}
 }
@@ -233,6 +239,7 @@ func (TSuite) Test(t TSuiteT) {
 	t.Fatalf("")
 	t.Cleanup(nil)
 	t.Chdir("")
+	t.Attr("", "")
 }
 
 func TestSuiteT(t *testing.T) {
@@ -266,6 +273,7 @@ func TestSuiteT(t *testing.T) {
 		"Fatal":    {2, tSuiteOverridesCalls.fatal},
 		"Chdir":    {1, tSuiteOverridesCalls.chdir},
 		"Cleanup":  {1, tSuiteOverridesCalls.cleanup},
+		"Attr":     {1, tSuiteOverridesCalls.attr},
 	} {
 		if c.Got != c.Want {
 			t.Errorf("%s: want calls(-s): %d, got %d", name, c.Want, c.Got)
