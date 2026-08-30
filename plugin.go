@@ -9,7 +9,7 @@ import (
 	"github.com/ozontech/testo/testoreflect"
 )
 
-// mergeSpecs multiple plugin specs into one.
+// mergeSpecs merges multiple plugin specs into one.
 func mergeSpecs(tb testing.TB, plugins ...testoplugin.Spec) testoplugin.Spec {
 	tb.Helper()
 
@@ -41,7 +41,7 @@ func mergePlans(tb testing.TB, plans ...testoplugin.Plan) testoplugin.Plan {
 		Prepare: func(suite testoreflect.SuiteInfo, tests *[]testoplugin.PlannedTest) {
 			tb.Helper()
 
-			// We could've break the loop when len(tests) == 0
+			// We could've broken the loop when len(tests) == 0
 			// but it may be useful if some plugin would want to throw some warning or error
 			// when len(tests) == 0. Something like NoEmptySuitesPlugin.
 			for _, p := range plans {
@@ -115,7 +115,7 @@ func mergeHooks(tb testing.TB, hooks ...testoplugin.Hooks) testoplugin.Hooks {
 	}
 }
 
-//nolint:funlen // splitting this into subfunctons would make it worse
+//nolint:funlen // splitting this into subfunctions would make it worse
 func mergeOverrides(overrides ...testoplugin.Overrides) testoplugin.Overrides {
 	slices.SortStableFunc(overrides, func(a, b testoplugin.Overrides) int {
 		return cmp.Compare(a.Priority, b.Priority)

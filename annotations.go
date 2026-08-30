@@ -35,7 +35,7 @@ func ForEach[Suite suite[T], T CommonT, P any](
 
 // For applies static options (annotations) for a given test.
 //
-// Test annotations is a slice of options to be passed for this test.
+// Test annotations are a slice of options to be passed for this test.
 // Test annotations are available to plugins before running an actual test,
 // thus enhancing test planning features.
 //

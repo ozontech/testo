@@ -45,7 +45,7 @@ func TestSuiteCasesOf(t *testing.T) {
 	}
 
 	if !slices.Equal(ints, []int{1, 2, 3}) {
-		t.Error("case values for Numbers does not match")
+		t.Error("case values for Numbers do not match")
 	}
 
 	// Test "Empty" provides type string

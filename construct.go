@@ -171,7 +171,7 @@ func setPlugins(
 		}
 
 		if !elem.CanSet() {
-			// TODO(metafates): add path to the field so that it is clear where error happens
+			// TODO(metafates): add path to the field so that it is clear where the error happens
 			panic(fmt.Sprintf("testo: can't set value for %s", v.Type()))
 		}
 

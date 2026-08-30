@@ -146,12 +146,12 @@ func suiteCasesOf[Suite suite[T], T CommonT](tb testing.TB) map[string]suiteCase
 // We can't know how many permutations (hence number of tests)
 // they will have until we receive all values for each case by calling CasesXXX funcs.
 // However, we can't do that before running the BeforeAll hooks - cases funcs may
-// depend on in being run first.
+// depend on them being run first.
 //
 // But we should not run any hooks until we are sure that tests are correct
 // and no error should be raised.
 //
-// That's why we statically analyze parametrized tests signatures,
+// That's why we statically analyze parametrized tests' signatures,
 // but delay the actual collection for later.
 type suiteTests[Suite suite[T], T CommonT] struct {
 	Regular      []suiteTest[Suite, T]
@@ -393,7 +393,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 
 					warnf(
 						tb,
-						"(%[1]s).Cases%[2]s returned empty slice, (%[1]s).%[3]s will not run",
+						"(%[1]s).Cases%[2]s returned an empty slice, (%[1]s).%[3]s will not run",
 						structName,
 						caseName,
 						method.Name,
@@ -448,7 +448,7 @@ func (tc *testsCollector[Suite, T]) newParametrizedTest(
 	}
 }
 
-// casesPermutations returns a determenistic permutations of the given cases values for test.
+// casesPermutations returns deterministic permutations of the given cases values for the test.
 func casesPermutations[V any](v map[string][]V) []map[string]V {
 	permutationsCount := 1
 	keys := make([]string, 0, len(v))
@@ -459,7 +459,7 @@ func casesPermutations[V any](v map[string][]V) []map[string]V {
 		permutationsCount *= len(values)
 	}
 
-	// Sort keys for determenistic output
+	// Sort keys for deterministic output
 	slices.Sort(keys)
 
 	permutations := make([]map[string]V, 0, permutationsCount)

@@ -42,10 +42,10 @@ const (
 	TryLast Priority = math.MaxInt
 )
 
-// Option is used to configure plugin upon creation.
+// Option is used to configure a plugin upon creation.
 //
 // All user-supplied options are passed to the Plugin method for each plugin.
-// It is a plugin responsibility to check if the given option corresponds to it.
+// It is a plugin's responsibility to check if the given option corresponds to it.
 // One way to check it is with type assertion:
 //
 //	var opt Option

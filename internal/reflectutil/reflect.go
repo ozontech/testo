@@ -35,17 +35,17 @@ func MustTypeAssert[T any](v reflect.Value) T {
 	return asserted
 }
 
-// NameOf returns name of the underlying type T.
+// NameOf returns the name of the underlying type T.
 func NameOf[T any]() string {
 	t := reflect.TypeFor[T]()
 
 	return Elem(t).Name()
 }
 
-// New a new zero value of T.
+// New returns a new zero value of T.
 //
 // As a special case for pointers it will
-// return pointer to the zero value of T (not nil).
+// return a pointer to the zero value of T (not nil).
 func New[T any]() T {
 	t := reflect.TypeFor[T]()
 
@@ -62,7 +62,7 @@ func New[T any]() T {
 
 // Filled returns a new value T with all the exported pointer fields recursively set to non-nil zero values.
 // That is, if type is a struct and contains field *int it will be set to &0.
-// That logic is also applies for nested structs.
+// That logic also applies for nested structs.
 func Filled(hint reflect.Type) (reflect.Value, bool) {
 	value := reflect.New(hint)
 

@@ -68,7 +68,7 @@ func Test[T CommonT](f func(t T), options ...testoplugin.Option) func(*testing.T
 //
 // In the example above plugins would see this test as a suite with a single TestFoo method.
 //
-// See also [Test] as a syntax sugar to run a named test:
+// See also [Test] as syntax sugar to run a named test:
 //
 //	func TestFoo(t *testing.T) {
 //		t.Run("named-test", testo.Test(func(t T) {
@@ -131,7 +131,7 @@ func RunSuite[Suite suite[T], T CommonT](
 //
 // RunSubSuite reports whether all sub-suite tests succeeded.
 //
-// NOTE: this function may cause infinite loop if called within the same suite as passed to it.
+// NOTE: this function may cause an infinite loop if called within the same suite as passed to it.
 func RunSubSuite[Suite suite[Sub], Parent, Sub CommonT](
 	t Parent,
 	suite Suite,

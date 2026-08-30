@@ -10,7 +10,7 @@ import (
 // Overrides work using middleware pattern - multiple overrides are stacked on top of each other,
 // passing by a "next" function.
 //
-// There exists a certain hierarchy what method calls what underneath.
+// There exists a certain hierarchy of what method calls what underneath.
 // For example, overriding Log will affect Error, Skip, Fatal and their printf equivalents.
 type Overrides struct {
 	// Priority defines global priority for these overrides.
@@ -29,7 +29,7 @@ type Overrides struct {
 	// On error, it calls Fatal.
 	Setenv Override[FuncSetenv]
 
-	// Chdir calls Cleanup to restore a current directory.
+	// Chdir calls Cleanup to restore the current directory.
 	// On error, it calls Fatal.
 	Chdir Override[FuncChdir]
 

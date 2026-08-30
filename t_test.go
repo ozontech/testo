@@ -276,7 +276,7 @@ func TestSuiteT(t *testing.T) {
 		"Attr":     {1, tSuiteOverridesCalls.attr},
 	} {
 		if c.Got != c.Want {
-			t.Errorf("%s: want calls(-s): %d, got %d", name, c.Want, c.Got)
+			t.Errorf("%s: want call(-s): %d, got %d", name, c.Want, c.Got)
 		}
 	}
 }

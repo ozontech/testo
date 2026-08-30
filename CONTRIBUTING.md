@@ -42,4 +42,4 @@ can easily understand what it is that you'd like to see.
 
 ## License
 
-By contributing you agree your work is licensed under the [Apache-2.0](./LICENSE).
+By contributing you agree your work is licensed under the [Apache-2.0](./LICENSE) license.
