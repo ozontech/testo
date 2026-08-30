@@ -10,7 +10,7 @@ import (
 // Overrides work using middleware pattern - multiple overrides are stacked on top of each other,
 // passing by a "next" function.
 //
-// There exists a certain hierarchy what method calls what underneath.
+// There exists a certain hierarchy of what method calls what underneath.
 // For example, overriding Log will affect Error, Skip, Fatal and their printf equivalents.
 type Overrides struct {
 	// Priority defines global priority for these overrides.
@@ -23,12 +23,13 @@ type Overrides struct {
 	Deadline Override[FuncDeadline]
 	Context  Override[FuncContext]
 	Cleanup  Override[FuncCleanup]
+	Attr     Override[FuncAttr]
 
 	// Setenv calls Cleanup to restore an environment variable.
 	// On error, it calls Fatal.
 	Setenv Override[FuncSetenv]
 
-	// Chdir calls Cleanup to restore a current directory.
+	// Chdir calls Cleanup to restore the current directory.
 	// On error, it calls Fatal.
 	Chdir Override[FuncChdir]
 
@@ -95,6 +96,9 @@ type (
 
 	// FuncCleanup describes [testing.T.Cleanup] method.
 	FuncCleanup func(f func())
+
+	// FuncAttr describes [testing.T.Attr] method.
+	FuncAttr func(key, value string)
 )
 
 // Override for the function.

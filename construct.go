@@ -87,7 +87,7 @@ func construct[T CommonT](
 
 			reflectutil.Fill(v)
 
-			child = v.Interface().(testoplugin.Plugin)
+			child = reflectutil.MustTypeAssert[testoplugin.Plugin](v)
 		}
 
 		plugins[pluginType] = child
@@ -129,7 +129,9 @@ func construct[T CommonT](
 		if parent != nil {
 			parentPlugin = (*parent).unwrap().plugins[p.Type]
 		} else {
-			parentPlugin = reflect.New(p.Type).Elem().Interface().(testoplugin.Plugin)
+			parentPlugin = reflectutil.MustTypeAssert[testoplugin.Plugin](
+				reflect.New(p.Type).Elem(),
+			)
 		}
 
 		specs[p.Type] = p.Plugin.Plugin(parentPlugin, seed.options()...)
@@ -147,7 +149,7 @@ func construct[T CommonT](
 
 	seed.spec = mergeSpecs(t, orderedSpecs...)
 
-	return value.Elem().Interface().(T)
+	return reflectutil.MustTypeAssert[T](value.Elem())
 }
 
 type typedPlugin struct {
@@ -169,14 +171,14 @@ func setPlugins(
 		}
 
 		if !elem.CanSet() {
-			// TODO(metafates): add path to the field so that it is clear where error happens
+			// TODO(metafates): add path to the field so that it is clear where the error happens
 			panic(fmt.Sprintf("testo: can't set value for %s", v.Type()))
 		}
 
 		elem.Set(reflect.ValueOf(plugin))
 
 		specs.Push(typedPlugin{
-			Plugin: elem.Interface().(testoplugin.Plugin),
+			Plugin: reflectutil.MustTypeAssert[testoplugin.Plugin](elem),
 			Type:   elem.Type(),
 		})
 	}

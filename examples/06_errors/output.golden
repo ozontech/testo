@@ -13,7 +13,7 @@
     main_test.go:56: testo: wrong param signature for (*main.InvalidCases).Test: (*main.InvalidCases).CasesFoo provides string values, not assignable to param "Foo" of type int
 === RUN   Test/empty_cases
 === RUN   Test/empty_cases/EmptyCases
-    main_test.go:57: testo: warning: (*main.EmptyCases).CasesFoo returned empty slice, (*main.EmptyCases).Test will not run
+    main_test.go:57: testo: warning: (*main.EmptyCases).CasesFoo returned an empty slice, (*main.EmptyCases).Test will not run
 === RUN   Test/empty_cases/EmptyCases/testo!
 === RUN   Test/wrong_t
 === RUN   Test/wrong_t/WrongT

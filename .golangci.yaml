@@ -15,7 +15,10 @@ formatters:
           replacement: "any"
     gofumpt:
       module-path: github.com/ozontech/testo
-      extra-rules: true
+      extra:
+        group-params: true
+        clothe-returns: true
+        balance-calls: true
 
 linters:
   default: all
@@ -25,6 +28,8 @@ linters:
     - depguard
     - exhaustive
     - exhaustruct
+    - exhaustruct_v5
+    - gomodguard
     - wrapcheck
     - varnamelen
     - mnd

@@ -46,7 +46,7 @@ type (
 	// T is a wrapper for [testing.T].
 	// This is a core entity in testo and used as a [testing.T] replacement.
 	//
-	// The common pattern is to embed it into new struct type:
+	// The common pattern is to embed it into a new struct type:
 	//
 	//  type MyT struct {
 	//  	*testo.T
@@ -61,8 +61,8 @@ type (
 		common
 
 		// we double testing t interfaces,
-		// so that we still can have access for testing.T.Run
-		// but the user don't.
+		// so that we still can have access to testing.T.Run
+		// but the user doesn't.
 		testingT TestingT
 
 		testNamer *testnamer.Namer
@@ -120,6 +120,22 @@ func (t *T) Context() context.Context {
 	t.Helper()
 
 	return t.spec.Overrides.Context.Call(t.common.Context)()
+}
+
+// Attr emits a test attribute associated with this test.
+//
+// The key must not contain whitespace.
+// The value must not contain newlines or carriage returns.
+//
+// The meaning of different attribute keys is left up to
+// continuous integration systems and test frameworks.
+//
+// Test attributes are emitted immediately in the test log,
+// but they are intended to be treated as unordered.
+func (t *T) Attr(key, value string) {
+	t.Helper()
+
+	t.spec.Overrides.Attr.Call(t.common.Attr)(key, value)
 }
 
 // Parallel signals that this test is to be run in parallel with (and only with)
@@ -245,7 +261,7 @@ func (t *T) Deadline() (time.Time, bool) {
 	return t.spec.Overrides.Deadline.Call(t.common.Deadline)()
 }
 
-// Errorf is equivalent to Error with formatted message.
+// Errorf is equivalent to Error with a formatted message.
 func (t *T) Errorf(format string, args ...any) {
 	t.Helper()
 
@@ -294,7 +310,7 @@ func (t *T) SkipNow() {
 	t.spec.Overrides.SkipNow.Call(t.common.SkipNow)()
 }
 
-// Skipf is equivalent to Skip with formatted message.
+// Skipf is equivalent to Skip with a formatted message.
 func (t *T) Skipf(format string, args ...any) {
 	t.Helper()
 
@@ -364,7 +380,7 @@ func (t *T) fatal(args ...any) {
 	t.FailNow()
 }
 
-// Fatalf is equivalent to Fatal with formatted message.
+// Fatalf is equivalent to Fatal with a formatted message.
 func (t *T) Fatalf(format string, args ...any) {
 	t.Helper()
 
@@ -373,7 +389,7 @@ func (t *T) Fatalf(format string, args ...any) {
 
 // Chdir calls [os.Chdir] and uses Cleanup to restore the current
 // working directory to its original value after the test. On Unix, it
-// also sets PWD environment variable for the duration of the test.
+// also sets the PWD environment variable for the duration of the test.
 //
 // Because Chdir affects the whole process, it cannot be used
 // in parallel tests or tests with parallel ancestors.
@@ -592,7 +608,7 @@ func (t *T) logPlugins() {
 //
 //	type Plugin struct{ *testo.T }
 //
-//	func (p *Plugin) Plugin(parent testoplugin.Plugin, options ...testoplugin.Options) testoplugin.Spec {
+//	func (p *Plugin) Plugin(parent testoplugin.Plugin, options ...testoplugin.Option) testoplugin.Spec {
 //		return testoplugin.Spec{
 //			Hooks: testoplugin.Hooks{
 //	 			BeforeEach: testoplugin.Hook{

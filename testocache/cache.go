@@ -52,7 +52,7 @@ var (
 	// Currently, key is invalid if it contains a NUL-byte.
 	ErrInvalidKey = errors.New("testocache: invalid key")
 
-	// ErrNotFound indicates that value was not found the passed key.
+	// ErrNotFound indicates that value was not found for the passed key.
 	ErrNotFound = errors.New("testocache: not found")
 )
 

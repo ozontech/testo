@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- `t.Attr` method is now natively supported by testo and can be overridden.
+
+### Changed
+
+- Minimum go version was updated to `1.25`.
+- Reduced allocations by testo by replacing `.Interface().(T)` with `reflect.TypeAssert` internally.
+
 ## [1.7.0] - 2026-07-25
 
 ### Changed
@@ -13,11 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Panics in `BeforeAll` & `AfterAll` hooks (both suite and plugin) are now caught and recorded as test failures; a panic in `BeforeAll` still prevents the suite tests from running.
 - `t.Setenv` and `t.Chdir` now enforce the standard library's conflict guards against `t.Parallel`.
 - The error for a non-pointer exported field now names the owning type and field.
-- Better wording for a warning when `CasesXxx` returns empty slice.
+- Better wording for a warning when `CasesXxx` returns an empty slice.
 
 ### Fixed
 
-- Panics in tests now record the actual recovered value, are observed by after-hooks as a failed test.
+- Panics in tests now record the actual recovered value, and are observed by after-hooks as a failed test.
 - Plugin hooks and overrides with equal priority now run deterministically, in the declaration order of plugins.
 - Overrides are now applied in the documented priority order, consistent with hooks.
 - `t.Error` called after `t.Fatal` (e.g. from a cleanup) no longer downgrades the recorded fatal failure kind.
@@ -38,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed a bug when skipped tests in suite would trigger "no suite tests" warning.
+- Fixed a bug when skipped tests in a suite would trigger "no suite tests" warning.
 
 ## [1.5.0] - 2026-06-14
 

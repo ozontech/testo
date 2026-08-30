@@ -27,7 +27,7 @@ func (*Suite) CasesAge() []int {
 ```
 
 > [!TIP]
-> `CasesXxx` are invoked *after* `BeforeAll` hook.
+> `CasesXxx` are invoked *after* the `BeforeAll` hook.
 
 Each parameter field must have a matching `CasesXxx` method.
 
@@ -286,7 +286,7 @@ type PluginCommon struct {
     *testo.T
 }
 
-// This method implements Plugin interface.
+// This method implements the Plugin interface.
 func (*PluginCommon) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
     return testoplugin.Spec{}
 }

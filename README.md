@@ -10,11 +10,12 @@
 Testo is a modular testing framework for Go built on top of `testing.T`
 with an extensive plugin system.
 
-> Testo (/tɛstɒ/) is a play on words "test" and "тесто", meaning "dough".
+> Testo (/tɛstɒ/) is a play on the words "test" and "тесто", meaning "dough".
 > Just like you can cook anything from dough, you can test anything with Testo!
 
 See also [toppings](https://github.com/ozontech/testo-toppings) -
-a collection of small optional plugins for Testo.
+a collection of small optional plugins for Testo
+and [Allure report plugin](https://github.com/ozontech/testo-allure).
 
 <img width="24" height="24" alt="habr logo" src="https://github.com/user-attachments/assets/196475a0-ecf3-4231-9a32-0702f058d4ab" /> Habr article: https://habr.com/companies/ozontech/articles/1062036
 
@@ -28,7 +29,7 @@ a collection of small optional plugins for Testo.
 - [Test filtering](./docs/how-to.md#how-to-run-and-skip-specific-tests) - `-run`, `-testo.m`.
 - [Informative errors and traces](./examples/06_errors/main_test.go) - error messages name the exact method and type that caused them.
 - [Sub-tests & sub-suites](./examples/08_subsuites/main_test.go) - support for nested tests and nested suites.
-- [Test reflection](https://pkg.go.dev/github.com/ozontech/testo/testoreflect) - deeply inspect test's meta-information.
+- [Test reflection](https://pkg.go.dev/github.com/ozontech/testo/testoreflect) - deeply inspect a test's meta-information.
 - [Caching](./docs/how-to.md#how-to-use-persistent-cache) - key-value storage persistent between test runs.
 - [Zero dependencies](./go.mod).
 
@@ -135,7 +136,7 @@ The extension adds run/debug buttons for individual suite tests, plus snippets.
 
 Testo guarantees to support at least **3 latest major** [Go releases](https://go.dev/doc/devel/release).
 
-Currently, the minimum supported Go version is **1.24**.
+Currently, the minimum supported Go version is **1.25**.
 
 ## Contributing
 

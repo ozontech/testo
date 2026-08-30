@@ -46,7 +46,7 @@ func TestExamples(t *testing.T) {
 }
 
 func lines(s string) []string {
-	// We store test output in files with UNIX line ending.
+	// We store test output in files with UNIX line endings.
 	// But, since windows uses CR-LF line endings, we have to rebuild these strings
 	// to make line endings the same for further comparison.
 	scanner := bufio.NewScanner(strings.NewReader(s))
@@ -156,7 +156,7 @@ func runTest(t *testing.T, pkgPath string) []byte {
 		"example",
 		"-v",
 		"-count=1",    // ignore cache and always run
-		"-parallel=1", // ensure output remain the same
+		"-parallel=1", // ensure output remains the same
 		pkgPath,
 	)
 
