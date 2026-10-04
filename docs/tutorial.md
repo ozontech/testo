@@ -1,363 +1,700 @@
 # Tutorial
 
-## Create a New Go Project
+In this tutorial we take a plain Go test and grow it, step by step,
+into a full Testo suite with a plugin, parametrization, hooks,
+fixtures and steps.
+
+Each section changes only a small piece of code, and the file compiles
+and passes after every change. The complete final file is listed
+[at the end](#the-finished-test-file).
+
+## Setting Up
+
+Create a new project and add Testo to it:
 
 ```bash
-mkdir testo-tutorial
-cd testo-tutorial
-go mod init testo-tutorial
+mkdir testo-bakery
+cd testo-bakery
+go mod init testo-bakery
+go get github.com/ozontech/testo
 ```
 
-Create `main.go`:
+We are going to test a tiny bakery. Create `main.go`:
 
 ```go
 package main
 
-// Add returns sum of the given integers.
-func Add(a, b int) int { return a + b }
+// Pastry is something a bakery bakes.
+type Pastry struct {
+	Name        string
+	Tasty       bool
+	Ingredients string
+}
+
+var recipes = map[string]string{
+	"honey cake": "honey, flour, eggs, sour cream",
+	"tiramisu":   "mascarpone, coffee, ladyfingers",
+}
+
+// Bake bakes a pastry, if the bakery knows the recipe.
+func Bake(name string) (Pastry, bool) {
+	ingredients, ok := recipes[name]
+	if !ok {
+		return Pastry{}, false
+	}
+
+	return Pastry{Name: name, Tasty: true, Ingredients: ingredients}, true
+}
+
+// Eat disposes of a pastry in the most pleasant way possible.
+func Eat(Pastry) {}
+
+// Oven turns the bakery oven on or off.
+func Oven(on bool) error { return nil }
 
 func main() {}
 ```
 
-## Writing Tests
+## A Plain Go Test
 
-Testo uses `testo.T` - a wrapper around `testing.T` with extended features.
-All methods available in `testing.T` are also available in `testo.T` (except `t.Run`, more on that later in [Sub-tests chapter](#sub-tests)).
-Also, `testo.T` implements the `testing.TB` interface.
-
-**Important**: We'll create an alias to avoid repetition.
-
-Create file `main_test.go`:
+We start without Testo. Create `main_test.go`:
 
 ```go
 package main
 
-import (
-    "testing"
+import "testing"
 
-    "github.com/ozontech/testo"
-)
+func TestBake(t *testing.T) {
+	t.Run("HoneyCake", func(t *testing.T) {
+		pastry, ok := Bake("honey cake")
+		if !ok {
+			t.Fatal("the bakery must know how to bake a honey cake")
+		}
 
-type T = *testo.T
-```
+		// no reason to waste it after the test
+		t.Cleanup(func() { Eat(pastry) })
 
-Now we need a Suite. A Suite must "inherit" `testo.Suite[T]` by embedding it.
-
-> [!NOTE]
-> It's possible to run tests without suites, more on that in [later](#running-tests-without-suites).
-
-```go
-type Suite struct{ testo.Suite[T] }
-
-// Tests in Suites are regular methods, following the same
-// naming rules as regular tests in Go.
-// That means they must have the "Test" prefix.
-// They also must use the same type T as specified in `testo.Suite[T]`.
-
-func (*Suite) TestAdd(t T) {
-    if Add(2, 2) != 4 {
-        t.Fatal("2 + 2 must equal 4")
-    }
+		if !pastry.Tasty {
+			t.Error("honey cake must be tasty")
+		}
+	})
 }
 ```
-
-## Running Tests
-
-To connect Testo with `go test` we must run it from a regular test:
-
-```go
-func Test(t *testing.T) {
-    testo.RunSuite(t, new(Suite))
-}
-```
-
-Now we can run tests:
 
 ```bash
 go test . -v
 ```
 
 ```txt
-=== RUN   Test
-=== RUN   Test/Suite
-=== RUN   Test/Suite/testo!
-=== RUN   Test/Suite/testo!/TestAdd
---- PASS: Test (0.00s)
-    --- PASS: Test/Suite (0.00s)
-        --- PASS: Test/Suite/testo! (0.00s)
-            --- PASS: Test/Suite/testo!/TestAdd (0.00s)
+=== RUN   TestBake
+=== RUN   TestBake/HoneyCake
+--- PASS: TestBake (0.00s)
+    --- PASS: TestBake/HoneyCake (0.00s)
 PASS
 ```
 
-You may notice a special test `testo!` - Testo creates it "under the hood"
-to guarantee correct work of hooks with parallel tests.
+So far this is a plain Go test. Let's bring in Testo.
 
-Don't worry too much about this, as its existence doesn't affect your tests.
+## Switching to Testo
 
-## Suite Hooks
-
-Suites can have the following hooks:
-
-- `BeforeAll(T)` - called _once before_ all tests. The passed `T` refers to the top test, i.e. `Test/Suite`.
-- `BeforeEach(T)` - called _before each_ test. The passed `T` refers to the same test that the hook runs before.
-- `AfterEach(T)` - called _after each_ test, but before `t.Cleanup`. The passed `T` refers to the same test that the hook runs after.
-- `AfterAll(T)` - called _once after_ all tests. The hook waits for all (parallel) tests to finish. The passed `T` refers to the top test, i.e. `Test/Suite`.
-
-Hooks are defined as Suite methods:
+Replace the `t.Run` call with `testo.RunTest`:
 
 ```go
-func (*Suite) BeforeEach(t T) {
-    t.Logf("Starting: %s", t.Name())
-}
+package main
 
-func (*Suite) AfterEach(t T) {
-    t.Logf("Finished: %s", t.Name())
+import (
+	"testing"
+
+	"github.com/ozontech/testo"
+)
+
+func TestBake(t *testing.T) {
+	testo.RunTest(t, func(t *testo.T) {
+		pastry, ok := Bake("honey cake")
+		if !ok {
+			t.Fatal("the bakery must know how to bake a honey cake")
+		}
+
+		// no reason to waste it after the test
+		t.Cleanup(func() { Eat(pastry) })
+
+		if !pastry.Tasty {
+			t.Error("honey cake must be tasty")
+		}
+	})
 }
 ```
 
-<details>
-<summary>Output:</summary>
+The body of the test did not change - only the type of `t`.
+This swap lets everything below (plugins, suites, parametrization)
+attach to a plain test.
+The `HoneyCake` name is gone, though: `RunTest` numbers its tests
+instead. Suites (below) give tests proper names again.
+
+`testo.T` wraps `testing.T` and keeps its interface, with one
+exception: sub-tests are started with `testo.Run` instead of `t.Run`
+(covered [later](#steps-sub-tests)). It also implements `testing.TB`,
+so assertion libraries and mocks built for standard tests keep
+working.
+
+Run the test again:
 
 ```txt
-=== RUN   Test
-=== RUN   Test/Suite
-=== RUN   Test/Suite/testo!
-=== RUN   Test/Suite/testo!/Add
-    main_test.go:20: Starting: Test/Suite/TestAdd
-    main_test.go:28: Test/Suite/TestAdd
-    main_test.go:24: Finished: Test/Suite/TestAdd
---- PASS: Test (0.00s)
-    --- PASS: Test/Suite (0.00s)
-        --- PASS: Test/Suite/testo! (0.00s)
-            --- PASS: Test/Suite/testo!/TestAdd (0.00s)
+=== RUN   TestBake
+=== RUN   TestBake/#00
+=== RUN   TestBake/#00/testo!
+=== RUN   TestBake/#00/testo!/TestBake
+--- PASS: TestBake (0.00s)
+    --- PASS: TestBake/#00 (0.00s)
+        --- PASS: TestBake/#00/testo! (0.00s)
+            --- PASS: TestBake/#00/testo!/TestBake (0.00s)
 PASS
 ```
 
-</details>
+Two technical levels appeared in the names:
 
-## Parametrized Tests
+- `#00` is the index of the test inside this `RunTest` call.
+- `testo!` is a special test Testo inserts so hooks run correctly
+  around parallel tests. It does not affect your tests, but it
+  does affect `-run` patterns - see
+  [how to run specific tests](./how-to.md#how-to-run-and-skip-specific-tests).
 
-Parametrized tests let you run the same tests with different input parameters.
-
-Parametrized tests follow the same naming rules as regular tests, but take
-a second argument after `T`.
-This argument must be a struct containing the required parameters.
-
-```go
-func (*Suite) TestAddButParametrized(t T, p struct{ A, B int }) {
-    if Add(p.A, p.B) != Add(p.B, p.A) {
-        t.Errorf("%[1]d + %[2]d != %[2]d + %[1]d", p.A, p.B)
-    }
-}
-```
-
-We also need to declare the parameter values with which the test will run.
-This is done by declaring special methods with names like `CasesXXX`, where
-`XXX` is the parameter name.
-
-```go
-func (*Suite) CasesA() []int {
-    return []int{1, 2, 3, 4, 5}
-}
-
-func (*Suite) CasesB() []int {
-    return []int{11, 1000, 13}
-}
-```
-
-Parametrized tests are called with the [Cartesian product](https://en.wikipedia.org/wiki/Cartesian_product)
-of all values obtained from `CasesXXX` functions.
-For the example above, this is 15 different pairs of values.
-
-If a test specifies a parameter for which no corresponding `Cases` function is found,
-Testo will print an informative error before running any tests.
-The same applies to type mismatches.
-
-See [error examples](../../examples/07_errors/main_test.go).
-
-## Sub-tests
-
-Running sub-tests is a bit different from the usual `t.Run` call.
-
-Sub-tests must be started using the `testo.Run` function:
-
-```go
-func (*Suite) CasesC() []int {
-    return []int{-4, -99, 9}
-}
-
-func (*Suite) TestAddButParametrized(t T, p struct{ A, B, C int }) {
-    testo.Run(t, "commutative", func(t T) {
-        if Add(p.A, p.B) != Add(p.B, p.A) {
-            t.Errorf("%[1]d + %[2]d != %[2]d + %[1]d", p.A, p.B)
-        }
-    })
-
-    testo.Run(t, "associative", func(t T) {
-        if Add(Add(p.A, p.B), p.C) != Add(p.A, Add(p.B, p.C)) {
-            t.Errorf("(%[1]d + %[2]d) + %[3]d != %[1]d + (%[2]d + %[3]d)", p.A, p.B, p.C)
-        }
-    })
-}
-```
+So far Testo has given us nothing new. Plugins are where it gets
+interesting.
 
 ## Plugins
 
-One of the main features of Testo is the plugin system.
+A plugin is a struct that describes what it does through the
+`testoplugin.Plugin` interface:
 
-### Writing Plugins
+```go
+type Plugin interface {
+	Plugin(parent Plugin, options ...Option) Spec
+}
 
-Plugin examples:
+type Spec struct {
+	// Plan tests for execution: filter, duplicate, reorder.
+	Plan Plan
 
-1. A plugin that runs tests in reverse order.
-2. A plugin that extends the `t.Log` method.
-3. A plugin that adds new methods for `T` (fixtures).
-4. A plugin that measures the time of each test.
+	// Hooks around suites, tests and sub-tests.
+	Hooks Hooks
+
+	// Middleware for built-in T methods,
+	// such as Fail, Log, Skip and others.
+	Overrides Overrides
+}
+```
+
+Let's write a plugin that measures how long each test takes.
+In `main_test.go`, update the import block as shown below and add
+the plugin after it:
 
 ```go
 import (
-    "github.com/ozontech/testo"
-    "github.com/ozontech/testo/plugin"
+	"testing"
+	"time"
+
+	"github.com/ozontech/testo"
+	"github.com/ozontech/testo/testoplugin"
 )
 
-// We can embed testo.T in plugins - it will point to the same T
-// as in the current test.
-type ReverseTestsOrder struct{ *testo.T }
+type PluginTimer struct {
+	*testo.T
 
-// Plugins must implement this function
-// so that testo understands it's a plugin and can handle it correctly.
-func (*ReverseTestsOrder) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
-    return testoplugin.Spec{
-        Plan: testoplugin.Plan{
-            Modify: func(tests *[]testoplugin.PlannedTest) {
-                slices.Reverse(*tests)
-            },
-        },
-    }
+	start time.Time
 }
 
-type OverrideLog struct { *testo.T }
+func (p *PluginTimer) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec testoplugin.Spec) {
+	spec.Hooks.BeforeEach.Func = func() {
+		p.start = time.Now()
+	}
 
-func (*OverrideLog) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
-    return testoplugin.Spec{
-        Overrides: testoplugin.Overrides{
-            Log: func(f testoplugin.FuncLog) testoplugin.FuncLog {
-                return func(args ...any) {
-                    // will be called each time t.Log is called
-                    fmt.Println("Inside log override")
-                    f(args...)
-                }
-            },
-        },
-    }
-}
+	spec.Hooks.AfterEach.Func = func() {
+		p.Logf("test %q took %s", p.Name(), time.Since(p.start))
+	}
 
-type AddNewMethods struct{ *testo.T }
-
-func (*AddNewMethods) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
-    // We have nothing to use here, so we return an empty specification
-    return testoplugin.Spec{}
-}
-
-// Later we will see how we can call this method from tests.
-func (a *AddNewMethods) Explode() { a.Fatal("BOOM") }
-
-type Timer struct {
-    *testo.T
-    start time.Time
-}
-
-func (t *Timer) Plugin(testoplugin.Plugin, ...testoplugin.Option) testoplugin.Spec {
-    return testoplugin.Spec{
-        Hooks: testoplugin.Hooks{
-            BeforeEach: testoplugin.Hook{
-                Priority: testoplugin.TryLast,
-                Func: func() {
-                    // the .Plugin method is called for each (sub-)test,
-                    // so we can modify fields without risk of synchronization errors.
-                    t.start = time.Now()
-                },
-            },
-            AfterEach: testoplugin.Hook{
-                Priority: testoplugin.TryFirst,
-                Func: func() {
-                    elapsed := time.Since(t.start)
-
-                    fmt.Printf("Test %q took %s\n", t.Name(), elapsed)
-                },
-            },
-        },
-    }
+	return spec
 }
 ```
 
-### Using Plugins
+Two Go details in the signature above. The parameters are unnamed
+because this plugin ignores them. And `(spec testoplugin.Spec)` is a
+named return: Go creates `spec` as an empty value, the method fills
+its fields and returns it.
 
-Recall the alias for `T` defined earlier:
+The plugin embeds `*testo.T`. Testo fills it with the same `T` as
+the current test, so the plugin sees everything the test sees.
+The unused first argument of the `Plugin` method is the parent plugin
+instance - see the
+[technical overview](./technical-overview.md#lifecycle) if you need it.
+
+The `Plugin` method is called for each test and sub-test, and each
+gets its own plugin instance. That is why writing to plugin fields
+is safe.
+
+To use the plugin, define your own `T` type that embeds `*testo.T`
+together with the plugins you want:
 
 ```go
-type T = *testo.T
-```
-
-Now we can add (install) plugins to it:
-
-```go
-type T struct{
-    *testo.T
-    *ReverseTestsOrder
-    *OverrideLog
-    *AddNewMethods
-    *Timer
+type T struct {
+	*testo.T
+	*PluginTimer
 }
 ```
 
-That's the only change.
-Testo will take care of the rest.
+(Both fields contain a `*testo.T`, but the direct one is shallower,
+so calls like `t.Log` stay unambiguous.)
 
-And since `AddNewMethods` is now embedded in `T`, we can use its methods without magic:
+And change the test function to take this `T` - no `*` this time,
+since our `T` is a struct that already contains the pointers:
 
 ```go
-func (*Suite) TestBoom(t T) {
-    t.Explode()
+func TestBake(t *testing.T) {
+	testo.RunTest(t, func(t T) {
+		// ... body unchanged ...
+	})
 }
 ```
+
+That is the whole installation. Testo looks at the `T` type a test
+accepts, then collects and initializes the plugins listed in it:
+
+```txt
+=== RUN   TestBake
+=== RUN   TestBake/#00
+    main_test.go:35: testo: plugins collected: 1: main.PluginTimer
+=== RUN   TestBake/#00/testo!
+=== RUN   TestBake/#00/testo!/TestBake
+    main_test.go:23: test "TestBake/#00/TestBake" took 98.125µs
+--- PASS: TestBake (0.00s)
+...
+PASS
+```
+
+Your timings will differ. The logged name has no `testo!` in it:
+`t.Name()` returns the logical test name
+([details](./how-to.md#how-to-run-and-skip-specific-tests)).
 
 > [!NOTE]
-> Plugins must be installed as pointers.
->
-> Pointers allow plugins to share their state with other plugins,
-> by pointing to the same memory location through pointers.
+> Plugins must be embedded as pointers. Pointers let plugins share
+> state with each other by pointing to the same memory.
 
-## Running tests without suites
+Plugins can do much more than hooks: reorder or filter the test plan,
+wrap built-in methods like `t.Log`, add new methods to `T`, accept
+[options](./how-to.md#how-to-use-plugin-options) and command line
+flags. The [writing plugins guide](./plugins.md) covers the full
+API with an example for each part.
 
-It's possible:
+Ready-made plugins:
+[testo-allure](https://github.com/ozontech/testo-allure) for Allure
+reports, and [testo-toppings](https://github.com/ozontech/testo-toppings) -
+a collection of small utility plugins.
+
+For instance, here is a complete plugin that makes every test parallel:
 
 ```go
-type T struct{
-    *testo.T
-    *ReverseTestsOrder
-    *OverrideLog
-    *AddNewMethods
-    *Timer
-}
+type PluginParallel struct{ *testo.T }
 
-func TestFoo(t *testing.T) {
-    testo.RunSuite(t, func(t T) {
-        t.Log("Hello from testo!")
-    })
+func (p *PluginParallel) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec testoplugin.Spec) {
+	spec.Hooks.BeforeEach.Func = func() {
+		p.Parallel()
+	}
+
+	return spec
 }
 ```
 
-Or, if you need to run several tests from a single "real" test:
+Don't add this one to your file, or it will change the outputs
+below. A more complete version is available as the
+[parallel plugin](https://github.com/ozontech/testo-toppings/tree/main/parallel)
+in testo-toppings.
+
+## Suites
+
+When tests share setup and plugins, it is convenient to group them
+into a suite. A suite embeds `testo.Suite[T]`, where `T` is the type
+we defined above - i.e. the set of plugins every test in the suite
+gets:
+
+```go
+type Bakery struct{ testo.Suite[T] }
+```
+
+Tests become methods of the suite. They follow the usual Go naming
+rules (the `Test` prefix) and must accept the same `T` as specified in
+`testo.Suite[T]`. Value and pointer receivers both work.
+
+Replace the `TestBake` function with:
+
+```go
+func (Bakery) TestBake(t T) {
+	pastry, ok := Bake("honey cake")
+	if !ok {
+		t.Fatal("the bakery must know how to bake a honey cake")
+	}
+
+	t.Cleanup(func() { Eat(pastry) })
+
+	if !pastry.Tasty {
+		t.Error("honey cake must be tasty")
+	}
+}
+```
+
+Go has no native notion of suites, so we launch the suite from one
+regular test function:
+
+```go
+func Test(t *testing.T) {
+	testo.RunSuite(t, new(Bakery))
+}
+```
+
+```txt
+=== RUN   Test
+=== RUN   Test/Bakery
+    main_test.go:50: testo: plugins collected: 1: main.PluginTimer
+=== RUN   Test/Bakery/testo!
+=== RUN   Test/Bakery/testo!/TestBake
+    main_test.go:23: test "Test/Bakery/TestBake" took 66.583µs
+--- PASS: Test (0.00s)
+    --- PASS: Test/Bakery (0.00s)
+        --- PASS: Test/Bakery/testo! (0.00s)
+            --- PASS: Test/Bakery/testo!/TestBake (0.00s)
+PASS
+```
+
+## Parametrized Tests
+
+Our bakery bakes more than honey cake, and the test scenario is the
+same for every dessert. Instead of copying the test, we make the
+dessert a parameter.
+
+A parametrized test takes a second argument after `T`: a struct whose
+fields are the parameters. Replace `TestBake` with:
+
+```go
+func (Bakery) TestBake(t T, p struct{ Dessert string }) {
+	pastry, ok := Bake(p.Dessert)
+	if !ok {
+		t.Fatalf("the bakery must know how to bake %s", p.Dessert)
+	}
+
+	t.Cleanup(func() { Eat(pastry) })
+
+	if !pastry.Tasty {
+		t.Errorf("%s must be tasty", p.Dessert)
+	}
+}
+```
+
+Parameter values are declared with `CasesXxx` methods, where `Xxx`
+matches the field name:
+
+```go
+func (Bakery) CasesDessert() []string {
+	return []string{"honey cake", "tiramisu"}
+}
+```
+
+```txt
+=== RUN   Test
+=== RUN   Test/Bakery
+    main_test.go:54: testo: plugins collected: 1: main.PluginTimer
+=== RUN   Test/Bakery/testo!
+=== RUN   Test/Bakery/testo!/TestBake
+    main_test.go:23: test "Test/Bakery/TestBake" took 108.791µs
+=== RUN   Test/Bakery/testo!/TestBake#01
+    main_test.go:23: test "Test/Bakery/TestBake#01" took 15.042µs
+--- PASS: Test (0.00s)
+    --- PASS: Test/Bakery (0.00s)
+        --- PASS: Test/Bakery/testo! (0.00s)
+            --- PASS: Test/Bakery/testo!/TestBake (0.00s)
+            --- PASS: Test/Bakery/testo!/TestBake#01 (0.00s)
+PASS
+```
+
+The test ran once per dessert. The name `TestBake#01` does not say
+which dessert it was, so log `p.Dessert` at the top of the test if
+that matters to you. With several parameters, the test runs
+with the [Cartesian product](https://en.wikipedia.org/wiki/Cartesian_product)
+of all their values. For correlated values (classic table tests), use
+a single struct-typed parameter - see
+[how to write parametrized tests](./how-to.md#how-to-write-parametrized-tests).
+
+If a test declares a parameter with no matching `CasesXxx` method, or
+the types mismatch, Testo reports an informative error before running
+any tests. The [errors example](../examples/06_errors/main_test.go)
+demonstrates these messages (that example fails on purpose).
+
+## Suite Hooks
+
+One day the whole bakery stopped producing pastry. It turned out
+somebody had switched off the oven. The suite should manage the oven
+itself.
+
+Suites can define these hooks as methods:
+
+- `BeforeAll(T)` - called _once before_ all tests. Its `T` refers to
+  the top-level test, i.e. `Test/Bakery`.
+- `BeforeEach(T)` - called _before each_ test, with that test's `T`.
+- `AfterEach(T)` - called _after each_ test, before `t.Cleanup`
+  callbacks, with that test's `T`.
+- `AfterAll(T)` - called _once after_ all tests, including parallel
+  ones. Its `T` refers to the top-level test.
+
+We need the oven on once before all tests and off once after them:
+
+```go
+func (Bakery) BeforeAll(t T) {
+	if err := Oven(true); err != nil {
+		t.Fatalf("failed to turn the oven on: %v", err)
+	}
+}
+
+func (Bakery) AfterAll(t T) {
+	if err := Oven(false); err != nil {
+		t.Errorf("failed to turn the oven off: %v", err)
+	}
+}
+```
+
+The run output looks the same as before: these hooks are silent.
+Add a `t.Log` inside one if you want to see it fire.
+
+If `BeforeAll` fails, the suite's tests do not run at all.
+For hook behavior with parallel sub-tests and panics, see
+[how to write parallel tests](./how-to.md#how-to-write-parallel-tests)
+and the [technical overview](./technical-overview.md#panics).
+
+## Fixtures
+
+The test currently creates a pastry and remembers to clean it up.
+With more resources this gets repetitive, so we move the
+create-and-cleanup logic out of the test.
+
+`T` is our own type, which means we can add methods to it. A method
+that creates a resource and schedules its cleanup is a fixture:
+
+```go
+// Bake is a fixture: it bakes a pastry and
+// schedules the cleanup for the end of the test.
+func (t T) Bake(name string) (Pastry, bool) {
+	pastry, ok := Bake(name)
+
+	if ok {
+		t.Cleanup(func() { Eat(pastry) })
+	}
+
+	return pastry, ok
+}
+```
+
+The `Bake(name)` inside the method is the package function from
+`main.go` - methods don't shadow package names, so this is not
+recursion. The test no longer deals with cleanup:
+
+```go
+func (Bakery) TestBake(t T, p struct{ Dessert string }) {
+	pastry, ok := t.Bake(p.Dessert)
+	if !ok {
+		t.Fatalf("the bakery must know how to bake %s", p.Dessert)
+	}
+
+	if !pastry.Tasty {
+		t.Errorf("%s must be tasty", p.Dessert)
+	}
+}
+```
+
+A fixture in Testo is an ordinary method. There is nothing to
+register, and every test of the suite can use it.
+
+## Steps (Sub-tests)
+
+Right now a failure tells us *which* test failed, but not *which
+check* inside it. We can structure the test into named steps using
+sub-tests.
+
+Sub-tests are started with the `testo.Run` function (this is the one
+place where Testo differs from `t.Run`). Replace `TestBake` with:
+
+```go
+func (Bakery) TestBake(t T, p struct{ Dessert string }) {
+	pastry, ok := t.Bake(p.Dessert)
+
+	testo.Run(t, "check the bakery can bake it", func(t T) {
+		if !ok {
+			t.Fatalf("the bakery must know how to bake %s", p.Dessert)
+		}
+	})
+
+	testo.Run(t, "check it is tasty", func(t T) {
+		if !pastry.Tasty {
+			t.Errorf("%s must be tasty", p.Dessert)
+		}
+	})
+}
+```
+
+```txt
+=== RUN   Test/Bakery/testo!/TestBake
+=== RUN   Test/Bakery/testo!/TestBake/check_the_bakery_can_bake_it
+=== RUN   Test/Bakery/testo!/TestBake/check_it_is_tasty
+...
+--- PASS: Test/Bakery/testo!/TestBake (0.00s)
+    --- PASS: Test/Bakery/testo!/TestBake/check_the_bakery_can_bake_it (0.00s)
+    --- PASS: Test/Bakery/testo!/TestBake/check_it_is_tasty (0.00s)
+```
+
+> [!WARNING]
+> `t.Fatal` inside a sub-test stops only that sub-test, not the outer
+> test. That is standard `go test` behavior. If a failed step must stop the
+> whole test, check the sub-test result in the outer test, or use a
+> plugin that propagates the failure, such as `allure.Step` from
+> [testo-allure](https://github.com/ozontech/testo-allure).
+
+Plugins get their own hooks around every sub-test:
+`BeforeEachSub` and `AfterEachSub`.
+Reporting plugins use sub-tests as steps - with
+[testo-allure](https://github.com/ozontech/testo-allure) installed,
+each `testo.Run` above becomes a step in the Allure report.
+
+## Running Tests Without Suites
+
+Suites are optional. You have already seen `testo.RunTest`:
 
 ```go
 func TestFoo(t *testing.T) {
-    t.Run("FirstTest", testo.Test(func(t T) {
-        t.Log("1!")
-    }))
-
-    t.Run("SecondTest", testo.Test(func(t T) {
-        t.Log("2!")
-    }))
+	testo.RunTest(t, func(t T) {
+		t.Log("Hello from Testo!")
+	})
 }
 ```
+
+And to run several tests from a single test function, there is the
+`testo.Test` adapter for `t.Run`:
+
+```go
+func TestFoo(t *testing.T) {
+	t.Run("FirstTest", testo.Test(func(t T) {
+		t.Log("1!")
+	}))
+
+	t.Run("SecondTest", testo.Test(func(t T) {
+		t.Log("2!")
+	}))
+}
+```
+
+Each `testo.Test` call gets its own technical levels, so the names
+run deep - that is normal:
+
+```txt
+=== RUN   TestFoo/FirstTest
+=== RUN   TestFoo/FirstTest/#00
+=== RUN   TestFoo/FirstTest/#00/testo!
+=== RUN   TestFoo/FirstTest/#00/testo!/FirstTest
+...
+```
+
+## The Finished Test File
+
+The complete `main_test.go` we built in this tutorial:
+
+```go
+package main
+
+import (
+	"testing"
+	"time"
+
+	"github.com/ozontech/testo"
+	"github.com/ozontech/testo/testoplugin"
+)
+
+type PluginTimer struct {
+	*testo.T
+
+	start time.Time
+}
+
+func (p *PluginTimer) Plugin(testoplugin.Plugin, ...testoplugin.Option) (spec testoplugin.Spec) {
+	spec.Hooks.BeforeEach.Func = func() {
+		p.start = time.Now()
+	}
+
+	spec.Hooks.AfterEach.Func = func() {
+		p.Logf("test %q took %s", p.Name(), time.Since(p.start))
+	}
+
+	return spec
+}
+
+type T struct {
+	*testo.T
+	*PluginTimer
+}
+
+// Bake is a fixture: it bakes a pastry and
+// schedules the cleanup for the end of the test.
+func (t T) Bake(name string) (Pastry, bool) {
+	pastry, ok := Bake(name)
+
+	if ok {
+		t.Cleanup(func() { Eat(pastry) })
+	}
+
+	return pastry, ok
+}
+
+type Bakery struct{ testo.Suite[T] }
+
+func (Bakery) BeforeAll(t T) {
+	if err := Oven(true); err != nil {
+		t.Fatalf("failed to turn the oven on: %v", err)
+	}
+}
+
+func (Bakery) AfterAll(t T) {
+	if err := Oven(false); err != nil {
+		t.Errorf("failed to turn the oven off: %v", err)
+	}
+}
+
+func (Bakery) CasesDessert() []string {
+	return []string{"honey cake", "tiramisu"}
+}
+
+func (Bakery) TestBake(t T, p struct{ Dessert string }) {
+	pastry, ok := t.Bake(p.Dessert)
+
+	testo.Run(t, "check the bakery can bake it", func(t T) {
+		if !ok {
+			t.Fatalf("the bakery must know how to bake %s", p.Dessert)
+		}
+	})
+
+	testo.Run(t, "check it is tasty", func(t T) {
+		if !pastry.Tasty {
+			t.Errorf("%s must be tasty", p.Dessert)
+		}
+	})
+}
+
+func Test(t *testing.T) {
+	testo.RunSuite(t, new(Bakery))
+}
+```
+
+## Next Steps
+
+- Learn [how to use various Testo features](./how-to.md) - filtering
+  tests, plugin options, persistent cache, project structure and more.
+- Browse the [examples](../examples) - each is a small runnable
+  project with its expected output.
+- Read the [technical overview](./technical-overview.md) for the full
+  lifecycle of a suite run.
+- Migrating from testify or allure-go? See the
+  [migration guide](./migration.md).
+- View the [API documentation](https://pkg.go.dev/github.com/ozontech/testo).

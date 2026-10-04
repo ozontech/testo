@@ -38,7 +38,7 @@ type EmptyCases struct{ testo.Suite[T] }
 
 func (EmptyCases) CasesFoo() []int { return nil }
 
-// testo: warning: (*main.EmptyCases).CasesFoo provides zero values, (*main.EmptyCases).Test won't run
+// testo: warning: (*main.EmptyCases).CasesFoo returned empty slice, (*main.EmptyCases).Test will not run
 func (EmptyCases) Test(t T, p struct{ Foo int }) {}
 
 type WrongT struct{ testo.Suite[T] }

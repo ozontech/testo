@@ -35,7 +35,7 @@ func ForEach[Suite suite[T], T CommonT, P any](
 
 // For applies static options (annotations) for a given test.
 //
-// Test annotations is a slice of options to be passed for this test.
+// Test annotations are a slice of options to be passed for this test.
 // Test annotations are available to plugins before running an actual test,
 // thus enhancing test planning features.
 //
@@ -86,5 +86,23 @@ func getID[Suite any](test reflect.Value) testID {
 
 	name = strings.ReplaceAll(name, "(*"+suiteName+")", suiteName)
 
-	return testID(name)
+	// Runtime erases generic type arguments to "[...]" in function names:
+	//
+	//	KVSuite[int].TestGet    -> "pkg.KVSuite[...].TestGet"
+	//	KVSuite[string].TestGet -> "pkg.KVSuite[...].TestGet" (same!)
+	//
+	// while suiteName keeps them ("KVSuite[int]").
+	//
+	// Code below gets us:
+	//
+	// 	KVSuite[int]|pkg.KVSuite[...].TestGet
+	// 	KVSuite[string]|pkg.KVSuite[...].TestGet
+
+	if base, _, isGeneric := strings.Cut(suiteName, "["); isGeneric {
+		erased := base + "[...]"
+
+		name = strings.ReplaceAll(name, "(*"+erased+")", erased)
+	}
+
+	return testID(suiteName + "|" + name)
 }

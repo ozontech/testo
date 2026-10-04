@@ -10,6 +10,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - Auxiliary command line tool for Testo featuring linter, suites explorer and runner.
+## [1.8.0] - 2026-08-30
+
+### Added
+
+- `t.Attr` method is now natively supported by testo and can be overridden.
+
+### Changed
+
+- Minimum go version was updated to `1.25`.
+- Reduced allocations by testo by replacing `.Interface().(T)` with `reflect.TypeAssert` internally.
+
+## [1.7.0] - 2026-07-25
+
+### Changed
+
+- Panic failure messages now name the phase that panicked (test, sub-test, or the specific suite/plugin hook).
+- Panics in `BeforeAll` & `AfterAll` hooks (both suite and plugin) are now caught and recorded as test failures; a panic in `BeforeAll` still prevents the suite tests from running.
+- `t.Setenv` and `t.Chdir` now enforce the standard library's conflict guards against `t.Parallel`.
+- The error for a non-pointer exported field now names the owning type and field.
+- Better wording for a warning when `CasesXxx` returns an empty slice.
+
+### Fixed
+
+- Panics in tests now record the actual recovered value, and are observed by after-hooks as a failed test.
+- Plugin hooks and overrides with equal priority now run deterministically, in the declaration order of plugins.
+- Overrides are now applied in the documented priority order, consistent with hooks.
+- `t.Error` called after `t.Fatal` (e.g. from a cleanup) no longer downgrades the recorded fatal failure kind.
+- Annotations no longer leak between instantiations of a generic suite.
+- Persistent cache reads no longer follow a symlink swapped in after validation.
 
 ## [1.6.0] - 2026-07-17
 
@@ -25,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fixed a bug when skipped tests in suite would trigger "no suite tests" warning.
+- Fixed a bug when skipped tests in a suite would trigger "no suite tests" warning.
 
 ## [1.5.0] - 2026-06-14
 
@@ -105,6 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial stable version.
 
+[1.8.0]: https://github.com/ozontech/testo/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/ozontech/testo/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/ozontech/testo/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/ozontech/testo/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/ozontech/testo/compare/v1.4.0...v1.5.0

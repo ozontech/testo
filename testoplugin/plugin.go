@@ -5,7 +5,18 @@
 // Plugins can implement [Plugin] interface to be registered as such.
 //
 // Method "Plugin" will be called for each plugin before running a suite.
-// Parent is nil for top-level tests. For sub-tests it referes to the plugin instance of the parent test.
+// The parent is the plugin instance of the enclosing scope:
+// the suite root for a test, the test for a sub-test.
+// Only at the suite root itself is parent a typed-nil instance of the
+// plugin's own type: the interface itself is non-nil, but the concrete
+// pointer is nil, so an unconditional type assertion like
+// parent.(*PluginFoo) is safe.
+// To detect the suite root, nil-check the asserted pointer, not the interface:
+//
+//	prev, _ := parent.(*PluginFoo)
+//	if prev != nil {
+//		// not the suite root: prev belongs to the enclosing test or suite
+//	}
 //
 // It is encouraged to ensure a plugin implements [Plugin] interface with the following line:
 //
@@ -31,10 +42,10 @@ const (
 	TryLast Priority = math.MaxInt
 )
 
-// Option is used to configure plugin upon creation.
+// Option is used to configure a plugin upon creation.
 //
 // All user-supplied options are passed to the Plugin method for each plugin.
-// It is a plugin responsibility to check if the given option corresponds to it.
+// It is a plugin's responsibility to check if the given option corresponds to it.
 // One way to check it is with type assertion:
 //
 //	var opt Option

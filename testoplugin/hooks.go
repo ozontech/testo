@@ -26,7 +26,7 @@ type Hooks struct {
 
 	// AfterEachSub is called after each subtest.
 	//
-	// WARN: this hook is defered to run at the end of the test.
+	// WARN: this hook is deferred to run at the end of the test.
 	// If that test has sub-tests marked as parallel,
 	// this hook will run BEFORE those sub-tests are finished.
 	//
@@ -36,7 +36,7 @@ type Hooks struct {
 
 	// AfterEach is called after each test.
 	//
-	// NOTE: this hook is defered to run at the end of the test.
+	// NOTE: this hook is deferred to run at the end of the test.
 	// If that test has sub-tests marked as parallel,
 	// this hook will run BEFORE those sub-tests are finished.
 	//

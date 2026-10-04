@@ -12,7 +12,7 @@
 //
 //	type Plugin struct{ *testo.T }
 //
-//	func (p *Plugin) Plugin(parent testoplugin.Plugin, options ...testoplugin.Options) testoplugin.Spec {
+//	func (p *Plugin) Plugin(parent testoplugin.Plugin, options ...testoplugin.Option) testoplugin.Spec {
 //		return testoplugin.Spec{
 //			Hooks: testoplugin.Hooks{
 //	 			BeforeEach: testoplugin.Hook{
@@ -138,7 +138,7 @@ type PanicInfo struct {
 	Trace string
 }
 
-// TestInfo is a enum which is
+// TestInfo is an enum which is
 // either [ParametrizedTestInfo] or [RegularTestInfo].
 //
 //	switch info := info.(type) {
@@ -193,7 +193,7 @@ type ParametrizedTestInfo struct {
 // GetName returns value of [ParametrizedTestInfo.Name] field.
 func (i ParametrizedTestInfo) GetName() string { return i.Name }
 
-// GetLevel always returns level 1 since since parametrized tests can't be nested.
+// GetLevel always returns level 1 since parametrized tests can't be nested.
 func (ParametrizedTestInfo) GetLevel() int { return 1 }
 
 func (ParametrizedTestInfo) isTestInfo() {}
@@ -201,7 +201,7 @@ func (ParametrizedTestInfo) isTestInfo() {}
 // SuiteInfo is the information about suite.
 type SuiteInfo struct {
 	// Parent refers to the parent suite info.
-	// Non-nil value means that current suite is sub-suite.
+	// Non-nil value means that current suite is a sub-suite.
 	Parent *SuiteInfo
 
 	// Name of this suite.
@@ -241,7 +241,7 @@ type SuiteHooksInfo struct {
 	// It is either not defined or failed beforehand.
 	MissedAfterEach bool
 
-	// MissedBeforeAll is true if suite did not call BeforeAll hook,
+	// MissedAfterAll is true if suite did not call AfterAll hook,
 	// meaning it was not defined.
 	MissedAfterAll bool
 }
@@ -257,7 +257,7 @@ type RegularTestInfo struct {
 	//
 	//   Run(t, "my test name!?", func(...) { ... })
 	//
-	// t.Name() would equal to "SomeSuite/my_test_name",
+	// t.Name() would equal "SomeSuite/my_test_name",
 	// while this field would equal to "my test name!?" (the same as passed).
 	RawBaseName string
 
@@ -265,9 +265,9 @@ type RegularTestInfo struct {
 	// That is, it shows the number of parents it has and zero if none.
 	//
 	// Zero level is Before/After-All hooks.
-	// Subsequent levels are for test methods or subtests ran from Before/After-All hooks.
+	// Subsequent levels are for test methods or subtests run from Before/After-All hooks.
 	//
-	// To differentiate subtest ran from Before/After-All hook from a test method see IsSubtest field.
+	// To differentiate a subtest run from a Before/After-All hook from a test method see IsSubtest field.
 	Level int
 
 	// IsSubtest states if this test is a subtest.

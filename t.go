@@ -46,7 +46,7 @@ type (
 	// T is a wrapper for [testing.T].
 	// This is a core entity in testo and used as a [testing.T] replacement.
 	//
-	// The common pattern is to embed it into new struct type:
+	// The common pattern is to embed it into a new struct type:
 	//
 	//  type MyT struct {
 	//  	*testo.T
@@ -61,8 +61,8 @@ type (
 		common
 
 		// we double testing t interfaces,
-		// so that we still can have access for testing.T.Run
-		// but the user don't.
+		// so that we still can have access to testing.T.Run
+		// but the user doesn't.
 		testingT TestingT
 
 		testNamer *testnamer.Namer
@@ -81,6 +81,12 @@ type (
 		failureKind     atomicInt[testoreflect.TestFailureKind]
 		hasFatalSubtest atomic.Bool
 
+		// isParallel and denyParallel mirror the testing package guards:
+		// Setenv and Chdir mutate process-wide state and therefore conflict
+		// with Parallel. See [T.checkParallel].
+		isParallel   atomic.Bool
+		denyParallel atomic.Bool
+
 		// propagateParallel if enabled, will route .Parallel() calls
 		// to suite's TestingT.
 		//
@@ -88,6 +94,11 @@ type (
 		propagateParallel bool
 
 		plugins map[reflect.Type]testoplugin.Plugin
+
+		// pluginOrder holds plugin types in their declaration order inside
+		// the user T struct. Specs are merged in this order so that
+		// equal-priority hooks and overrides run deterministically.
+		pluginOrder []reflect.Type
 	}
 
 	testoT = T
@@ -111,6 +122,22 @@ func (t *T) Context() context.Context {
 	return t.spec.Overrides.Context.Call(t.common.Context)()
 }
 
+// Attr emits a test attribute associated with this test.
+//
+// The key must not contain whitespace.
+// The value must not contain newlines or carriage returns.
+//
+// The meaning of different attribute keys is left up to
+// continuous integration systems and test frameworks.
+//
+// Test attributes are emitted immediately in the test log,
+// but they are intended to be treated as unordered.
+func (t *T) Attr(key, value string) {
+	t.Helper()
+
+	t.spec.Overrides.Attr.Call(t.common.Attr)(key, value)
+}
+
 // Parallel signals that this test is to be run in parallel with (and only with)
 // other parallel tests. When a test is run multiple times due to use of
 // -test.count or -test.cpu, multiple instances of a single test never run in
@@ -124,6 +151,12 @@ func (t *T) Parallel() {
 func (t *T) parallel() {
 	t.Helper()
 
+	if t.denyParallel.Load() {
+		panic("testo: test using t.Setenv or t.Chdir can not use t.Parallel")
+	}
+
+	t.isParallel.Store(true)
+
 	if t.propagateParallel {
 		t.reflection.Load().Suite.TestingT.Parallel()
 
@@ -131,6 +164,24 @@ func (t *T) parallel() {
 	}
 
 	t.common.Parallel()
+}
+
+// checkParallel mirrors testing.common.checkParallel: methods that mutate
+// process-wide state (Setenv, Chdir) cannot be used in parallel tests or
+// tests with parallel ancestors, and forbid a later t.Parallel call.
+func (t *T) checkParallel(method string) {
+	t.Helper()
+
+	for c := t; c != nil; c = c.parent {
+		if c.isParallel.Load() {
+			panic(
+				"testo: t." + method + " called after t.Parallel; " +
+					"it cannot be used in parallel tests or tests with parallel ancestors",
+			)
+		}
+	}
+
+	t.denyParallel.Store(true)
 }
 
 // Setenv calls os.Setenv(key, value) and uses Cleanup to
@@ -150,6 +201,8 @@ func (t *T) Setenv(key, value string) {
 // overrides for methods such as fatal or cleanup.
 func (t *T) setenv(key, value string) {
 	t.Helper()
+
+	t.checkParallel("Setenv")
 
 	prevValue, ok := os.LookupEnv(key)
 
@@ -208,7 +261,7 @@ func (t *T) Deadline() (time.Time, bool) {
 	return t.spec.Overrides.Deadline.Call(t.common.Deadline)()
 }
 
-// Errorf is equivalent to Error with formatted message.
+// Errorf is equivalent to Error with a formatted message.
 func (t *T) Errorf(format string, args ...any) {
 	t.Helper()
 
@@ -257,7 +310,7 @@ func (t *T) SkipNow() {
 	t.spec.Overrides.SkipNow.Call(t.common.SkipNow)()
 }
 
-// Skipf is equivalent to Skip with formatted message.
+// Skipf is equivalent to Skip with a formatted message.
 func (t *T) Skipf(format string, args ...any) {
 	t.Helper()
 
@@ -327,7 +380,7 @@ func (t *T) fatal(args ...any) {
 	t.FailNow()
 }
 
-// Fatalf is equivalent to Fatal with formatted message.
+// Fatalf is equivalent to Fatal with a formatted message.
 func (t *T) Fatalf(format string, args ...any) {
 	t.Helper()
 
@@ -336,7 +389,7 @@ func (t *T) Fatalf(format string, args ...any) {
 
 // Chdir calls [os.Chdir] and uses Cleanup to restore the current
 // working directory to its original value after the test. On Unix, it
-// also sets PWD environment variable for the duration of the test.
+// also sets the PWD environment variable for the duration of the test.
 //
 // Because Chdir affects the whole process, it cannot be used
 // in parallel tests or tests with parallel ancestors.
@@ -351,6 +404,8 @@ func (t *T) Chdir(dir string) {
 // overrides for methods such as fatal or cleanup.
 func (t *T) chdir(dir string) {
 	t.Helper()
+
+	t.checkParallel("Chdir")
 
 	oldwd, err := os.Open(".")
 	if err != nil {
@@ -443,7 +498,13 @@ func (t *T) markFailure(kind testoreflect.TestFailureKind) {
 		return
 	}
 
-	t.failureKind.Store(kind)
+	// never downgrade an already recorded fatal failure - e.g. t.Error
+	// called from a cleanup after t.Fatal must keep the fatal kind.
+	if !t.failureKind.CompareAndSwap(testoreflect.TestFailureKindNone, kind) &&
+		kind == testoreflect.TestFailureKindFatal {
+		t.failureKind.Store(kind)
+	}
+
 	t.failureSource.Store(testoreflect.TestFailureSourceSelf)
 
 	parent := t.parent
@@ -547,7 +608,7 @@ func (t *T) logPlugins() {
 //
 //	type Plugin struct{ *testo.T }
 //
-//	func (p *Plugin) Plugin(parent testoplugin.Plugin, options ...testoplugin.Options) testoplugin.Spec {
+//	func (p *Plugin) Plugin(parent testoplugin.Plugin, options ...testoplugin.Option) testoplugin.Spec {
 //		return testoplugin.Spec{
 //			Hooks: testoplugin.Hooks{
 //	 			BeforeEach: testoplugin.Hook{

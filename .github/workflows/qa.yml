@@ -77,7 +77,7 @@ jobs:
       - name: Run linters
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.11.4
+          version: v2.13.2
           args: --tests=false --timeout=5m
 
   update-coverage:
