@@ -295,6 +295,8 @@ func goList(tags string, patterns ...string) ([]goPackage, error) {
 		"-pgo=off",
 		"-tags",
 		tags,
+		// TODO: we should only fetch used fields, not everything.
+		// NOTE: does not work with with that, for some reason.
 		// "-json=Dir,ImportPath,Name,DepOnly,GoFiles,CGoFiles,Imports,ImportMap,Incomplete,Error",
 		"-json",
 		"--",

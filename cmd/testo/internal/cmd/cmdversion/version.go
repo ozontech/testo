@@ -13,7 +13,7 @@ func init() {
 	cli.Add(
 		"version",
 		func(*flag.FlagSet, *Cmd) {},
-		cli.WithShort("Show testo version"),
+		cli.WithShort("Show testo cli version"),
 		cli.WithoutArgs(),
 	)
 }
@@ -27,6 +27,11 @@ func (Cmd) Run(...string) error {
 	if ok {
 		version = info.Main.Version
 	}
+
+	// NOTE: this command only shows testo-cli (this binary)
+	// version and not testo framework version from go.mod of a project
+	// because parsing go.mod requires golang.org/x/mod/modfile
+	// and we strictly avoid any dependencies.
 
 	fmt.Printf("testo version %s %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
 

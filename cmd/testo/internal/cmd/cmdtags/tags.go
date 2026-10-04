@@ -13,15 +13,16 @@ import (
 )
 
 func init() {
-	cli.Add("tags", func(f *flag.FlagSet, cmd *Cmd) {
-		f.BoolVar(&cmd.Tests, "tests", false, "only show build tags used in *_test.go files")
-		f.BoolVar(
-			&cmd.All,
-			"a",
-			false,
-			"include build tags cancelled by negations, e.g. //go:build !tag",
-		)
-	},
+	cli.Add(
+		"tags", func(f *flag.FlagSet, cmd *Cmd) {
+			f.BoolVar(&cmd.Tests, "tests", false, "only show build tags used in *_test.go files")
+			f.BoolVar(
+				&cmd.All,
+				"a",
+				false,
+				"include build tags cancelled by negations, e.g. //go:build !tag",
+			)
+		},
 		cli.WithShort("Show project build tags"),
 		cli.WithLong(`Show project build tags.
 
@@ -58,14 +59,10 @@ func (c Cmd) Run(...string) error {
 	}
 
 	if len(add) > 0 {
-		fmt.Println(join(keys(add)))
+		fmt.Println(strings.Join(keys(add), ","))
 	}
 
 	return nil
-}
-
-func join(s []string) string {
-	return strings.Join(s, ",")
 }
 
 func keys[M ~map[K]V, K cmp.Ordered, V any](m M) []K {
