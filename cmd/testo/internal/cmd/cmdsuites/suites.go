@@ -14,20 +14,22 @@ import (
 )
 
 func init() {
-	cli.Add("suites", func(f *flag.FlagSet, c *Cmd) {
-		// the default template is a valid constant
-		_ = c.Format.Set("{{ .Package }}/{{ .Suite }}")
+	cli.Add(
+		"suites", func(f *flag.FlagSet, c *Cmd) {
+			// the default template is a valid constant
+			_ = c.Format.Set("{{ .Package }}/{{ .Suite }}")
 
-		f.StringVar(
-			&c.Load.Tags,
-			"tags",
-			"",
-			"build tags separated by comma, derived from source if empty",
-		)
-		f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
-		f.Var(&c.Format, "f", "output format")
-		f.BoolVar(&c.Nul, "0", false, "output each line delimited by NUL byte")
-	},
+			f.StringVar(
+				&c.Load.Tags,
+				"tags",
+				"",
+				"build tags separated by comma, derived from source if empty",
+			)
+			f.StringVar(&c.Load.Testo, "testo", cmd.DefaultTesto, "testo package")
+			f.Var(&c.Format, "f", "output format")
+			f.BoolVar(&c.Nul, "0", false, "output each line delimited by NUL byte")
+			f.BoolVar(&c.Deduplicate, "dedup", false, "deduplicate output line")
+		},
 		cli.WithShort("Show testo suites"),
 		cli.WithUsage(`[flags] [pattern...] [flags]
 
@@ -53,9 +55,10 @@ Examples:
 }
 
 type Cmd struct {
-	Load   loader.Config
-	Format cli.FlagTemplate
-	Nul    bool
+	Load        loader.Config
+	Format      cli.FlagTemplate
+	Nul         bool
+	Deduplicate bool
 }
 
 func (c Cmd) Run(patterns ...string) error {
@@ -140,7 +143,7 @@ func (c Cmd) printSuite(suite loader.Suite, seen map[string]bool) error {
 			return err
 		}
 
-		if seen[line] {
+		if c.Deduplicate && seen[line] {
 			return nil
 		}
 
