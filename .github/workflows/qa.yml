@@ -49,7 +49,7 @@ jobs:
       - name: Run unit tests without race detector
         if: runner.os == 'Windows'
         run: |
-          go test -v -cover -coverpkg=./... ./...
+          go test -v -cover -coverpkg=.,./testo...,./internal/... ./...
 
       - name: Test examples output
         run: go test -v -tags e2e -count=1 ./examples_test.go

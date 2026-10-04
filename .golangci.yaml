@@ -54,6 +54,10 @@ linters:
           - godot
           - funlen
           - gosec
+      # printing to stdout is the CLI's output
+      - path: cmd/
+        linters:
+          - forbidigo
       - path: internal/
         linters:
           - revive
@@ -79,6 +83,9 @@ linters:
     errcheck:
       exclude-functions:
         - "(*os.File).Close"
+        - "fmt.Fprint"
+        - "fmt.Fprintf"
+        - "fmt.Fprintln"
     gocritic:
       enable-all: true
       disabled-checks:
