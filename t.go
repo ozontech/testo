@@ -661,7 +661,7 @@ func Plugins(t CommonT) []testoplugin.Plugin {
 
 	u := t.unwrap()
 
-	plugins := make([]testoplugin.Plugin, 0, len(u.plugins))
+	plugins := make([]testoplugin.Plugin, 0, max(0, len(u.plugins)-1))
 
 	for _, typ := range u.pluginOrder {
 		if typ == reflect.TypeFor[*T]() {
