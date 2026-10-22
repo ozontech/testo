@@ -55,37 +55,37 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/ozontech/testo/annotations.go (90.2%)</option>
+				<option value="file0">github.com/ozontech/testo/annotations.go (88.2%)</option>
 				
-				<option value="file1">github.com/ozontech/testo/collector.go (86.5%)</option>
+				<option value="file1">github.com/ozontech/testo/collector.go (82.6%)</option>
 				
-				<option value="file2">github.com/ozontech/testo/construct.go (97.3%)</option>
+				<option value="file2">github.com/ozontech/testo/construct.go (95.3%)</option>
 				
-				<option value="file3">github.com/ozontech/testo/flag.go (27.3%)</option>
+				<option value="file3">github.com/ozontech/testo/flag.go (33.3%)</option>
 				
 				<option value="file4">github.com/ozontech/testo/internal/env/env.go (100.0%)</option>
 				
 				<option value="file5">github.com/ozontech/testo/internal/parse/parse.go (100.0%)</option>
 				
-				<option value="file6">github.com/ozontech/testo/internal/reflectutil/reflect.go (97.6%)</option>
+				<option value="file6">github.com/ozontech/testo/internal/reflectutil/reflect.go (96.2%)</option>
 				
-				<option value="file7">github.com/ozontech/testo/internal/stack/stack.go (92.9%)</option>
+				<option value="file7">github.com/ozontech/testo/internal/stack/stack.go (87.5%)</option>
 				
-				<option value="file8">github.com/ozontech/testo/internal/syncutil/syncutil.go (85.7%)</option>
+				<option value="file8">github.com/ozontech/testo/internal/syncutil/syncutil.go (75.0%)</option>
 				
-				<option value="file9">github.com/ozontech/testo/internal/testnamer/testnamer.go (95.5%)</option>
+				<option value="file9">github.com/ozontech/testo/internal/testnamer/testnamer.go (94.1%)</option>
 				
-				<option value="file10">github.com/ozontech/testo/options.go (33.3%)</option>
+				<option value="file10">github.com/ozontech/testo/options.go (42.9%)</option>
 				
-				<option value="file11">github.com/ozontech/testo/plugin.go (98.1%)</option>
+				<option value="file11">github.com/ozontech/testo/plugin.go (97.2%)</option>
 				
-				<option value="file12">github.com/ozontech/testo/runner.go (91.6%)</option>
+				<option value="file12">github.com/ozontech/testo/runner.go (88.5%)</option>
 				
 				<option value="file13">github.com/ozontech/testo/suite.go (100.0%)</option>
 				
-				<option value="file14">github.com/ozontech/testo/t.go (57.3%)</option>
+				<option value="file14">github.com/ozontech/testo/t.go (50.6%)</option>
 				
-				<option value="file15">github.com/ozontech/testo/testocache/cache.go (88.4%)</option>
+				<option value="file15">github.com/ozontech/testo/testocache/cache.go (83.3%)</option>
 				
 				<option value="file16">github.com/ozontech/testo/testoplugin/overrides.go (100.0%)</option>
 				
@@ -2945,17 +2945,59 @@ func (t *T) logPlugins() {
 func Reflect(t CommonT) testoreflect.Reflection {
         <span class="cov4" title="6">t.Helper()
 </span>
-        <span class="cov4" title="6">internal := t.unwrap()
+        <span class="cov4" title="6">u := t.unwrap()
 </span>
-        <span class="cov4" title="6">info := internal.reflection.Load()
+        <span class="cov4" title="6">info := u.reflection.Load()
 </span>
-        <span class="cov4" title="6">info.FailureSource = internal.failureSource.Load()
-        info.FailureKind = internal.failureKind.Load()
-        info.HasFatalSubtest = internal.hasFatalSubtest.Load()
-        info.TestingT = internal.testingT
+        <span class="cov4" title="6">info.FailureSource = u.failureSource.Load()
+        info.FailureKind = u.failureKind.Load()
+        info.HasFatalSubtest = u.hasFatalSubtest.Load()
+        info.TestingT = u.testingT
 </span>
         <span class="cov4" title="6">return info
 </span>}
+
+// Plugins returns information about installed plugins
+// in the given t instance.
+//
+// Returned slice follows plugins declaration order.
+//
+// For example:
+//
+//        type T struct{
+//                *testo.T
+//                *PluginBar
+//                *PluginFoo
+//                *PluginAllure
+//        }
+//
+//        func (*Suite) Test(t T) {
+//                testo.Plugins(t)
+//        }
+//
+// Would return:
+//
+//        []testoplugin.Plugin{*PluginBar(...), *PluginFoo(...), *PluginAllure(...)}
+//
+// NOTE: this function returns pointers to an actual plugin instances, so calling
+// their methods is equivalent to calling T's methods.
+func Plugins(t CommonT) []testoplugin.Plugin {
+        <span class="cov0" title="0">t.Helper()
+</span>
+        <span class="cov0" title="0">u := t.unwrap()
+</span>
+        <span class="cov0" title="0">plugins := make([]testoplugin.Plugin, 0, max(0, len(u.plugins)-1))
+</span>
+        <span class="cov0" title="0">for _, typ := range u.pluginOrder </span>{
+                <span class="cov0" title="0">if typ == reflect.TypeFor[*T]() </span>{
+                        <span class="cov0" title="0">continue</span>
+                }
+
+                <span class="cov0" title="0">plugins = append(plugins, u.plugins[typ])</span>
+        }
+
+        <span class="cov0" title="0">return plugins</span>
+}
 
 type atomicInt[T ~int | ~int8 | ~int32 | ~int64] atomic.Int64
 
