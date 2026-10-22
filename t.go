@@ -620,16 +620,58 @@ func (t *T) logPlugins() {
 func Reflect(t CommonT) testoreflect.Reflection {
 	t.Helper()
 
-	internal := t.unwrap()
+	u := t.unwrap()
 
-	info := internal.reflection.Load()
+	info := u.reflection.Load()
 
-	info.FailureSource = internal.failureSource.Load()
-	info.FailureKind = internal.failureKind.Load()
-	info.HasFatalSubtest = internal.hasFatalSubtest.Load()
-	info.TestingT = internal.testingT
+	info.FailureSource = u.failureSource.Load()
+	info.FailureKind = u.failureKind.Load()
+	info.HasFatalSubtest = u.hasFatalSubtest.Load()
+	info.TestingT = u.testingT
 
 	return info
+}
+
+// Plugins returns information about installed plugins
+// in the given t instance.
+//
+// Returned slice follows plugins declaration order.
+//
+// For example:
+//
+//	type T struct{
+//		*testo.T
+//		*PluginBar
+//		*PluginFoo
+//		*PluginAllure
+//	}
+//
+//	func (*Suite) Test(t T) {
+//		testo.Plugins(t)
+//	}
+//
+// Would return:
+//
+//	[]testoplugin.Plugin{*PluginBar(...), *PluginFoo(...), *PluginAllure(...)}
+//
+// NOTE: this function returns pointers to an actual plugin instances, so calling
+// their methods is equivalent to calling T's methods.
+func Plugins(t CommonT) []testoplugin.Plugin {
+	t.Helper()
+
+	u := t.unwrap()
+
+	plugins := make([]testoplugin.Plugin, 0, max(0, len(u.plugins)-1))
+
+	for _, typ := range u.pluginOrder {
+		if typ == reflect.TypeFor[*T]() {
+			continue
+		}
+
+		plugins = append(plugins, u.plugins[typ])
+	}
+
+	return plugins
 }
 
 type atomicInt[T ~int | ~int8 | ~int32 | ~int64] atomic.Int64
